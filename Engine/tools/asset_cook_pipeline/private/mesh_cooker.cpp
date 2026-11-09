@@ -147,14 +147,12 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     metadata.bounding_box = math::AABB{aabb_min, aabb_max};
     metadata.texel_factor = texel_factor;
 
-    const uint64_t total_size = TOTAL_MESH_METADATA_SIZE + metadata.get_total_size_bytes();
+    const uint64_t total_size = mesh_serialized_metadata_size(metadata) + metadata.get_total_size_bytes();
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Mesh");
 
-    mesh_serialize_metadata(metadata, data);
-
-    const uint64_t data_offset = TOTAL_MESH_METADATA_SIZE;
+    const uint64_t data_offset = mesh_serialize_metadata(metadata, data);
 
     const uint64_t vertex_offset = data_offset + metadata.vertex_data_offset;
     const uint64_t index_offset = data_offset + metadata.index_data_offset;

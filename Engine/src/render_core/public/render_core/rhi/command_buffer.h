@@ -37,7 +37,7 @@ enum class CommandBufferType
     Transfer,
 };
 
-enum class IndexBufferFormat
+enum class IndexBufferFormat : uint8_t
 {
     UInt16,
     UInt32,

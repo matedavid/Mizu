@@ -1,7 +1,9 @@
 #include "asset/asset_metadata.h"
 
+#include <concepts>
 #include <cstring>
 #include <iterator>
+#include <span>
 #include <type_traits>
 
 #include "base/debug/assert.h"
@@ -11,314 +13,456 @@
 namespace Mizu
 {
 
-static constexpr uint32_t METADATA_VERSION = 1;
-static constexpr uint32_t MESH_METADATA_VERSION = 3;
-static constexpr uint32_t TEXTURE_METADATA_VERSION = 3;
-static constexpr uint32_t MATERIAL_METADATA_VERSION = 2;
-static constexpr uint32_t PREFAB_METADATA_VERSION = 1;
-static constexpr uint32_t SHADER_METADATA_VERSION = 2;
-
-template <typename T>
-static void write_value(uint8_t*& cursor, const T& value)
+namespace
 {
-    static_assert(std::is_trivially_copyable_v<T>, "Can only serialize trivially copyable types");
 
-    memcpy(cursor, &value, sizeof(T));
-    cursor = std::next(cursor, sizeof(T));
+constexpr uint32_t ASSET_FORMAT_VERSION = 2;
+
+enum class ArchiveMode
+{
+    Size,
+    Write,
+    Read,
+};
+
+template <ArchiveMode Mode>
+class BinaryArchive
+{
+    using Bytes = std::conditional_t<Mode == ArchiveMode::Read, std::span<const uint8_t>, std::span<uint8_t>>;
+
+  public:
+    BinaryArchive() = default;
+    explicit BinaryArchive(Bytes data) : m_data(data) {}
+
+    template <typename T>
+    void field(T& value)
+    {
+        if constexpr (requires { serialize_fields(*this, value); })
+        {
+            serialize_fields(*this, value);
+        }
+        else
+        {
+            static_assert(
+                std::is_trivially_copyable_v<std::remove_const_t<T>>, "Can only serialize trivially copyable types");
+
+            if constexpr (Mode != ArchiveMode::Size)
+            {
+                if (m_offset + sizeof(T) > m_data.size())
+                {
+                    m_ok = false;
+                    return;
+                }
+
+                const auto bytes = m_data.subspan(m_offset, sizeof(T));
+
+                if constexpr (Mode == ArchiveMode::Write)
+                    memcpy(bytes.data(), &value, sizeof(T));
+                else
+                    memcpy(&value, bytes.data(), sizeof(T));
+            }
+
+            m_offset += sizeof(T);
+        }
+    }
+
+    template <typename Container>
+    void array(Container& container, uint32_t count)
+    {
+        if (count > get_capacity(container))
+        {
+            m_ok = false;
+            return;
+        }
+
+        if constexpr (Mode == ArchiveMode::Read && requires { container.resize(count); })
+            container.resize(count);
+
+        for (uint32_t i = 0; i < count; ++i)
+            field(container[i]);
+    }
+
+    bool ok() const { return m_ok; }
+    uint64_t offset() const { return m_offset; }
+
+  private:
+    Bytes m_data{};
+    uint64_t m_offset = 0;
+    bool m_ok = true;
+
+    template <typename Container>
+    static constexpr size_t get_capacity(const Container& container)
+    {
+        if constexpr (requires { container.capacity(); })
+            return container.capacity();
+        else
+            return std::size(container);
+    }
+};
+
+using BinarySizeCounter = BinaryArchive<ArchiveMode::Size>;
+using BinaryWriter = BinaryArchive<ArchiveMode::Write>;
+using BinaryReader = BinaryArchive<ArchiveMode::Read>;
+
+template <typename MetadataT>
+struct MetadataTraits;
+
+template <typename T, typename MetadataT>
+concept MetadataOf = std::same_as<std::remove_const_t<T>, MetadataT>;
+
+template <>
+struct MetadataTraits<MeshAssetMetadata>
+{
+    static constexpr MetadataType type = MetadataType::Mesh;
+    static constexpr uint32_t version = 3;
+};
+
+template <typename Archive, MetadataOf<MeshAssetMetadata> T>
+void serialize_fields(Archive& ar, T& metadata)
+{
+    ar.field(metadata.vertex_count);
+    ar.field(metadata.index_count);
+    ar.field(metadata.index_format);
+    ar.field(metadata.vertex_data_offset);
+    ar.field(metadata.index_data_offset);
+    ar.field(metadata.num_lods);
+    ar.field(metadata.streamable_lods);
+    ar.array(metadata.lod_screen_sizes, metadata.num_lods);
+    ar.field(metadata.bounding_box.min);
+    ar.field(metadata.bounding_box.max);
+    ar.field(metadata.texel_factor);
 }
 
-template <typename T>
-static T read_value(const uint8_t*& cursor)
+bool validate(const MeshAssetMetadata& metadata)
 {
-    static_assert(std::is_trivially_copyable_v<T>, "Can only deserialize trivially copyable types");
+    if (!meta::enum_traits<IndexBufferFormat>::contains(metadata.index_format))
+    {
+        MIZU_LOG_ERROR("invalid IndexBufferFormat ({})", static_cast<uint32_t>(metadata.index_format));
+        return false;
+    }
 
-    T value{};
-    memcpy(&value, cursor, sizeof(T));
-    cursor = std::next(cursor, sizeof(T));
+    if (metadata.num_lods == 0 || metadata.num_lods > MAX_NUM_MESH_LODS)
+    {
+        MIZU_LOG_ERROR("num_lods ({}) must be in [1, {}]", metadata.num_lods, MAX_NUM_MESH_LODS);
+        return false;
+    }
 
-    return value;
+    if (metadata.streamable_lods >= metadata.num_lods)
+    {
+        MIZU_LOG_ERROR(
+            "streamable_lods ({}) must be lower than num_lods ({})", metadata.streamable_lods, metadata.num_lods);
+        return false;
+    }
+
+    if (metadata.vertex_count == 0)
+    {
+        MIZU_LOG_ERROR("vertex_count can't be 0");
+        return false;
+    }
+
+    if (metadata.index_count == 0)
+    {
+        MIZU_LOG_ERROR("index_count can't be 0");
+    }
+
+    return true;
 }
 
-static bool serialize_shared_data(std::span<uint8_t> destination, size_t total_metadata_size, uint32_t metadata_version)
+template <>
+struct MetadataTraits<TextureAssetMetadata>
 {
-    if (destination.size() < total_metadata_size)
+    static constexpr MetadataType type = MetadataType::Texture;
+    static constexpr uint32_t version = 3;
+};
+
+template <typename Archive, MetadataOf<TextureAssetMetadata> T>
+void serialize_fields(Archive& ar, T& metadata)
+{
+    ar.field(metadata.width);
+    ar.field(metadata.height);
+    ar.field(metadata.depth);
+    ar.field(metadata.num_mips);
+    ar.field(metadata.format);
+    ar.field(metadata.streamable_mips);
+}
+
+bool validate(const TextureAssetMetadata& metadata)
+{
+    if (!meta::enum_traits<ImageFormat>::contains(metadata.format))
+    {
+        MIZU_LOG_ERROR("invalid ImageFormat ({})", static_cast<uint32_t>(metadata.format));
+        return false;
+    }
+
+    if (metadata.width == 0 || metadata.height == 0 || metadata.depth == 0)
+    {
+        MIZU_LOG_ERROR("dimensions ({}x{}x{}) can't be 0", metadata.width, metadata.height, metadata.depth);
+        return false;
+    }
+
+    if (metadata.num_mips == 0)
+    {
+        MIZU_LOG_ERROR("num_mips can't be 0", metadata.num_mips);
+        return false;
+    }
+
+    if (metadata.streamable_mips >= metadata.num_mips)
+    {
+        MIZU_LOG_ERROR(
+            "streamable_mips ({}) must be lower than num_mips ({})", metadata.streamable_mips, metadata.num_mips);
+        return false;
+    }
+
+    return true;
+}
+
+template <>
+struct MetadataTraits<MaterialAssetMetadata>
+{
+    static constexpr MetadataType type = MetadataType::Material;
+    static constexpr uint32_t version = 2;
+};
+
+template <typename Archive, MetadataOf<MaterialAssetMetadata> T>
+void serialize_fields(Archive& ar, T& metadata)
+{
+    ar.field(metadata.shader_handle);
+    ar.field(metadata.num_textures);
+    ar.array(metadata.texture_handles, metadata.num_textures);
+}
+
+bool validate(const MaterialAssetMetadata& metadata)
+{
+    if (!metadata.shader_handle.is_valid())
+    {
+        MIZU_LOG_ERROR("shader_handle is invalid");
+        return false;
+    }
+
+    return true;
+}
+
+template <>
+struct MetadataTraits<PrefabAssetMetadata>
+{
+    static constexpr MetadataType type = MetadataType::Prefab;
+    static constexpr uint32_t version = 1;
+};
+
+template <typename Archive, MetadataOf<PrefabAssetMetadata> T>
+void serialize_fields(Archive& ar, T& metadata)
+{
+    ar.field(metadata.num_meshes);
+}
+
+bool validate(const PrefabAssetMetadata&)
+{
+    return true;
+}
+
+template <>
+struct MetadataTraits<ShaderAssetMetadata>
+{
+    static constexpr MetadataType type = MetadataType::Shader;
+    static constexpr uint32_t version = 2;
+};
+
+template <typename Archive, MetadataOf<ShaderAssetMetadata> T>
+void serialize_fields(Archive& ar, T& metadata)
+{
+    ar.field(metadata.shader_type);
+    ar.field(metadata.entry_point_length);
+    ar.array(metadata.entry_point, metadata.entry_point_length);
+    ar.field(metadata.bytecode_size);
+    ar.field(metadata.reflection_size);
+    ar.field(metadata.bytecode_offset);
+    ar.field(metadata.reflection_offset);
+}
+
+bool validate(const ShaderAssetMetadata& metadata)
+{
+    if (metadata.entry_point_length == 0)
+    {
+        MIZU_LOG_ERROR("entry point can't be empty");
+        return false;
+    }
+
+    if (metadata.bytecode_size == 0)
+    {
+        MIZU_LOG_ERROR("bytecode can't be empty");
+        return false;
+    }
+
+    return true;
+}
+
+template <typename MetadataT>
+uint64_t get_metadata_fields_size(const MetadataT& metadata)
+{
+    BinarySizeCounter counter{};
+    serialize_fields(counter, metadata);
+
+    return counter.offset();
+}
+
+template <typename MetadataT>
+uint64_t serialized_metadata_size(const MetadataT& metadata)
+{
+    return ASSET_FILE_HEADER_SIZE + get_metadata_fields_size(metadata);
+}
+
+template <typename MetadataT>
+uint64_t serialize_metadata(const MetadataT& metadata, std::span<uint8_t> destination)
+{
+    const AssetFileHeader header{
+        .format_version = ASSET_FORMAT_VERSION,
+        .metadata_type = MetadataTraits<MetadataT>::type,
+        .metadata_version = MetadataTraits<MetadataT>::version,
+        .metadata_size = static_cast<uint32_t>(get_metadata_fields_size(metadata)),
+    };
+
+    BinaryWriter writer{destination};
+
+    writer.field(header.format_version);
+    writer.field(header.metadata_type);
+    writer.field(header.metadata_version);
+    writer.field(header.metadata_size);
+
+    serialize_fields(writer, metadata);
+
+    if (!writer.ok())
     {
         MIZU_ASSERT(
-            false, "Destination is too small to serialize metadata ({} < {})", destination.size(), total_metadata_size);
+            false,
+            "Failed to serialize {} metadata, destination is too small ({} < {})",
+            meta::enum_name(header.metadata_type),
+            destination.size(),
+            ASSET_FILE_HEADER_SIZE + header.metadata_size);
+        return 0;
+    }
+
+    return writer.offset();
+}
+
+template <typename MetadataT>
+bool validate_header(const AssetFileHeader& header, uint64_t data_size)
+{
+    constexpr MetadataType expected_type = MetadataTraits<MetadataT>::type;
+    constexpr uint32_t expected_version = MetadataTraits<MetadataT>::version;
+
+    if (header.metadata_type != expected_type)
+    {
+        MIZU_LOG_ERROR(
+            "Unexpected metadata type, expected {} but got {}",
+            meta::enum_name(expected_type),
+            static_cast<uint32_t>(header.metadata_type));
         return false;
     }
 
-    uint8_t* shared_info_data = destination.data();
-    write_value<uint32_t>(shared_info_data, METADATA_VERSION);
-    write_value<uint32_t>(shared_info_data, metadata_version);
+    if (header.metadata_version != expected_version)
+    {
+        MIZU_LOG_ERROR(
+            "Unsupported {} metadata version, expected {} but got {}",
+            meta::enum_name(expected_type),
+            expected_version,
+            header.metadata_version);
+        return false;
+    }
+
+    if (data_size != header.metadata_size)
+    {
+        MIZU_LOG_ERROR(
+            "{} metadata size mismatch, header says {} bytes but got {}",
+            meta::enum_name(expected_type),
+            header.metadata_size,
+            data_size);
+        return false;
+    }
 
     return true;
 }
 
-static bool deserialize_shared_data(
-    std::span<const uint8_t> data,
-    size_t total_metadata_size,
-    uint32_t metadata_version)
+template <typename MetadataT>
+std::optional<MetadataT> deserialize_metadata(std::span<const uint8_t> data)
 {
-    if (data.size() < total_metadata_size)
-    {
-        MIZU_LOG_ERROR("Data is too small to deserialize metadata ({} < {})", data.size(), total_metadata_size);
-        return false;
-    }
+    const std::optional<AssetFileHeader> header = asset_parse_file_header(data);
+    if (!header.has_value())
+        return std::nullopt;
 
-    const uint8_t* shared_info_data = data.data();
+    const std::span<const uint8_t> metadata_data = data.subspan(ASSET_FILE_HEADER_SIZE);
+    if (!validate_header<MetadataT>(*header, metadata_data.size()))
+        return std::nullopt;
 
-    const uint32_t version = read_value<uint32_t>(shared_info_data);
-    if (version != METADATA_VERSION)
-    {
-        MIZU_LOG_ERROR("Unsupported metadata version, expected {} but got {}", METADATA_VERSION, version);
-        return false;
-    }
+    MetadataT metadata{};
 
-    const uint32_t specific_version = read_value<uint32_t>(shared_info_data);
-    if (specific_version != metadata_version)
+    BinaryReader reader{metadata_data};
+    serialize_fields(reader, metadata);
+
+    if (!reader.ok() || reader.offset() != metadata_data.size())
     {
         MIZU_LOG_ERROR(
-            "Unsupported specific metadata version, expected {} but got {}", metadata_version, specific_version);
-        return false;
-    }
-
-    return true;
-}
-
-void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_t> destination)
-{
-    if (!serialize_shared_data(destination, TOTAL_MESH_METADATA_SIZE, MESH_METADATA_VERSION))
-        return;
-
-    uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
-
-    write_value<uint64_t>(metadata_data, metadata.vertex_count);
-    write_value<uint64_t>(metadata_data, metadata.index_count);
-    write_value<IndexBufferFormat>(metadata_data, metadata.index_format);
-    write_value<uint64_t>(metadata_data, metadata.vertex_data_offset);
-    write_value<uint64_t>(metadata_data, metadata.index_data_offset);
-    write_value<uint32_t>(metadata_data, metadata.num_lods);
-    write_value<uint8_t>(metadata_data, metadata.streamable_lods);
-
-    for (float screen_size : metadata.lod_screen_sizes)
-    {
-        write_value<float>(metadata_data, screen_size);
-    }
-
-    write_value<glm::vec3>(metadata_data, metadata.bounding_box.min);
-    write_value<glm::vec3>(metadata_data, metadata.bounding_box.max);
-    write_value<float>(metadata_data, metadata.texel_factor);
-}
-
-std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data)
-{
-    if (!deserialize_shared_data(data, TOTAL_MESH_METADATA_SIZE, MESH_METADATA_VERSION))
-        return std::nullopt;
-
-    const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
-
-    MeshAssetMetadata metadata{};
-
-    metadata.vertex_count = read_value<uint64_t>(metadata_data);
-    metadata.index_count = read_value<uint64_t>(metadata_data);
-
-    const IndexBufferFormat index_format = read_value<IndexBufferFormat>(metadata_data);
-    if (!meta::enum_traits<IndexBufferFormat>::contains(index_format))
-    {
-        MIZU_LOG_ERROR("Invalid IndexBufferFormat in MeshAssetMetadata: {}", static_cast<uint32_t>(index_format));
+            "Failed to deserialize {} metadata, data is truncated or corrupt",
+            meta::enum_name(MetadataTraits<MetadataT>::type));
         return std::nullopt;
     }
 
-    metadata.index_format = index_format;
-
-    metadata.vertex_data_offset = read_value<uint64_t>(metadata_data);
-    metadata.index_data_offset = read_value<uint64_t>(metadata_data);
-
-    metadata.num_lods = read_value<uint32_t>(metadata_data);
-    metadata.streamable_lods = read_value<uint8_t>(metadata_data);
-
-    for (uint32_t i = 0; i < MAX_NUM_MESH_LODS; ++i)
-    {
-        metadata.lod_screen_sizes[i] = read_value<float>(metadata_data);
-    }
-
-    const glm::vec3 bounding_box_min = read_value<glm::vec3>(metadata_data);
-    const glm::vec3 bounding_box_max = read_value<glm::vec3>(metadata_data);
-    metadata.bounding_box = math::AABB{bounding_box_min, bounding_box_max};
-
-    metadata.texel_factor = read_value<float>(metadata_data);
+    if (!validate(metadata))
+        return std::nullopt;
 
     return metadata;
 }
 
-void texture_serialize_metadata(const TextureAssetMetadata& metadata, std::span<uint8_t> destination)
+} // namespace
+
+std::optional<AssetFileHeader> asset_parse_file_header(std::span<const uint8_t> data)
 {
-    if (!serialize_shared_data(destination, TOTAL_TEXTURE_METADATA_SIZE, TEXTURE_METADATA_VERSION))
-        return;
+    AssetFileHeader header{};
 
-    uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
+    BinaryReader reader{data};
+    reader.field(header.format_version);
+    reader.field(header.metadata_type);
+    reader.field(header.metadata_version);
+    reader.field(header.metadata_size);
 
-    write_value<uint32_t>(metadata_data, metadata.width);
-    write_value<uint32_t>(metadata_data, metadata.height);
-    write_value<uint32_t>(metadata_data, metadata.depth);
-    write_value<uint32_t>(metadata_data, metadata.num_mips);
-    write_value<ImageFormat>(metadata_data, metadata.format);
-    write_value<uint8_t>(metadata_data, metadata.streamable_mips);
-}
-
-std::optional<TextureAssetMetadata> texture_deserialize_metadata(std::span<const uint8_t> data)
-{
-    if (!deserialize_shared_data(data, TOTAL_TEXTURE_METADATA_SIZE, TEXTURE_METADATA_VERSION))
-        return std::nullopt;
-
-    const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
-
-    TextureAssetMetadata metadata{};
-
-    metadata.width = read_value<uint32_t>(metadata_data);
-    metadata.height = read_value<uint32_t>(metadata_data);
-    metadata.depth = read_value<uint32_t>(metadata_data);
-    metadata.num_mips = read_value<uint32_t>(metadata_data);
-
-    const ImageFormat format = read_value<ImageFormat>(metadata_data);
-    if (!meta::enum_traits<ImageFormat>::contains(format))
-    {
-        MIZU_LOG_ERROR("Invalid ImageFormat in TextureAssetMetadata: {}", static_cast<uint32_t>(format));
-        return std::nullopt;
-    }
-
-    metadata.format = format;
-    metadata.streamable_mips = read_value<uint8_t>(metadata_data);
-
-    return metadata;
-}
-
-void material_serialize_metadata(const MaterialAssetMetadata& metadata, std::span<uint8_t> destination)
-{
-    if (!serialize_shared_data(destination, TOTAL_MATERIAL_METADATA_SIZE, MATERIAL_METADATA_VERSION))
-        return;
-
-    uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
-
-    write_value<AssetHandleId>(metadata_data, metadata.shader_handle.get_id());
-    write_value<uint32_t>(metadata_data, metadata.num_textures);
-
-    for (uint32_t i = 0; i < metadata.num_textures; ++i)
-    {
-        write_value<uint64_t>(metadata_data, metadata.texture_handles[i].get_id());
-    }
-
-    for (size_t i = metadata.texture_handles.size(); i < MAX_TEXTURES_PER_MATERIAL; ++i)
-    {
-        write_value<uint64_t>(metadata_data, 0u);
-    }
-}
-
-std::optional<MaterialAssetMetadata> material_deserialize_metadata(std::span<const uint8_t> data)
-{
-    if (!deserialize_shared_data(data, TOTAL_MATERIAL_METADATA_SIZE, MATERIAL_METADATA_VERSION))
-        return std::nullopt;
-
-    const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
-
-    MaterialAssetMetadata metadata{};
-
-    metadata.shader_handle = ShaderAssetHandle{read_value<AssetHandleId>(metadata_data)};
-    metadata.num_textures = read_value<uint32_t>(metadata_data);
-
-    if (metadata.num_textures > MAX_TEXTURES_PER_MATERIAL)
+    if (!reader.ok())
     {
         MIZU_LOG_ERROR(
-            "Corrupt material metadata: num_textures ({}) > MAX ({})",
-            metadata.num_textures,
-            MAX_TEXTURES_PER_MATERIAL);
-
+            "Failed to read asset file header (data.size() = {}, ASSET_FILE_HEADER_SIZE = {})",
+            data.size(),
+            ASSET_FILE_HEADER_SIZE);
         return std::nullopt;
     }
 
-    for (uint32_t i = 0; i < metadata.num_textures; ++i)
-    {
-        const uint64_t handle_id = read_value<uint64_t>(metadata_data);
-        metadata.texture_handles.push_back(TextureAssetHandle{handle_id});
-    }
-
-    return metadata;
-}
-
-void prefab_serialize_metadata(const PrefabAssetMetadata& metadata, std::span<uint8_t> destination)
-{
-    if (!serialize_shared_data(destination, TOTAL_PREFAB_METADATA_SIZE, PREFAB_METADATA_VERSION))
-        return;
-
-    uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
-
-    write_value<uint32_t>(metadata_data, metadata.num_meshes);
-}
-
-std::optional<PrefabAssetMetadata> prefab_deserialize_metadata(std::span<const uint8_t> data)
-{
-    if (!deserialize_shared_data(data, TOTAL_PREFAB_METADATA_SIZE, PREFAB_METADATA_VERSION))
-        return std::nullopt;
-
-    const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
-
-    PrefabAssetMetadata metadata{};
-
-    metadata.num_meshes = read_value<uint32_t>(metadata_data);
-
-    return metadata;
-}
-
-void shader_serialize_metadata(const ShaderAssetMetadata& metadata, std::span<uint8_t> destination)
-{
-    if (!serialize_shared_data(destination, TOTAL_SHADER_METADATA_SIZE, SHADER_METADATA_VERSION))
-        return;
-
-    uint8_t* metadata_data = std::next(destination.data(), METADATA_SHARED_INFO_SIZE);
-
-    write_value<ShaderType>(metadata_data, metadata.shader_type);
-    write_value<uint32_t>(metadata_data, metadata.entry_point_length);
-
-    memcpy(metadata_data, metadata.entry_point, ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
-    metadata_data = std::next(metadata_data, ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
-
-    write_value<uint64_t>(metadata_data, metadata.bytecode_size);
-    write_value<uint64_t>(metadata_data, metadata.reflection_size);
-    write_value<uint64_t>(metadata_data, metadata.bytecode_offset);
-    write_value<uint64_t>(metadata_data, metadata.reflection_offset);
-}
-
-std::optional<ShaderAssetMetadata> shader_deserialize_metadata(std::span<const uint8_t> data)
-{
-    if (!deserialize_shared_data(data, TOTAL_SHADER_METADATA_SIZE, SHADER_METADATA_VERSION))
-        return std::nullopt;
-
-    const uint8_t* metadata_data = std::next(data.data(), METADATA_SHARED_INFO_SIZE);
-
-    ShaderAssetMetadata metadata{};
-
-    metadata.shader_type = read_value<ShaderType>(metadata_data);
-    metadata.entry_point_length = read_value<uint32_t>(metadata_data);
-
-    if (metadata.entry_point_length > ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH)
+    if (header.format_version != ASSET_FORMAT_VERSION)
     {
         MIZU_LOG_ERROR(
-            "Invalid entry point length in ShaderAssetMetadata ({} > {})",
-            metadata.entry_point_length,
-            ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
+            "Unsupported asset format version, expected {} but got {}", ASSET_FORMAT_VERSION, header.format_version);
         return std::nullopt;
     }
 
-    memcpy(metadata.entry_point, metadata_data, ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
-    metadata_data = std::next(metadata_data, ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH);
-
-    metadata.bytecode_size = read_value<uint64_t>(metadata_data);
-    metadata.reflection_size = read_value<uint64_t>(metadata_data);
-    metadata.bytecode_offset = read_value<uint64_t>(metadata_data);
-    metadata.reflection_offset = read_value<uint64_t>(metadata_data);
-
-    return metadata;
+    return header;
 }
+
+#define IMPLEMENT_METADATA_FUNCTIONS(Type, name)                                             \
+    uint64_t name##_serialized_metadata_size(const Type& metadata)                           \
+    {                                                                                        \
+        return serialized_metadata_size(metadata);                                           \
+    }                                                                                        \
+    uint64_t name##_serialize_metadata(const Type& metadata, std::span<uint8_t> destination) \
+    {                                                                                        \
+        return serialize_metadata(metadata, destination);                                    \
+    }                                                                                        \
+    std::optional<Type> name##_deserialize_metadata(std::span<const uint8_t> data)           \
+    {                                                                                        \
+        return deserialize_metadata<Type>(data);                                             \
+    }
+
+IMPLEMENT_METADATA_FUNCTIONS(MeshAssetMetadata, mesh)
+IMPLEMENT_METADATA_FUNCTIONS(TextureAssetMetadata, texture)
+IMPLEMENT_METADATA_FUNCTIONS(MaterialAssetMetadata, material)
+IMPLEMENT_METADATA_FUNCTIONS(PrefabAssetMetadata, prefab)
+IMPLEMENT_METADATA_FUNCTIONS(ShaderAssetMetadata, shader)
+
+#undef IMPLEMENT_METADATA_FUNCTIONS
 
 } // namespace Mizu

@@ -18,13 +18,26 @@ template <typename RecordT>
 using record_metadata_type = decltype(RecordT::metadata);
 
 template <typename MetadataT, std::optional<MetadataT> (*DeserializeMetadataFunc)(std::span<const uint8_t>)>
-std::optional<MetadataT> read_metadata_from_stream(
-    std::ifstream& file,
-    [[maybe_unused]] const AssetLocation& location,
-    size_t metadata_size)
+std::optional<MetadataT> read_metadata_from_stream(std::ifstream& file, const AssetLocation& location)
 {
-    std::vector<uint8_t> buffer(metadata_size);
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(metadata_size)))
+    std::vector<uint8_t> buffer(ASSET_FILE_HEADER_SIZE);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(buffer.size())))
+    {
+        MIZU_LOG_ERROR("Failed to read file header: {}", location.path.string());
+        return std::nullopt;
+    }
+
+    const std::optional<AssetFileHeader> header = asset_parse_file_header(buffer);
+    if (!header.has_value())
+    {
+        MIZU_LOG_ERROR("Invalid file header: {}", location.path.string());
+        return std::nullopt;
+    }
+
+    buffer.resize(ASSET_FILE_HEADER_SIZE + header->metadata_size);
+    if (!file.read(
+            reinterpret_cast<char*>(buffer.data() + ASSET_FILE_HEADER_SIZE),
+            static_cast<std::streamsize>(header->metadata_size)))
     {
         MIZU_LOG_ERROR("Failed to read file metadata: {}", location.path.string());
         return std::nullopt;
@@ -41,7 +54,7 @@ std::optional<MetadataT> read_metadata_from_stream(
 }
 
 template <typename MetadataT, std::optional<MetadataT> (*DeserializeMetadataFunc)(std::span<const uint8_t>)>
-std::optional<MetadataT> read_metadata_from_location(const AssetLocation& location, size_t metadata_size)
+std::optional<MetadataT> read_metadata_from_location(const AssetLocation& location)
 {
     std::ifstream file(location.path, std::ios::binary);
     if (!file.is_open())
@@ -50,11 +63,11 @@ std::optional<MetadataT> read_metadata_from_location(const AssetLocation& locati
         return std::nullopt;
     }
 
-    return read_metadata_from_stream<MetadataT, DeserializeMetadataFunc>(file, location, metadata_size);
+    return read_metadata_from_stream<MetadataT, DeserializeMetadataFunc>(file, location);
 }
 
 template <typename MetadataT, std::optional<MetadataT> (*DeserializeMetadataFunc)(std::span<const uint8_t>)>
-bool load_payload_from_location(const AssetLocation& location, size_t metadata_size, std::span<uint8_t> destination)
+bool load_payload_from_location(const AssetLocation& location, std::span<uint8_t> destination)
 {
     std::ifstream file(location.path, std::ios::binary);
     if (!file.is_open())
@@ -64,7 +77,7 @@ bool load_payload_from_location(const AssetLocation& location, size_t metadata_s
     }
 
     const std::optional<MetadataT> metadata =
-        read_metadata_from_stream<MetadataT, DeserializeMetadataFunc>(file, location, metadata_size);
+        read_metadata_from_stream<MetadataT, DeserializeMetadataFunc>(file, location);
     if (!metadata.has_value())
         return false;
 
@@ -96,10 +109,7 @@ template <
     typename RecordT,
     typename AssetHandleT,
     std::optional<record_metadata_type<RecordT>> (*DeserializeMetadataFunc)(std::span<const uint8_t>)>
-std::optional<RecordT> get_record_internal(
-    const AssetHandleT& handle,
-    size_t metadata_size,
-    const AssetRegistry& registry)
+std::optional<RecordT> get_record_internal(const AssetHandleT& handle, const AssetRegistry& registry)
 {
     using MetadataT = record_metadata_type<RecordT>;
 
@@ -111,7 +121,7 @@ std::optional<RecordT> get_record_internal(
     }
 
     const std::optional<MetadataT> metadata =
-        read_metadata_from_location<MetadataT, DeserializeMetadataFunc>(*location, metadata_size);
+        read_metadata_from_location<MetadataT, DeserializeMetadataFunc>(*location);
     if (!metadata.has_value())
         return std::nullopt;
 
@@ -125,11 +135,7 @@ template <
     typename MetadataT,
     typename HandleT,
     std::optional<MetadataT> (*DeserializeMetadataFunc)(std::span<const uint8_t>)>
-bool load_payload_internal(
-    const HandleT& handle,
-    size_t metadata_size,
-    const AssetRegistry& registry,
-    std::span<uint8_t> destination)
+bool load_payload_internal(const HandleT& handle, const AssetRegistry& registry, std::span<uint8_t> destination)
 {
     const std::optional<AssetLocation> location = registry.resolve(handle);
     if (!location.has_value())
@@ -138,7 +144,7 @@ bool load_payload_internal(
         return false;
     }
 
-    return load_payload_from_location<MetadataT, DeserializeMetadataFunc>(*location, metadata_size, destination);
+    return load_payload_from_location<MetadataT, DeserializeMetadataFunc>(*location, destination);
 }
 
 } // namespace
@@ -147,26 +153,24 @@ CookedAssetLoader::CookedAssetLoader(const AssetRegistry& registry) : m_registry
 
 std::optional<MeshAssetRecord> CookedAssetLoader::get_mesh_record(const MeshAssetHandle& handle)
 {
-    return get_record_internal<MeshAssetRecord, MeshAssetHandle, mesh_deserialize_metadata>(
-        handle, TOTAL_MESH_METADATA_SIZE, m_registry);
+    return get_record_internal<MeshAssetRecord, MeshAssetHandle, mesh_deserialize_metadata>(handle, m_registry);
 }
 
 std::optional<TextureAssetRecord> CookedAssetLoader::get_texture_record(const TextureAssetHandle& handle)
 {
     return get_record_internal<TextureAssetRecord, TextureAssetHandle, texture_deserialize_metadata>(
-        handle, TOTAL_TEXTURE_METADATA_SIZE, m_registry);
+        handle, m_registry);
 }
 
 std::optional<MaterialAssetRecord> CookedAssetLoader::get_material_record(const MaterialAssetHandle& handle)
 {
     return get_record_internal<MaterialAssetRecord, MaterialAssetHandle, material_deserialize_metadata>(
-        handle, TOTAL_MATERIAL_METADATA_SIZE, m_registry);
+        handle, m_registry);
 }
 
 std::optional<PrefabAssetRecord> CookedAssetLoader::get_prefab_record(const PrefabAssetHandle& handle)
 {
-    return get_record_internal<PrefabAssetRecord, PrefabAssetHandle, prefab_deserialize_metadata>(
-        handle, TOTAL_PREFAB_METADATA_SIZE, m_registry);
+    return get_record_internal<PrefabAssetRecord, PrefabAssetHandle, prefab_deserialize_metadata>(handle, m_registry);
 }
 
 std::optional<ShaderAssetRecord> CookedAssetLoader::get_shader_record(
@@ -185,8 +189,7 @@ std::optional<ShaderAssetRecord> CookedAssetLoader::get_shader_record(
     }
 
     const std::optional<ShaderAssetMetadata> metadata =
-        read_metadata_from_location<ShaderAssetMetadata, shader_deserialize_metadata>(
-            *location, TOTAL_SHADER_METADATA_SIZE);
+        read_metadata_from_location<ShaderAssetMetadata, shader_deserialize_metadata>(*location);
     if (!metadata.has_value())
         return std::nullopt;
 
@@ -199,13 +202,13 @@ std::optional<ShaderAssetRecord> CookedAssetLoader::get_shader_record(
 bool CookedAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::span<uint8_t> destination)
 {
     return load_payload_internal<MeshAssetMetadata, MeshAssetHandle, mesh_deserialize_metadata>(
-        handle, TOTAL_MESH_METADATA_SIZE, m_registry, destination);
+        handle, m_registry, destination);
 }
 
 bool CookedAssetLoader::load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination)
 {
     return load_payload_internal<TextureAssetMetadata, TextureAssetHandle, texture_deserialize_metadata>(
-        handle, TOTAL_TEXTURE_METADATA_SIZE, m_registry, destination);
+        handle, m_registry, destination);
 }
 
 bool CookedAssetLoader::load_texture_payload_mips(
@@ -229,8 +232,7 @@ bool CookedAssetLoader::load_texture_payload_mips(
     }
 
     const std::optional<TextureAssetMetadata> metadata =
-        read_metadata_from_stream<TextureAssetMetadata, texture_deserialize_metadata>(
-            file, *location, TOTAL_TEXTURE_METADATA_SIZE);
+        read_metadata_from_stream<TextureAssetMetadata, texture_deserialize_metadata>(file, *location);
     if (!metadata.has_value())
         return false;
 
@@ -274,7 +276,7 @@ bool CookedAssetLoader::load_texture_payload_mips(
 bool CookedAssetLoader::load_prefab_payload(const PrefabAssetHandle& handle, std::span<uint8_t> destination)
 {
     return load_payload_internal<PrefabAssetMetadata, PrefabAssetHandle, prefab_deserialize_metadata>(
-        handle, TOTAL_PREFAB_METADATA_SIZE, m_registry, destination);
+        handle, m_registry, destination);
 }
 
 bool CookedAssetLoader::load_shader_payload(
@@ -293,8 +295,7 @@ bool CookedAssetLoader::load_shader_payload(
         return false;
     }
 
-    return load_payload_from_location<ShaderAssetMetadata, shader_deserialize_metadata>(
-        *location, TOTAL_SHADER_METADATA_SIZE, destination);
+    return load_payload_from_location<ShaderAssetMetadata, shader_deserialize_metadata>(*location, destination);
 }
 
 } // namespace Mizu

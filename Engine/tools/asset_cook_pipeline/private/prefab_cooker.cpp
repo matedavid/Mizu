@@ -26,15 +26,13 @@ void PrefabCooker::cook(const CookRequest& request, const CookContext& context, 
         .num_meshes = static_cast<uint32_t>(payload->mesh_info.size()),
     };
 
-    const size_t total_size =
-        TOTAL_PREFAB_METADATA_SIZE + metadata.num_meshes * sizeof(std::declval<MeshAssetHandle>().get_id()) * 2;
+    const size_t total_size = prefab_serialized_metadata_size(metadata)
+                              + metadata.num_meshes * sizeof(std::declval<MeshAssetHandle>().get_id()) * 2;
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Prefab");
 
-    prefab_serialize_metadata(metadata, data);
-
-    size_t data_offset = TOTAL_PREFAB_METADATA_SIZE;
+    size_t data_offset = prefab_serialize_metadata(metadata, data);
 
     for (const PrefabMeshInfo& mesh_info : payload->mesh_info)
     {

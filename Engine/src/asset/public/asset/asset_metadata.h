@@ -80,11 +80,6 @@ struct MeshAssetMetadata
     uint64_t get_index_stride_bytes() const { return get_index_element_size_bytes(); }
 };
 
-constexpr uint64_t MESH_METADATA_SIZE =
-    sizeof(uint64_t) * 2 + sizeof(IndexBufferFormat) + sizeof(uint64_t) * 2 + sizeof(uint32_t) + sizeof(uint8_t)
-    + sizeof(std::array<float, MAX_NUM_MESH_LODS>) + sizeof(math::AABB) + sizeof(float);
-static_assert(sizeof(MeshAssetMetadata) >= MESH_METADATA_SIZE, "MeshAssetMetadata size mismatch");
-
 struct TextureAssetMetadata
 {
     uint32_t width = 0;
@@ -137,9 +132,6 @@ struct TextureAssetMetadata
     }
 };
 
-constexpr uint64_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 4 + sizeof(ImageFormat) + sizeof(uint8_t);
-static_assert(sizeof(TextureAssetMetadata) >= TEXTURE_METADATA_SIZE, "TextureAssetMetadata size mismatch");
-
 constexpr uint32_t MAX_TEXTURES_PER_MATERIAL = 16;
 
 struct MaterialAssetMetadata
@@ -148,10 +140,6 @@ struct MaterialAssetMetadata
     uint32_t num_textures = 0;
     inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL> texture_handles{};
 };
-
-constexpr uint64_t MATERIAL_METADATA_SIZE = sizeof(ShaderAssetHandle) + sizeof(uint32_t)
-                                            + sizeof(inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL>);
-static_assert(sizeof(MaterialAssetMetadata) >= MATERIAL_METADATA_SIZE, "MaterialAssetMetadata size mismatch");
 
 struct PrefabMeshInfo
 {
@@ -165,9 +153,6 @@ struct PrefabAssetMetadata
 
     uint64_t get_total_size_bytes() const { return num_meshes * sizeof(PrefabMeshInfo); }
 };
-
-constexpr uint64_t PREFAB_METADATA_SIZE = sizeof(uint32_t);
-static_assert(sizeof(PrefabAssetMetadata) >= PREFAB_METADATA_SIZE, "PrefabAssetMetadata size mismatch");
 
 struct ShaderAssetMetadata
 {
@@ -209,35 +194,38 @@ struct ShaderAssetMetadata
     std::string get_entry_point() const { return std::string{}.assign(entry_point, entry_point_length); }
 };
 
-constexpr uint64_t SHADER_METADATA_SIZE = sizeof(ShaderType) + sizeof(uint32_t)
-                                          + sizeof(char[ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH])
-                                          + sizeof(uint64_t) * 4;
-static_assert(sizeof(ShaderAssetMetadata) >= SHADER_METADATA_SIZE, "ShaderAssetMetadata size mismatch");
+enum class MetadataType : uint32_t
+{
+    Mesh,
+    Texture,
+    Material,
+    Prefab,
+    Shader,
+};
 
-// Shared Info:
-// - shared   metadata version (uint32_t)
-// - specific metadata version (uint32_t)
-constexpr uint64_t METADATA_SHARED_INFO_SIZE = sizeof(uint32_t) * 2;
+struct AssetFileHeader
+{
+    uint32_t format_version = 0;
+    MetadataType metadata_type{};
+    uint32_t metadata_version = 0;
+    uint32_t metadata_size = 0;
+};
 
-constexpr uint64_t TOTAL_MESH_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MESH_METADATA_SIZE;
-constexpr uint64_t TOTAL_TEXTURE_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + TEXTURE_METADATA_SIZE;
-constexpr uint64_t TOTAL_MATERIAL_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MATERIAL_METADATA_SIZE;
-constexpr uint64_t TOTAL_PREFAB_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + PREFAB_METADATA_SIZE;
-constexpr uint64_t TOTAL_SHADER_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + SHADER_METADATA_SIZE;
+constexpr uint64_t ASSET_FILE_HEADER_SIZE = sizeof(uint32_t) * 4;
 
-MIZU_ASSET_API void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data);
+MIZU_ASSET_API std::optional<AssetFileHeader> asset_parse_file_header(std::span<const uint8_t> data);
 
-MIZU_ASSET_API void texture_serialize_metadata(const TextureAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<TextureAssetMetadata> texture_deserialize_metadata(std::span<const uint8_t> data);
+#define DEFINE_METADATA_FUNCTIONS(Type, name)                                                                \
+    MIZU_ASSET_API uint64_t name##_serialized_metadata_size(const Type& metadata);                           \
+    MIZU_ASSET_API uint64_t name##_serialize_metadata(const Type& metadata, std::span<uint8_t> destination); \
+    MIZU_ASSET_API std::optional<Type> name##_deserialize_metadata(std::span<const uint8_t> data);
 
-MIZU_ASSET_API void material_serialize_metadata(const MaterialAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<MaterialAssetMetadata> material_deserialize_metadata(std::span<const uint8_t> data);
+DEFINE_METADATA_FUNCTIONS(MeshAssetMetadata, mesh)
+DEFINE_METADATA_FUNCTIONS(TextureAssetMetadata, texture)
+DEFINE_METADATA_FUNCTIONS(MaterialAssetMetadata, material)
+DEFINE_METADATA_FUNCTIONS(PrefabAssetMetadata, prefab)
+DEFINE_METADATA_FUNCTIONS(ShaderAssetMetadata, shader)
 
-MIZU_ASSET_API void prefab_serialize_metadata(const PrefabAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<PrefabAssetMetadata> prefab_deserialize_metadata(std::span<const uint8_t> data);
-
-MIZU_ASSET_API void shader_serialize_metadata(const ShaderAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<ShaderAssetMetadata> shader_deserialize_metadata(std::span<const uint8_t> data);
+#undef DEFINE_METADATA_FUNCTIONS
 
 } // namespace Mizu
