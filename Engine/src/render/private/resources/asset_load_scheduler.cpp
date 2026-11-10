@@ -99,8 +99,8 @@ void AssetLoadScheduler::dispatch_load_jobs()
 
 void AssetLoadScheduler::request_mesh_load(
     MeshAssetHandle handle,
-    uint32_t first_lod,
-    uint32_t lod_count,
+    uint8_t first_lod,
+    uint8_t lod_count,
     std::span<uint8_t> destination,
     const MeshLoadingFinishedFunc& callback)
 {

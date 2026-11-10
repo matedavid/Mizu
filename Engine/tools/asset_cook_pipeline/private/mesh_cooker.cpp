@@ -134,16 +134,16 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
 
     const float texel_factor = compute_texel_factor(vertices, indices);
 
+    // TODO: Generate lods
     MeshAssetMetadata metadata{};
-    metadata.vertex_count = mesh->mNumVertices;
-    metadata.index_count = mesh->mNumFaces * 3u;
+    metadata.lods.push_back(MeshAssetLod{
+        .vertex_count = mesh->mNumVertices,
+        .index_count = mesh->mNumFaces * 3u,
+        .screen_size = 0.0f,
+    });
+    metadata.streamable_lods = 0;
     metadata.index_format = IndexBufferFormat::UInt32;
-    metadata.vertex_data_offset = 0;
-    metadata.index_data_offset = math::align_up(
-        metadata.vertex_data_offset + metadata.get_vertex_data_size_bytes(), metadata.get_index_element_size_bytes());
-    metadata.num_lods = 1;              // TODO
-    metadata.streamable_lods = 0;       // TODO
-    metadata.lod_screen_sizes = {0.0f}; // TODO
+    metadata.vertex_stride = sizeof(MeshAssetVertex);
     metadata.bounding_box = math::AABB{aabb_min, aabb_max};
     metadata.texel_factor = texel_factor;
 
@@ -153,12 +153,19 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for Mesh");
 
     const uint64_t data_offset = mesh_serialize_metadata(metadata, data);
+    memset(data.data() + data_offset, 0, metadata.get_total_size_bytes());
 
-    const uint64_t vertex_offset = data_offset + metadata.vertex_data_offset;
-    const uint64_t index_offset = data_offset + metadata.index_data_offset;
+    for (uint8_t lod = 0; lod < metadata.get_num_lods(); ++lod)
+    {
+        const uint64_t vertex_offset = data_offset + metadata.get_lod_vertex_file_offset(lod);
+        const uint64_t index_offset = data_offset + metadata.get_lod_index_file_offset(lod);
 
-    memcpy(data.data() + vertex_offset, vertices.data(), metadata.get_vertex_data_size_bytes());
-    memcpy(data.data() + index_offset, indices.data(), metadata.get_index_data_size_bytes());
+        const uint64_t first_vertex = metadata.get_lod_vertex_offset_bytes(lod) / metadata.get_vertex_stride_bytes();
+        const uint64_t first_index = metadata.get_draw_first_index(lod);
+
+        memcpy(data.data() + vertex_offset, vertices.data() + first_vertex, metadata.get_lod_vertex_size_bytes(lod));
+        memcpy(data.data() + index_offset, indices.data() + first_index, metadata.get_lod_index_size_bytes(lod));
+    }
 
     const std::string filename = std::to_string(get_mesh_asset_id(request.virtual_path));
     outputs.push_back({

@@ -140,9 +140,9 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             continue;
         }
 
-        const uint32_t first_lod = metadata.num_lods - request.desired_level;
-        const int32_t lod_delta =
-            static_cast<int32_t>(request.desired_level) - static_cast<int32_t>(request.resident_level);
+        const uint8_t first_lod = metadata.get_num_lods() - request.desired_level;
+        const int8_t lod_delta =
+            static_cast<int8_t>(request.desired_level) - static_cast<int8_t>(request.resident_level);
 
         MIZU_LOG_INFO(
             "Streaming handle={}, first_lod={}, lod_delta={}, desired_level={}, resident_level={}",
@@ -153,10 +153,10 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             request.resident_level);
 
         // TODO: Lods aren't really implemented yet, for the moment keep simple and load the whole mesh
-        MIZU_ASSERT(metadata.num_lods == 1, "Lods aren't really implemented yet");
+        MIZU_ASSERT(metadata.get_num_lods() == 1, "Lods aren't really implemented yet");
 
         const std::optional<StagingBlock> block =
-            m_staging_pool.allocate(metadata.get_total_size_bytes(), metadata.get_total_alignment_bytes());
+            m_staging_pool.allocate(metadata.get_total_size_bytes(), MESH_FILE_SEGMENT_ALIGNMENT);
         if (!block.has_value())
         {
             MIZU_ASSERT(false, "Failed to allocate from StagingPool");
@@ -165,10 +165,10 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
 
         const std::optional<GpuMeshAllocationHandle> allocation = m_mesh_streaming_pool.allocate(
             handle,
-            metadata.get_vertex_data_size_bytes(),
-            metadata.get_index_data_size_bytes(),
-            metadata.get_vertex_alignment_bytes(),
-            metadata.get_index_alignment_bytes());
+            metadata.get_vertex_data_size_bytes(first_lod),
+            metadata.get_index_data_size_bytes(first_lod),
+            metadata.get_vertex_stride_bytes(),
+            metadata.get_index_stride_bytes());
         if (!allocation.has_value())
         {
             MIZU_UNREACHABLE("Failed to allocate mesh with handle: {}", handle.get_id());
@@ -204,7 +204,7 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
         m_load_scheduler.request_mesh_load(
             handle,
             first_lod,
-            static_cast<uint32_t>(lod_delta),
+            static_cast<uint8_t>(lod_delta),
             block->as_span(),
             [this, metadata, request, allocation, block](MeshAssetHandle handle) {
                 m_gpu_upload_queue.push({
@@ -238,7 +238,7 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
     GpuUploadRecord record{};
     while (num_uploads > 0 && m_gpu_upload_queue.pop(record))
     {
-        MIZU_ASSERT(record.metadata.num_lods == 1, "Multiple lods currently not supported");
+        MIZU_ASSERT(record.metadata.get_num_lods() == 1, "Multiple lods currently not supported");
 
         BufferResource& vertex_buffer = *m_mesh_streaming_pool.get_vertex_buffer();
         BufferResource& index_buffer = *m_mesh_streaming_pool.get_index_buffer();
@@ -249,21 +249,25 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
         const FrameAllocation allocation = frame_allocator.allocate(total_size, alignment, sizeof(uint8_t));
         allocation.upload(record.staging_block.as_span());
 
-        const CopyBufferToBufferInfo vertex_copy_info{
-            .size = record.metadata.get_vertex_data_size_bytes(),
-            .src_offset = allocation.view.desc.offset + record.metadata.vertex_data_offset,
-            .dst_offset = record.allocation.vertex_offset,
-        };
+        const uint8_t first_lod = record.metadata.get_num_lods() - record.request.desired_level;
+        for (uint8_t lod = first_lod; lod < record.metadata.get_num_lods(); ++lod)
+        {
+            const CopyBufferToBufferInfo vertex_copy_info{
+                .size = record.metadata.get_lod_vertex_size_bytes(lod),
+                .src_offset = allocation.view.desc.offset + record.metadata.get_lod_vertex_file_offset(lod),
+                .dst_offset = record.allocation.vertex_offset + record.metadata.get_lod_vertex_offset_bytes(lod),
+            };
 
-        command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), vertex_buffer, vertex_copy_info);
+            command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), vertex_buffer, vertex_copy_info);
 
-        const CopyBufferToBufferInfo index_copy_info{
-            .size = record.metadata.get_index_data_size_bytes(),
-            .src_offset = allocation.view.desc.offset + record.metadata.index_data_offset,
-            .dst_offset = record.allocation.index_offset,
-        };
+            const CopyBufferToBufferInfo index_copy_info{
+                .size = record.metadata.get_lod_index_size_bytes(lod),
+                .src_offset = allocation.view.desc.offset + record.metadata.get_lod_index_file_offset(lod),
+                .dst_offset = record.allocation.index_offset + record.metadata.get_lod_index_offset_bytes(lod),
+            };
 
-        command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), index_buffer, index_copy_info);
+            command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), index_buffer, index_copy_info);
+        }
 
         if (record.staging_block.is_valid())
         {
@@ -426,15 +430,17 @@ void MeshStreamingManager::refresh(MeshAssetHandle handle, const StreamingContex
     }
 }
 
-static uint32_t lod_for_screen_size(const MeshAssetMetadata& metadata, float screen_size)
+static uint8_t lod_for_screen_size(const MeshAssetMetadata& metadata, float screen_size)
 {
-    for (uint32_t lod = 0; lod + 1 < metadata.num_lods; ++lod)
+    const uint8_t num_lods = metadata.get_num_lods();
+
+    for (uint8_t lod = 0; lod + 1 < num_lods; ++lod)
     {
-        if (screen_size >= metadata.lod_screen_sizes[lod])
+        if (screen_size >= metadata.lods[lod].screen_size)
             return lod;
     }
 
-    return metadata.num_lods - 1;
+    return num_lods - 1;
 }
 
 auto MeshStreamingManager::evaluate(
@@ -458,7 +464,8 @@ auto MeshStreamingManager::evaluate(
     }
 
     const bool streamable = entry.is_streamable();
-    const uint8_t max_level = static_cast<uint8_t>(metadata.num_lods);
+    const uint8_t num_lods = metadata.get_num_lods();
+    const uint8_t max_level = num_lods;
 
     // If it's not streamable, and the resident level is 0, it means it's the first load of the asset, and because
     // we don't have to take into account which quality to load, just request the load.
@@ -473,12 +480,12 @@ auto MeshStreamingManager::evaluate(
     if (!streamable)
         return std::nullopt;
 
-    const uint32_t tail_lods = metadata.num_lods - glm::min<uint32_t>(metadata.streamable_lods, metadata.num_lods);
-    const uint32_t min_level = glm::max(1u, tail_lods);
+    const uint8_t tail_lods = num_lods - glm::min(metadata.streamable_lods, num_lods);
+    const uint8_t min_level = glm::max<uint8_t>(1, tail_lods);
 
     // TODO: must be mesh config
-    constexpr uint32_t SKIP_LODS = 0;
-    const uint32_t finest_lod = glm::min(SKIP_LODS, metadata.num_lods - min_level);
+    constexpr uint8_t SKIP_LODS = 0;
+    const uint8_t finest_lod = glm::min<uint8_t>(SKIP_LODS, num_lods - min_level);
 
     const TransformRegistry& transform_registry = transform_registry_get();
 
@@ -510,8 +517,8 @@ auto MeshStreamingManager::evaluate(
 
             const float screen_size = LOD_DETAIL_BIAS * sphere.radius / (depth * std::tan(0.5f * view.camera.fov));
 
-            const uint32_t lod = glm::max(lod_for_screen_size(metadata, screen_size), finest_lod);
-            const uint8_t desired = static_cast<uint8_t>(metadata.num_lods - lod);
+            const uint8_t lod = glm::max(lod_for_screen_size(metadata, screen_size), finest_lod);
+            const uint8_t desired = num_lods - lod;
 
             desired_level = glm::max<uint8_t>(desired_level, desired);
             score = glm::max(score, screen_size);

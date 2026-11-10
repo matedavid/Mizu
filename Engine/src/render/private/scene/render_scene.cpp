@@ -23,14 +23,18 @@ static MeshStreamingManager* get_mesh_streaming_manager(StreamingPlanner& planne
 
 static GpuMeshDrawPayload create_gpu_mesh_draw_payload(const MeshStreamingResidency& residency)
 {
-    // TODO: need to really revisit if we need uint64_t for vertex_count as we do the cast
+    // TODO: Select lod per instance, clamped to the finest resident lod
+    constexpr uint8_t lod = 0;
+
+    const MeshAssetMetadata& metadata = residency.metadata;
+    const uint64_t first_index = residency.allocation_handle.index_offset / metadata.get_index_stride_bytes();
+
     return {
-        .vertex_count = static_cast<uint32_t>(residency.metadata.vertex_count),
-        .index_count = static_cast<uint32_t>(residency.metadata.index_count),
-        .first_vertex = static_cast<uint32_t>(
-            residency.allocation_handle.vertex_offset / residency.metadata.get_vertex_stride_bytes()),
-        .first_index = static_cast<uint32_t>(
-            residency.allocation_handle.index_offset / residency.metadata.get_index_stride_bytes()),
+        .vertex_count = metadata.get_draw_vertex_count(lod),
+        .index_count = metadata.get_draw_index_count(lod),
+        .first_vertex =
+            static_cast<uint32_t>(residency.allocation_handle.vertex_offset / metadata.get_vertex_stride_bytes()),
+        .first_index = static_cast<uint32_t>(first_index + metadata.get_draw_first_index(lod)),
     };
 }
 

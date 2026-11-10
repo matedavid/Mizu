@@ -114,20 +114,18 @@ template <>
 struct MetadataTraits<MeshAssetMetadata>
 {
     static constexpr MetadataType type = MetadataType::Mesh;
-    static constexpr uint32_t version = 3;
+    static constexpr uint32_t version = 4;
 };
 
 template <typename Archive, MetadataOf<MeshAssetMetadata> T>
 void serialize_fields(Archive& ar, T& metadata)
 {
-    ar.field(metadata.vertex_count);
-    ar.field(metadata.index_count);
-    ar.field(metadata.index_format);
-    ar.field(metadata.vertex_data_offset);
-    ar.field(metadata.index_data_offset);
-    ar.field(metadata.num_lods);
+    uint8_t num_lods = metadata.get_num_lods();
+    ar.field(num_lods);
+    ar.array(metadata.lods, num_lods);
     ar.field(metadata.streamable_lods);
-    ar.array(metadata.lod_screen_sizes, metadata.num_lods);
+    ar.field(metadata.index_format);
+    ar.field(metadata.vertex_stride);
     ar.field(metadata.bounding_box.min);
     ar.field(metadata.bounding_box.max);
     ar.field(metadata.texel_factor);
@@ -135,34 +133,30 @@ void serialize_fields(Archive& ar, T& metadata)
 
 bool validate(const MeshAssetMetadata& metadata)
 {
+    const uint8_t num_lods = metadata.get_num_lods();
+
+    if (num_lods == 0)
+    {
+        MIZU_LOG_ERROR("mesh must have at least one lod");
+        return false;
+    }
+
+    if (metadata.streamable_lods >= num_lods)
+    {
+        MIZU_LOG_ERROR("streamable_lods ({}) must be lower than num_lods ({})", metadata.streamable_lods, num_lods);
+        return false;
+    }
+
+    if (metadata.vertex_stride == 0)
+    {
+        MIZU_LOG_ERROR("vertex_stride can't be 0");
+        return false;
+    }
+
     if (!meta::enum_traits<IndexBufferFormat>::contains(metadata.index_format))
     {
         MIZU_LOG_ERROR("invalid IndexBufferFormat ({})", static_cast<uint32_t>(metadata.index_format));
         return false;
-    }
-
-    if (metadata.num_lods == 0 || metadata.num_lods > MAX_NUM_MESH_LODS)
-    {
-        MIZU_LOG_ERROR("num_lods ({}) must be in [1, {}]", metadata.num_lods, MAX_NUM_MESH_LODS);
-        return false;
-    }
-
-    if (metadata.streamable_lods >= metadata.num_lods)
-    {
-        MIZU_LOG_ERROR(
-            "streamable_lods ({}) must be lower than num_lods ({})", metadata.streamable_lods, metadata.num_lods);
-        return false;
-    }
-
-    if (metadata.vertex_count == 0)
-    {
-        MIZU_LOG_ERROR("vertex_count can't be 0");
-        return false;
-    }
-
-    if (metadata.index_count == 0)
-    {
-        MIZU_LOG_ERROR("index_count can't be 0");
     }
 
     return true;
