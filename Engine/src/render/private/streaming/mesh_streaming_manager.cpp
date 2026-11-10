@@ -152,8 +152,9 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             request.desired_level,
             request.resident_level);
 
-        // TODO: Lods aren't really implemented yet, for the moment keep simple and load the whole mesh
-        MIZU_ASSERT(metadata.get_num_lods() == 1, "Lods aren't really implemented yet");
+        // TODO: Load only the requested lod range, for the moment the whole mesh is always loaded
+        MIZU_ASSERT(
+            first_lod == 0 && request.resident_level == 0, "Only full mesh loads are currently supported");
 
         const std::optional<StagingBlock> block =
             m_staging_pool.allocate(metadata.get_total_size_bytes(), MESH_FILE_SEGMENT_ALIGNMENT);
@@ -238,8 +239,6 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
     GpuUploadRecord record{};
     while (num_uploads > 0 && m_gpu_upload_queue.pop(record))
     {
-        MIZU_ASSERT(record.metadata.get_num_lods() == 1, "Multiple lods currently not supported");
-
         BufferResource& vertex_buffer = *m_mesh_streaming_pool.get_vertex_buffer();
         BufferResource& index_buffer = *m_mesh_streaming_pool.get_index_buffer();
 
