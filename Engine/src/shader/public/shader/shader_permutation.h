@@ -179,7 +179,7 @@ class PermutationList
         }
         else
         {
-            const auto& permutation = std::get<Index>(std::tuple<Args...>{});
+            const std::tuple_element_t<Index, std::tuple<Args...>> permutation{};
             const uint32_t count = permutation.get_count();
 
             for (uint32_t i = 0; i < count; ++i)
