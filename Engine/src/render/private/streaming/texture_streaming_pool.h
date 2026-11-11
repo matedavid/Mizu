@@ -10,8 +10,9 @@
 #include "asset/asset_handle.h"
 #include "render_core/allocators/gpu_page_allocator.h"
 #include "render_core/rhi/image_resource.h"
-#include "render_core/rhi/queue.h"
 #include "render_core/rhi/resource_view.h"
+
+#include "streaming/streaming_pool.h"
 
 namespace Mizu
 {
@@ -20,12 +21,6 @@ class CommandBuffer;
 class FrameLinearAllocator;
 class SparseBindScheduler;
 struct TextureAssetMetadata;
-
-enum class ResourceBacking
-{
-    Placed,
-    Sparse,
-};
 
 struct TextureStreamingPoolDescription
 {
@@ -118,20 +113,6 @@ class TextureStreamingPool
         TextureEntry& entry,
         const TextureAssetMetadata& metadata,
         uint32_t first_mip);
-
-    void record_placed_gpu_upload(
-        TextureEntry& entry,
-        const TextureAssetMetadata& metadata,
-        const TextureUploadData& upload,
-        CommandBuffer& command,
-        FrameLinearAllocator& frame_allocator);
-    void record_sparse_gpu_upload(
-        TextureAssetHandle handle,
-        TextureEntry& entry,
-        const TextureAssetMetadata& metadata,
-        const TextureUploadData& upload,
-        CommandBuffer& command,
-        FrameLinearAllocator& frame_allocator);
 
     std::vector<GpuPage>& get_sparse_pages(TextureEntry& entry, uint32_t mip);
     uint32_t count_sparse_pages(const TextureEntry& entry, uint32_t mip) const;

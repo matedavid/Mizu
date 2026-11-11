@@ -165,8 +165,6 @@ bool AssetLoadScheduler::load_asset(const MeshAssetHandle& handle, const LoadJob
 {
     MIZU_PROFILE_SCOPED;
 
-    // TODO: Lods aren't really implemented yet, ignore first_lod and lod_count and just load the whole mesh
-
     const std::optional<MeshAssetRecord> record = m_asset_loader.get_mesh_record(handle);
     if (!record.has_value())
     {
@@ -174,8 +172,11 @@ bool AssetLoadScheduler::load_asset(const MeshAssetHandle& handle, const LoadJob
         return false;
     }
 
-    // TODO: Change to load_mesh_payload_lods when it's implemented
-    if (!m_asset_loader.load_mesh_payload(handle, job_record.destination))
+    if (!m_asset_loader.load_mesh_payload_lods(
+            handle,
+            static_cast<uint8_t>(job_record.level_base),
+            static_cast<uint8_t>(job_record.level_count),
+            job_record.destination))
     {
         MIZU_LOG_ERROR("Failed to load mesh payload for handle: {}", handle.get_id());
         return false;

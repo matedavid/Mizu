@@ -21,6 +21,11 @@ class MIZU_ASSET_API CookedAssetLoader : public IAssetLoader
         override;
 
     bool load_mesh_payload(const MeshAssetHandle& handle, std::span<uint8_t> destination) override;
+    bool load_mesh_payload_lods(
+        const MeshAssetHandle& handle,
+        uint8_t first_lod,
+        uint8_t lod_count,
+        std::span<uint8_t> destination) override;
     bool load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination) override;
     bool load_texture_payload_mips(
         const TextureAssetHandle& handle,

@@ -1,7 +1,9 @@
 #pragma once
 
 #include <array>
+#include <unordered_map>
 
+#include "base/containers/inplace_vector.h"
 #include "base/math/shapes.h"
 
 #include "render/resources/gpu_resource_types.h"

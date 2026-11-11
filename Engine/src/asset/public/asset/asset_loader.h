@@ -56,6 +56,11 @@ class IAssetLoader
         ShaderBytecodeTarget target) = 0;
 
     virtual bool load_mesh_payload(const MeshAssetHandle& handle, std::span<uint8_t> destination) = 0;
+    virtual bool load_mesh_payload_lods(
+        const MeshAssetHandle& handle,
+        uint8_t first_lod,
+        uint8_t lod_count,
+        std::span<uint8_t> destination) = 0;
     virtual bool load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination) = 0;
     virtual bool load_texture_payload_mips(
         const TextureAssetHandle& handle,

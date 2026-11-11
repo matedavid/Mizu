@@ -6,14 +6,10 @@
 #include <ranges>
 #include <string>
 
-#include "asset/asset.h"
 #include "asset/asset_metadata.h"
-#include "asset/asset_registry.h"
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/math/math.h"
-#include "base/reflection/enum_traits.h"
-#include "core/game_context.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/device.h"
 #include "render_core/rhi/image_resource.h"
@@ -173,24 +169,6 @@ bool TextureStreamingPool::update_residency_state(
     TextureEntry* entry = get_entry(handle);
     MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
 
-    /*
-     * Things to do:
-     * - if mip_delta > 0
-     *      - if sparse
-     *          allocate necessary pages for new mips
-     *          schedule sparse bind operations
-     *      - if placed
-     *          create new image with new mips
-     *          old texture will be used to copy the contents to new image
-     * - if mip_delta < 0
-     *      - if sparse
-     *          get pages to unbind and add them to the delayed release list
-     *          this delayed should free the pages, and schedule the unbind operations
-     *      - if placed
-     *          create new image with new mips
-     *          old texture not really needed
-     */
-
     switch (entry->backing)
     {
     case ResourceBacking::Placed:
@@ -201,6 +179,189 @@ bool TextureStreamingPool::update_residency_state(
 
     MIZU_UNREACHABLE("Invalid resource backing");
     return false;
+}
+
+struct MipUploadLayout
+{
+    glm::uvec2 dims;
+    uint32_t row_pitch;
+    uint64_t src_offset;
+    uint64_t dst_offset;
+};
+
+static std::vector<MipUploadLayout> compute_mips_upload_layout(
+    const TextureAssetMetadata& metadata,
+    uint32_t first_mip,
+    uint32_t mip_count,
+    uint64_t row_pitch_alignment,
+    uint64_t placement_alignment,
+    uint64_t& out_total_size)
+{
+    const uint32_t format_size = get_image_format_size(metadata.format);
+    const uint64_t src_base = metadata.get_mip_offset(first_mip);
+
+    std::vector<MipUploadLayout> layouts;
+    layouts.reserve(mip_count);
+
+    uint64_t total = 0;
+    for (uint32_t i = 0; i < mip_count; ++i)
+    {
+        const uint32_t mip = first_mip + i;
+        const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
+
+        const uint32_t row_pitch = static_cast<uint32_t>(
+            math::align_up_pow2(static_cast<uint64_t>(dims.x) * format_size, row_pitch_alignment));
+        const uint64_t dst_offset = math::align_up_pow2(total, placement_alignment);
+
+        layouts.push_back({dims, row_pitch, metadata.get_mip_offset(mip) - src_base, dst_offset});
+        total = dst_offset + static_cast<uint64_t>(row_pitch) * dims.y * metadata.depth;
+    }
+
+    out_total_size = total;
+
+    return layouts;
+}
+
+static void record_staged_mips_upload(
+    ImageResource& texture,
+    const TextureAssetMetadata& metadata,
+    const TextureUploadData& upload,
+    uint32_t texture_first_mip,
+    CommandBuffer& command,
+    FrameLinearAllocator& frame_allocator)
+{
+    if (upload.new_first_mip >= upload.old_first_mip)
+        return;
+
+    MIZU_ASSERT(!upload.data.empty(), "Upgrade without staged data");
+
+    const DeviceProperties& properties = g_render_device->get_properties();
+    const uint64_t row_pitch_alignment = properties.min_texture_row_pitch_alignment;
+    const uint64_t placement_alignment = properties.min_texture_data_placement_alignment;
+
+    const uint32_t streamed_count = upload.old_first_mip - upload.new_first_mip;
+
+    uint64_t frame_alloc_size = 0;
+    const std::vector<MipUploadLayout> layouts = compute_mips_upload_layout(
+        metadata, upload.new_first_mip, streamed_count, row_pitch_alignment, placement_alignment, frame_alloc_size);
+
+    const FrameAllocation allocation = frame_allocator.allocate(frame_alloc_size, placement_alignment, sizeof(uint8_t));
+
+    uint8_t* mapped = allocation.get_mapped_data();
+    const uint8_t* src = upload.data.data();
+    const uint32_t format_size = get_image_format_size(metadata.format);
+
+    for (uint32_t i = 0; i < streamed_count; ++i)
+    {
+        const MipUploadLayout& layout = layouts[i];
+
+        const uint64_t src_row_bytes = static_cast<uint64_t>(layout.dims.x) * format_size;
+        const uint64_t rows = static_cast<uint64_t>(layout.dims.y) * metadata.depth;
+
+        if (layout.row_pitch == src_row_bytes)
+        {
+            memcpy(mapped + layout.dst_offset, src + layout.src_offset, src_row_bytes * rows);
+        }
+        else
+        {
+            for (uint64_t row = 0; row < rows; ++row)
+            {
+                memcpy(
+                    mapped + layout.dst_offset + row * layout.row_pitch,
+                    src + layout.src_offset + row * src_row_bytes,
+                    src_row_bytes);
+            }
+        }
+
+        const CopyBufferToImageInfo info{
+            .buffer_offset = allocation.view.desc.offset + layout.dst_offset,
+            .buffer_row_length = layout.row_pitch / format_size,
+            .image_subresource_layers =
+                {
+                    .mip_level = upload.new_first_mip + i - texture_first_mip,
+                    .base_array_layer = 0,
+                    .layer_count = 1,
+                },
+            .image_offset = {0, 0, 0},
+            .image_extent = {layout.dims.x, layout.dims.y, metadata.depth},
+        };
+
+        command.copy_buffer_to_image(*frame_allocator.get_buffer(), texture, info);
+    }
+}
+
+static void record_placed_gpu_upload(
+    ImageResource& new_texture,
+    ImageResource* old_texture,
+    const TextureAssetMetadata& metadata,
+    const TextureUploadData& upload,
+    CommandBuffer& command,
+    FrameLinearAllocator& frame_allocator)
+{
+    const uint32_t num_mips = metadata.num_mips;
+
+    command.transition_resource(new_texture, ImageResourceState::Undefined, ImageResourceState::TransferDst);
+
+    if (old_texture != nullptr)
+    {
+        command.transition_resource(*old_texture, ImageResourceState::ShaderReadOnly, ImageResourceState::TransferSrc);
+
+        const uint32_t shared_first_mip = std::max(upload.old_first_mip, upload.new_first_mip);
+        for (uint32_t mip = shared_first_mip; mip < num_mips; ++mip)
+        {
+            const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
+
+            const CopyImageToImageInfo info{
+                .source_offset = {0, 0, 0},
+                .source_subresource_layers =
+                    {
+                        .mip_level = mip - upload.old_first_mip,
+                        .base_array_layer = 0,
+                        .layer_count = 1,
+                    },
+                .dest_offset = {0, 0, 0},
+                .dest_subresource_layers =
+                    {
+                        .mip_level = mip - upload.new_first_mip,
+                        .base_array_layer = 0,
+                        .layer_count = 1,
+                    },
+                .extent = {dims.x, dims.y, metadata.depth},
+            };
+
+            command.copy_image_to_image(*old_texture, new_texture, info);
+        }
+    }
+
+    record_staged_mips_upload(new_texture, metadata, upload, upload.new_first_mip, command, frame_allocator);
+
+    command.transition_resource(new_texture, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
+
+    if (old_texture != nullptr)
+    {
+        command.transition_resource(*old_texture, ImageResourceState::TransferSrc, ImageResourceState::ShaderReadOnly);
+    }
+}
+
+static void record_sparse_gpu_upload(
+    ImageResource& texture,
+    const TextureAssetMetadata& metadata,
+    const TextureUploadData& upload,
+    CommandBuffer& command,
+    FrameLinearAllocator& frame_allocator)
+{
+    if (upload.new_first_mip >= upload.old_first_mip)
+        return;
+
+    const ImageResourceViewDescription upload_range{
+        .mip_base = upload.new_first_mip,
+        .mip_count = upload.old_first_mip - upload.new_first_mip,
+    };
+
+    command.transition_resource(texture, ImageResourceState::Undefined, ImageResourceState::TransferDst, upload_range);
+    record_staged_mips_upload(texture, metadata, upload, 0, command, frame_allocator);
+    command.transition_resource(
+        texture, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly, upload_range);
 }
 
 void TextureStreamingPool::record_gpu_upload(
@@ -216,10 +377,23 @@ void TextureStreamingPool::record_gpu_upload(
     switch (entry->backing)
     {
     case ResourceBacking::Placed:
-        record_placed_gpu_upload(*entry, metadata, upload, command, frame_allocator);
+        MIZU_ASSERT(entry->texture != nullptr, "Recording upload of placed texture without a texture");
+
+        record_placed_gpu_upload(
+            *entry->texture, entry->old_texture.get(), metadata, upload, command, frame_allocator);
+
+        release_delayed(std::move(entry->old_texture));
+        entry->old_texture = nullptr;
         break;
     case ResourceBacking::Sparse:
-        record_sparse_gpu_upload(handle, *entry, metadata, upload, command, frame_allocator);
+        MIZU_ASSERT(entry->texture != nullptr, "Sparse resources should have the texture created on register");
+
+        for (uint32_t mip = upload.old_first_mip; mip < upload.new_first_mip; ++mip)
+        {
+            release_sparse_pages(handle, *entry, mip);
+        }
+
+        record_sparse_gpu_upload(*entry->texture, metadata, upload, command, frame_allocator);
         break;
     }
 }
@@ -360,211 +534,6 @@ bool TextureStreamingPool::update_sparse_residency_state(
 
     entry.resident_mips = num_mips - first_mip;
     return true;
-}
-
-struct MipUploadLayout
-{
-    glm::uvec2 dims;
-    uint32_t row_pitch;
-    uint64_t src_offset;
-    uint64_t dst_offset;
-};
-
-static std::vector<MipUploadLayout> compute_mips_upload_layout(
-    const TextureAssetMetadata& metadata,
-    uint32_t first_mip,
-    uint32_t mip_count,
-    uint64_t row_pitch_alignment,
-    uint64_t placement_alignment,
-    uint64_t& out_total_size)
-{
-    const uint32_t format_size = get_image_format_size(metadata.format);
-    const uint64_t src_base = metadata.get_mip_offset(first_mip);
-
-    std::vector<MipUploadLayout> layouts;
-    layouts.reserve(mip_count);
-
-    uint64_t total = 0;
-    for (uint32_t i = 0; i < mip_count; ++i)
-    {
-        const uint32_t mip = first_mip + i;
-        const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
-
-        const uint32_t row_pitch = static_cast<uint32_t>(
-            math::align_up_pow2(static_cast<uint64_t>(dims.x) * format_size, row_pitch_alignment));
-        const uint64_t dst_offset = math::align_up_pow2(total, placement_alignment);
-
-        layouts.push_back({dims, row_pitch, metadata.get_mip_offset(mip) - src_base, dst_offset});
-        total = dst_offset + static_cast<uint64_t>(row_pitch) * dims.y * metadata.depth;
-    }
-
-    out_total_size = total;
-
-    return layouts;
-}
-
-static void record_staged_mips_upload(
-    ImageResource& texture,
-    const TextureAssetMetadata& metadata,
-    const TextureUploadData& upload,
-    uint32_t texture_first_mip,
-    CommandBuffer& command,
-    FrameLinearAllocator& frame_allocator)
-{
-    if (upload.new_first_mip >= upload.old_first_mip)
-        return;
-
-    MIZU_ASSERT(!upload.data.empty(), "Upgrade without staged data");
-
-    const DeviceProperties& properties = g_render_device->get_properties();
-    const uint64_t row_pitch_alignment = properties.min_texture_row_pitch_alignment;
-    const uint64_t placement_alignment = properties.min_texture_data_placement_alignment;
-
-    const uint32_t streamed_count = upload.old_first_mip - upload.new_first_mip;
-
-    uint64_t frame_alloc_size = 0;
-    const std::vector<MipUploadLayout> layouts = compute_mips_upload_layout(
-        metadata, upload.new_first_mip, streamed_count, row_pitch_alignment, placement_alignment, frame_alloc_size);
-
-    const FrameAllocation allocation = frame_allocator.allocate(frame_alloc_size, placement_alignment, sizeof(uint8_t));
-
-    uint8_t* mapped = allocation.get_mapped_data();
-    const uint8_t* src = upload.data.data();
-    const uint32_t format_size = get_image_format_size(metadata.format);
-
-    for (uint32_t i = 0; i < streamed_count; ++i)
-    {
-        const MipUploadLayout& layout = layouts[i];
-
-        const uint64_t src_row_bytes = static_cast<uint64_t>(layout.dims.x) * format_size;
-        const uint64_t rows = static_cast<uint64_t>(layout.dims.y) * metadata.depth;
-
-        if (layout.row_pitch == src_row_bytes)
-        {
-            memcpy(mapped + layout.dst_offset, src + layout.src_offset, src_row_bytes * rows);
-        }
-        else
-        {
-            for (uint64_t row = 0; row < rows; ++row)
-            {
-                memcpy(
-                    mapped + layout.dst_offset + row * layout.row_pitch,
-                    src + layout.src_offset + row * src_row_bytes,
-                    src_row_bytes);
-            }
-        }
-
-        const CopyBufferToImageInfo info{
-            .buffer_offset = allocation.view.desc.offset + layout.dst_offset,
-            .buffer_row_length = layout.row_pitch / format_size,
-            .image_subresource_layers =
-                {
-                    .mip_level = upload.new_first_mip + i - texture_first_mip,
-                    .base_array_layer = 0,
-                    .layer_count = 1,
-                },
-            .image_offset = {0, 0, 0},
-            .image_extent = {layout.dims.x, layout.dims.y, metadata.depth},
-        };
-
-        command.copy_buffer_to_image(*frame_allocator.get_buffer(), texture, info);
-    }
-}
-
-void TextureStreamingPool::record_placed_gpu_upload(
-    TextureEntry& entry,
-    const TextureAssetMetadata& metadata,
-    const TextureUploadData& upload,
-    CommandBuffer& command,
-    FrameLinearAllocator& frame_allocator)
-{
-    MIZU_ASSERT(entry.texture != nullptr, "Recording upload of placed texture without a texture");
-
-    const uint32_t num_mips = metadata.num_mips;
-
-    ImageResource* new_texture = entry.texture.get();
-    ImageResource* old_texture = entry.old_texture.get();
-
-    command.transition_resource(*new_texture, ImageResourceState::Undefined, ImageResourceState::TransferDst);
-
-    if (old_texture != nullptr)
-    {
-        command.transition_resource(*old_texture, ImageResourceState::ShaderReadOnly, ImageResourceState::TransferSrc);
-
-        const uint32_t shared_first_mip = std::max(upload.old_first_mip, upload.new_first_mip);
-        for (uint32_t mip = shared_first_mip; mip < num_mips; ++mip)
-        {
-            const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
-
-            const CopyImageToImageInfo info{
-                .source_offset = {0, 0, 0},
-                .source_subresource_layers =
-                    {
-                        .mip_level = mip - upload.old_first_mip,
-                        .base_array_layer = 0,
-                        .layer_count = 1,
-                    },
-                .dest_offset = {0, 0, 0},
-                .dest_subresource_layers =
-                    {
-                        .mip_level = mip - upload.new_first_mip,
-                        .base_array_layer = 0,
-                        .layer_count = 1,
-                    },
-                .extent = {dims.x, dims.y, metadata.depth},
-            };
-
-            command.copy_image_to_image(*old_texture, *new_texture, info);
-        }
-    }
-
-    record_staged_mips_upload(*new_texture, metadata, upload, upload.new_first_mip, command, frame_allocator);
-
-    command.transition_resource(*new_texture, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly);
-
-    if (old_texture != nullptr)
-    {
-        command.transition_resource(*old_texture, ImageResourceState::TransferSrc, ImageResourceState::ShaderReadOnly);
-    }
-
-    release_delayed(std::move(entry.old_texture));
-    entry.old_texture = nullptr;
-}
-
-void TextureStreamingPool::record_sparse_gpu_upload(
-    TextureAssetHandle handle,
-    TextureEntry& entry,
-    const TextureAssetMetadata& metadata,
-    const TextureUploadData& upload,
-    CommandBuffer& command,
-    FrameLinearAllocator& frame_allocator)
-{
-    MIZU_ASSERT(entry.texture != nullptr, "Sparse resources should have the texture created on register");
-
-    if (upload.new_first_mip > upload.old_first_mip)
-    {
-        for (uint32_t mip = upload.old_first_mip; mip < upload.new_first_mip; ++mip)
-        {
-            release_sparse_pages(handle, entry, mip);
-        }
-
-        return;
-    }
-
-    if (upload.new_first_mip == upload.old_first_mip)
-        return;
-
-    ImageResource& texture = *entry.texture;
-
-    const ImageResourceViewDescription upload_range{
-        .mip_base = upload.new_first_mip,
-        .mip_count = upload.old_first_mip - upload.new_first_mip,
-    };
-
-    command.transition_resource(texture, ImageResourceState::Undefined, ImageResourceState::TransferDst, upload_range);
-    record_staged_mips_upload(texture, metadata, upload, 0, command, frame_allocator);
-    command.transition_resource(
-        texture, ImageResourceState::TransferDst, ImageResourceState::ShaderReadOnly, upload_range);
 }
 
 static bool are_pages_contiguous(const GpuPage& first, const GpuPage& second, uint64_t page_size)
@@ -836,7 +805,9 @@ ImageDescription TextureStreamingPool::create_image_description(
     return desc;
 }
 
-ResourceBacking TextureStreamingPool::select_resource_backing(TextureAssetHandle handle, const TextureAssetMetadata& metadata)
+ResourceBacking TextureStreamingPool::select_resource_backing(
+    TextureAssetHandle handle,
+    const TextureAssetMetadata& metadata)
 {
     if (!s_sparse_resources_supported)
     {

@@ -205,6 +205,66 @@ bool CookedAssetLoader::load_mesh_payload(const MeshAssetHandle& handle, std::sp
         handle, m_registry, destination);
 }
 
+bool CookedAssetLoader::load_mesh_payload_lods(
+    const MeshAssetHandle& handle,
+    uint8_t first_lod,
+    uint8_t lod_count,
+    std::span<uint8_t> destination)
+{
+    const std::optional<AssetLocation> location = m_registry.resolve(handle);
+    if (!location.has_value())
+    {
+        MIZU_ASSERT(false, "Failed to resolve asset handle: {}", handle.get_id());
+        return false;
+    }
+
+    std::ifstream file(location->path, std::ios::binary);
+    if (!file.is_open())
+    {
+        MIZU_LOG_ERROR("Failed to open file: {}", location->path.string());
+        return false;
+    }
+
+    const std::optional<MeshAssetMetadata> metadata =
+        read_metadata_from_stream<MeshAssetMetadata, mesh_deserialize_metadata>(file, *location);
+    if (!metadata.has_value())
+        return false;
+
+    const uint8_t num_lods = metadata->get_num_lods();
+    if (lod_count == 0 || first_lod + lod_count > num_lods)
+    {
+        MIZU_LOG_ERROR(
+            "Invalid first lod or lod count first_lod={}, lod_count={}, num_lods={}", first_lod, lod_count, num_lods);
+        return false;
+    }
+
+    const uint64_t offset = metadata->get_lod_range_file_offset(first_lod, lod_count);
+
+    const uint64_t total_size = metadata->get_lod_range_file_size_bytes(first_lod, lod_count);
+    if (total_size == 0)
+        return true;
+
+    if (destination.size() < total_size)
+    {
+        MIZU_LOG_ERROR(
+            "Destination span too small for payload of file: {} ({} < {})",
+            location->path.string(),
+            destination.size(),
+            total_size);
+        return false;
+    }
+
+    file.ignore(static_cast<std::streamsize>(offset));
+
+    if (!file.read(reinterpret_cast<char*>(destination.data()), static_cast<std::streamsize>(total_size)))
+    {
+        MIZU_LOG_ERROR("Failed to load payload for file: {}", location->path.string());
+        return false;
+    }
+
+    return true;
+}
+
 bool CookedAssetLoader::load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination)
 {
     return load_payload_internal<TextureAssetMetadata, TextureAssetHandle, texture_deserialize_metadata>(

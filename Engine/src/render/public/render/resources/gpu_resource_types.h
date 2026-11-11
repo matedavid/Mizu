@@ -4,7 +4,6 @@
 #include <glm/glm.hpp>
 
 #include "asset/asset_handle.h"
-#include "asset/asset_loader.h"
 
 namespace Mizu
 {
@@ -20,29 +19,12 @@ struct GpuMeshAllocationHandle
     uint64_t index_size = 0;
 };
 
-struct GpuMeshResidentRecord
-{
-    GpuMeshAllocationHandle allocation{};
-    MeshAssetMetadata metadata{};
-};
-
 struct GpuMeshDrawPayload
 {
     uint32_t vertex_count = 0;
     uint32_t index_count = 0;
     uint32_t first_vertex = 0;
     uint32_t first_index = 0;
-};
-
-struct GpuTextureAllocationHandle
-{
-    TextureAssetHandle handle{};
-};
-
-struct GpuTextureResidentRecord
-{
-    GpuTextureAllocationHandle allocation{};
-    TextureAssetMetadata metadata{};
 };
 
 struct TransformInfo

@@ -13,7 +13,6 @@
 #include "registries/render_view_registry.h"
 #include "registries/transform_registry.h"
 #include "render/render_graph/render_graph_builder.h"
-#include "render/runtime/renderer.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
 #include "streaming/mesh_streaming_pool.h"
@@ -22,7 +21,6 @@ namespace Mizu
 {
 
 static constexpr uint32_t MESH_FRAMES_TO_UPDATE = 3u;
-static constexpr uint32_t MESH_EVICTION_FRAMES = 3u;
 
 MeshStreamingManager::MeshStreamingManager(
     IAssetLoader& asset_loader,
@@ -41,7 +39,6 @@ void MeshStreamingManager::update(const StreamingContext& context)
     MIZU_PROFILE_SCOPED;
 
     m_mesh_updates.clear();
-    track_evictions();
 
     if (m_update_cursor >= MESH_FRAMES_TO_UPDATE)
     {
@@ -115,18 +112,16 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
 
         if (request.desired_level == 0)
         {
-            // Eviction case, remove the texture
-
             if (!m_residency.transition_status(handle, ResidencyStatus::GpuResident, ResidencyStatus::Unloaded))
             {
                 MIZU_UNREACHABLE("Failed to transition resource when evicting");
                 continue;
             }
 
-            m_pending_evictions.push_back({
-                .allocation_handle = payload->residency.allocation_handle,
-                .frames = MESH_EVICTION_FRAMES,
-            });
+            payload->resident_level = 0;
+            payload->residency = {};
+
+            m_mesh_streaming_pool.update_residency_state(handle, metadata, metadata.get_num_lods());
 
             m_mesh_updates.push_back({
                 .handle = handle,
@@ -134,15 +129,17 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
                 .resident = false,
             });
 
-            payload->resident_level = 0;
-            payload->residency = {};
+            if (m_residency.get_references(handle) == 0)
+            {
+                unregister_mesh(handle);
+            }
 
             continue;
         }
 
         const uint8_t first_lod = metadata.get_num_lods() - request.desired_level;
-        const int8_t lod_delta =
-            static_cast<int8_t>(request.desired_level) - static_cast<int8_t>(request.resident_level);
+        const int32_t lod_delta =
+            static_cast<int32_t>(request.desired_level) - static_cast<int32_t>(request.resident_level);
 
         MIZU_LOG_INFO(
             "Streaming handle={}, first_lod={}, lod_delta={}, desired_level={}, resident_level={}",
@@ -152,68 +149,63 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             request.desired_level,
             request.resident_level);
 
-        // TODO: Load only the requested lod range, for the moment the whole mesh is always loaded
-        MIZU_ASSERT(
-            first_lod == 0 && request.resident_level == 0, "Only full mesh loads are currently supported");
+        StagingBlock block;
 
-        const std::optional<StagingBlock> block =
-            m_staging_pool.allocate(metadata.get_total_size_bytes(), MESH_FILE_SEGMENT_ALIGNMENT);
-        if (!block.has_value())
+        if (lod_delta > 0)
         {
-            MIZU_ASSERT(false, "Failed to allocate from StagingPool");
-            continue;
+            const uint64_t size = metadata.get_lod_range_file_size_bytes(first_lod, static_cast<uint8_t>(lod_delta));
+
+            const std::optional<StagingBlock> block_opt = m_staging_pool.allocate(size, MESH_FILE_SEGMENT_ALIGNMENT);
+            if (!block_opt.has_value())
+            {
+                MIZU_ASSERT(false, "Failed to allocate from StagingPool");
+                continue;
+            }
+
+            block = block_opt.value();
         }
 
-        const std::optional<GpuMeshAllocationHandle> allocation = m_mesh_streaming_pool.allocate(
-            handle,
-            metadata.get_vertex_data_size_bytes(first_lod),
-            metadata.get_index_data_size_bytes(first_lod),
-            metadata.get_vertex_stride_bytes(),
-            metadata.get_index_stride_bytes());
-        if (!allocation.has_value())
+        if (!m_mesh_streaming_pool.update_residency_state(handle, metadata, first_lod))
         {
-            MIZU_UNREACHABLE("Failed to allocate mesh with handle: {}", handle.get_id());
+            if (block.is_valid())
+            {
+                m_staging_pool.free(block);
+            }
+
             continue;
         }
-
-        payload->residency = MeshStreamingResidency{
-            .allocation_handle = *allocation,
-            .metadata = metadata,
-        };
 
         const ResidencyStatus expected_status =
             payload->resident_level == 0 ? ResidencyStatus::Unloaded : ResidencyStatus::GpuResident;
         if (!m_residency.transition_status(handle, expected_status, ResidencyStatus::Loading))
         {
-            MIZU_UNREACHABLE("Failed to transition texture when requesting a load");
+            MIZU_UNREACHABLE("Failed to transition mesh when requesting a load");
             continue;
         }
 
-        /* TODO: Implement when we actually have lods :)
         if (lod_delta < 0)
         {
-            // Streaming out case
-
             m_gpu_upload_queue.push({
-                // ...
+                .handle = handle,
+                .metadata = metadata,
+                .request = request,
+                .staging_block = block,
             });
 
             continue;
         }
-        */
 
         m_load_scheduler.request_mesh_load(
             handle,
             first_lod,
             static_cast<uint8_t>(lod_delta),
-            block->as_span(),
-            [this, metadata, request, allocation, block](MeshAssetHandle handle) {
+            block.as_span(),
+            [this, metadata, request, block](MeshAssetHandle handle) {
                 m_gpu_upload_queue.push({
                     .handle = handle,
                     .metadata = metadata,
                     .request = request,
-                    .allocation = *allocation,
-                    .staging_block = *block,
+                    .staging_block = block,
                 });
             });
     }
@@ -239,42 +231,37 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
     GpuUploadRecord record{};
     while (num_uploads > 0 && m_gpu_upload_queue.pop(record))
     {
-        BufferResource& vertex_buffer = *m_mesh_streaming_pool.get_vertex_buffer();
-        BufferResource& index_buffer = *m_mesh_streaming_pool.get_index_buffer();
+        num_uploads -= 1;
 
-        const uint64_t total_size = record.metadata.get_total_size_bytes();
-        const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
+        command.begin_gpu_marker("MeshStreamingManager::MeshUpload");
 
-        const FrameAllocation allocation = frame_allocator.allocate(total_size, alignment, sizeof(uint8_t));
-        allocation.upload(record.staging_block.as_span());
+        const uint8_t num_lods = record.metadata.get_num_lods();
 
-        const uint8_t first_lod = record.metadata.get_num_lods() - record.request.desired_level;
-        for (uint8_t lod = first_lod; lod < record.metadata.get_num_lods(); ++lod)
-        {
-            const CopyBufferToBufferInfo vertex_copy_info{
-                .size = record.metadata.get_lod_vertex_size_bytes(lod),
-                .src_offset = allocation.view.desc.offset + record.metadata.get_lod_vertex_file_offset(lod),
-                .dst_offset = record.allocation.vertex_offset + record.metadata.get_lod_vertex_offset_bytes(lod),
-            };
+        const MeshUploadData upload{
+            .old_first_lod = static_cast<uint8_t>(num_lods - record.request.resident_level),
+            .new_first_lod = static_cast<uint8_t>(num_lods - record.request.desired_level),
+            .data = record.staging_block.is_valid() ? std::span<const uint8_t>(record.staging_block.as_span())
+                                                    : std::span<const uint8_t>{},
+        };
 
-            command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), vertex_buffer, vertex_copy_info);
-
-            const CopyBufferToBufferInfo index_copy_info{
-                .size = record.metadata.get_lod_index_size_bytes(lod),
-                .src_offset = allocation.view.desc.offset + record.metadata.get_lod_index_file_offset(lod),
-                .dst_offset = record.allocation.index_offset + record.metadata.get_lod_index_offset_bytes(lod),
-            };
-
-            command.copy_buffer_to_buffer(*frame_allocator.get_buffer(), index_buffer, index_copy_info);
-        }
+        m_mesh_streaming_pool.record_gpu_upload(record.handle, record.metadata, upload, command, frame_allocator);
 
         if (record.staging_block.is_valid())
         {
             m_staging_pool.free(record.staging_block);
         }
 
+        const std::optional<GpuMeshAllocationHandle> allocation = m_mesh_streaming_pool.get_allocation(record.handle);
+        MIZU_ASSERT(allocation.has_value(), "Failed to get allocation for mesh {}", record.handle.get_id());
+
+        const MeshStreamingResidency residency{
+            .allocation_handle = *allocation,
+            .metadata = record.metadata,
+        };
+
         MeshResidencyPayload* payload = m_residency.get_payload(record.handle);
         payload->resident_level = record.request.desired_level;
+        payload->residency = residency;
 
         if (!m_residency.transition_status(record.handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
         {
@@ -283,13 +270,11 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
 
         m_mesh_updates.push_back({
             .handle = record.handle,
-            .residency =
-                MeshStreamingResidency{
-                    .allocation_handle = record.allocation,
-                    .metadata = record.metadata,
-                },
+            .residency = residency,
             .resident = true,
         });
+
+        command.end_gpu_marker();
     }
 }
 
@@ -402,7 +387,13 @@ void MeshStreamingManager::refresh(MeshAssetHandle handle, const StreamingContex
 
     const uint32_t references = m_residency.get_references(handle);
     const MeshResidencyPayload* payload = m_residency.get_payload(handle);
-    MIZU_ASSERT(payload != nullptr, "Failed to get payload for texture handle: {}", handle.get_id());
+    MIZU_ASSERT(payload != nullptr, "Failed to get payload for mesh handle: {}", handle.get_id());
+
+    if (references == 0 && payload->resident_level == 0)
+    {
+        unregister_mesh(handle);
+        return;
+    }
 
     const MeshEntry* entry = find_entry(handle);
     if (entry == nullptr)
@@ -532,24 +523,6 @@ auto MeshStreamingManager::evaluate(
         .score = score,
     };
 }
-void MeshStreamingManager::track_evictions()
-{
-    auto it = m_pending_evictions.begin();
-    while (it != m_pending_evictions.end())
-    {
-        it->frames -= 1;
-
-        if (it->frames == 0)
-        {
-            m_mesh_streaming_pool.free(it->allocation_handle);
-            it = m_pending_evictions.erase(it);
-        }
-        else
-        {
-            it = std::next(it);
-        }
-    }
-}
 
 auto MeshStreamingManager::find_entry(MeshAssetHandle handle) -> MeshEntry*
 {
@@ -570,7 +543,23 @@ auto MeshStreamingManager::register_mesh(MeshAssetHandle handle) -> MeshEntry*
         return nullptr;
     }
 
+    if (!m_mesh_streaming_pool.register_mesh(handle, record->metadata))
+    {
+        MIZU_LOG_ERROR("Failed to register mesh in MeshStreamingPool: {}", handle.get_id());
+        return nullptr;
+    }
+
     return &m_meshes.emplace(handle, MeshEntry{.metadata = record->metadata}).first->second;
+}
+
+void MeshStreamingManager::unregister_mesh(MeshAssetHandle handle)
+{
+    const auto it = m_meshes.find(handle);
+    if (it == m_meshes.end())
+        return;
+
+    m_mesh_streaming_pool.unregister_mesh(handle);
+    m_meshes.erase(it);
 }
 
 bool MeshStreamingManager::has_pending_request_for_handle(MeshAssetHandle handle) const

@@ -222,6 +222,7 @@ void GameRenderer::update_systems_job()
         .viewport_size = {width, height},
     });
 
+    m_mesh_streaming_pool->update();
     m_texture_streaming_pool->update();
 
     m_asset_load_scheduler->dispatch_load_jobs();
@@ -579,14 +580,16 @@ bool GameRenderer::init_asset_systems()
     constexpr uint64_t STAGING_POOL_BUDGET = 512ull * 1024 * 1024;
     m_staging_pool = std::make_unique<StagingPool>(STAGING_POOL_BUDGET);
 
-    constexpr uint64_t MESH_STREAMING_POOL_BUDGET = math::align_up(512ull * 1024 * 1024, sizeof(MeshAssetVertex));
-    m_mesh_streaming_pool = std::make_unique<MeshStreamingPool>();
+    constexpr uint64_t MESH_POOL_VERTEX_BUFFER_SIZE = 512ull * 1024 * 1024;
+    constexpr uint64_t MESH_POOL_INDEX_BUFFER_SIZE = 256ull * 1024 * 1024;
 
-    if (!m_mesh_streaming_pool->init(MESH_STREAMING_POOL_BUDGET))
-    {
-        MIZU_LOG_ERROR("Failed to initialize MeshStreamingPool");
-        return false;
-    }
+    const MeshStreamingPoolDescription mesh_pool_desc{
+        .vertex_buffer_size = MESH_POOL_VERTEX_BUFFER_SIZE,
+        .index_buffer_size = MESH_POOL_INDEX_BUFFER_SIZE,
+        .release_delay_frames = m_frames_in_flight + 2,
+    };
+    m_mesh_streaming_pool =
+        std::make_unique<MeshStreamingPool>(mesh_pool_desc, *m_gpu_page_allocator, *m_sparse_bind_scheduler);
 
     const TextureStreamingPoolDescription texture_pool_desc{
         .release_delay_frames = m_frames_in_flight + 2,

@@ -105,7 +105,8 @@ class MeshStreamingManager : public IStreamingManager
 
         bool is_streamable() const
         {
-            // TODO: Implement when lods are added to meshes
+            // TODO: Return metadata.streamable_lods > 0 once draws select a resident lod
+            // return metadata.streamable_lods > 0 && metadata.get_num_lods() > 1
             return false;
         }
     };
@@ -122,21 +123,12 @@ class MeshStreamingManager : public IStreamingManager
     uint32_t m_update_cursor = 0;
     uint32_t m_iterations_per_update = 0;
 
-    struct PendingEviction
-    {
-        GpuMeshAllocationHandle allocation_handle{};
-        uint32_t frames = 0;
-    };
-
-    std::vector<PendingEviction> m_pending_evictions{};
-
     struct GpuUploadRecord
     {
         MeshAssetHandle handle{};
         MeshAssetMetadata metadata{};
         StreamingRequest request{};
 
-        GpuMeshAllocationHandle allocation{};
         StagingBlock staging_block{};
     };
 
@@ -155,10 +147,9 @@ class MeshStreamingManager : public IStreamingManager
         const MeshResidencyPayload& payload,
         uint32_t references);
 
-    void track_evictions();
-
     MeshEntry* find_entry(MeshAssetHandle handle);
     MeshEntry* register_mesh(MeshAssetHandle handle);
+    void unregister_mesh(MeshAssetHandle handle);
 
     bool has_pending_request_for_handle(MeshAssetHandle handle) const;
 };
