@@ -10,7 +10,7 @@
 namespace Mizu
 {
 
-using DrawableFlagsType = uint32_t;
+using DrawableFlagsType = uint16_t;
 
 enum class DrawableFlags : DrawableFlagsType
 {

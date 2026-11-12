@@ -1,7 +1,6 @@
 #include "streaming/mesh_streaming_manager.h"
 
 #include <algorithm>
-#include <cmath>
 
 #include "asset/asset_loader.h"
 #include "base/debug/assert.h"
@@ -15,6 +14,7 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
+#include "streaming/mesh_lod_utils.h"
 #include "streaming/mesh_streaming_pool.h"
 
 namespace Mizu
@@ -254,9 +254,11 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
         const std::optional<GpuMeshAllocationHandle> allocation = m_mesh_streaming_pool.get_allocation(record.handle);
         MIZU_ASSERT(allocation.has_value(), "Failed to get allocation for mesh {}", record.handle.get_id());
 
+        const uint8_t resident_first_lod = record.metadata.get_num_lods() - record.request.desired_level;
         const MeshStreamingResidency residency{
             .allocation_handle = *allocation,
             .metadata = record.metadata,
+            .resident_first_lod = resident_first_lod,
         };
 
         MeshResidencyPayload* payload = m_residency.get_payload(record.handle);
@@ -266,6 +268,7 @@ void MeshStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinea
         if (!m_residency.transition_status(record.handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
         {
             MIZU_UNREACHABLE("Failed to transition handle state when finalizing an upload");
+            continue;
         }
 
         m_mesh_updates.push_back({
@@ -420,7 +423,7 @@ void MeshStreamingManager::refresh(MeshAssetHandle handle, const StreamingContex
     }
 }
 
-static uint8_t lod_for_screen_size(const MeshAssetMetadata& metadata, float screen_size)
+static uint8_t select_mesh_lod(const MeshAssetMetadata& metadata, float screen_size)
 {
     const uint8_t num_lods = metadata.get_num_lods();
 
@@ -496,24 +499,28 @@ auto MeshStreamingManager::evaluate(
 
         for (const RenderViewRegistryEntry& view : context.views)
         {
-            const float center_depth = -(view.view_matrix * glm::vec4(sphere.center, 1.0f)).z;
-            // TODO: This is to ignore if it's behind the camera, keeping commented to prevent popping when doing a 180
-            // if (center_depth + sphere.radius <= view.camera.znear)
-            //     continue;
+            const MeshLodView lod_view = create_mesh_lod_view(view.view_matrix, view.proj_matrix, view.camera.znear);
 
-            const float depth = glm::max(center_depth, view.camera.znear);
+            // TODO: This is to ignore if it's behind the camera, keeping commented to prevent popping when doing a 180
+            // const float center_depth = glm::dot(sphere.center - lod_view.position, lod_view.forward);
+            // if (center_depth + sphere.radius <= lod_view.znear)
+            //     continue;
 
             constexpr float LOD_DETAIL_BIAS = 1.25f;
 
-            const float screen_size = LOD_DETAIL_BIAS * sphere.radius / (depth * std::tan(0.5f * view.camera.fov));
+            const float screen_size = LOD_DETAIL_BIAS * compute_mesh_screen_size(sphere, lod_view);
 
-            const uint8_t lod = glm::max(lod_for_screen_size(metadata, screen_size), finest_lod);
+            const uint8_t selected_lod = select_mesh_lod(metadata, screen_size);
+
+            const uint8_t lod = glm::max(selected_lod, finest_lod);
             const uint8_t desired = num_lods - lod;
 
             desired_level = glm::max<uint8_t>(desired_level, desired);
             score = glm::max(score, screen_size);
         }
     }
+
+    desired_level = glm::max(desired_level, min_level);
 
     if (payload.resident_level == 0)
         score += FIRST_LOAD_SCORE;

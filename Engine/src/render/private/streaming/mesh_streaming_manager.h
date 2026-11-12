@@ -35,6 +35,7 @@ struct MeshStreamingResidency
 {
     GpuMeshAllocationHandle allocation_handle{};
     MeshAssetMetadata metadata{};
+    uint8_t resident_first_lod = 0;
 };
 
 struct MeshStreamingUpdate
@@ -103,12 +104,7 @@ class MeshStreamingManager : public IStreamingManager
         MeshAssetMetadata metadata{}; // Cached once, when the mesh is first registered
         std::vector<MeshStreamingUsage> usages{};
 
-        bool is_streamable() const
-        {
-            // TODO: Return metadata.streamable_lods > 0 once draws select a resident lod
-            // return metadata.streamable_lods > 0 && metadata.get_num_lods() > 1
-            return false;
-        }
+        bool is_streamable() const { return metadata.streamable_lods > 0 && metadata.get_num_lods() > 1; }
     };
 
     std::vector<MeshAssetHandle> m_streamable_meshes{};

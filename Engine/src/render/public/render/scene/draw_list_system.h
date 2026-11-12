@@ -25,10 +25,11 @@ struct DrawListRequest
     RasterState state{};
     FramebufferInfo targets{};
 
-    std::optional<Frustum> frustum{};
+    std::optional<DrawListView> view{};
     FrustumMask frustum_mask{};
 
     uint32_t view_count = 1;
+    uint8_t lod_bias = 0;
 };
 
 struct DrawListHandle

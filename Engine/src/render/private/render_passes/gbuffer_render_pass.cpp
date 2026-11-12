@@ -10,6 +10,7 @@
 #include "render/systems/sampler_state_cache.h"
 #include "render_passes/depth_render_pass.h"
 #include "resources/material_system.h"
+#include "scene/draw_list_view.h"
 
 namespace Mizu
 {
@@ -79,7 +80,7 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
                             },
                     },
                 .targets = pass.get_framebuffer_info(),
-                .frustum = view_data.data.frustum,
+                .view = create_draw_list_view(view_data.data),
             });
         },
         [=](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {

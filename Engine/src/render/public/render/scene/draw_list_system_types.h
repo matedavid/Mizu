@@ -75,20 +75,33 @@ struct DrawListRasterPassInfo
     [[maybe_unused]] FramebufferInfo framebuffer_info{};
 };
 
+constexpr uint8_t DRAW_LIST_LOD_BIAS_LAST_LOD = std::numeric_limits<uint8_t>::max();
+
+struct DrawListView
+{
+    glm::mat4 view_matrix{1.0f};
+    glm::mat4 proj_matrix{1.0f};
+    float znear = 0.001f;
+};
+
 struct VisibilityDesc
 {
-    bool has_frustum = false;
+    DrawListView view{};
     Frustum frustum{};
     FrustumMask mask{};
+    bool has_frustum = false;
 
-    static VisibilityDesc create(const std::optional<Frustum>& frustum_opt, FrustumMask frustum_mask)
+    static VisibilityDesc create(const std::optional<DrawListView>& view_opt, FrustumMask frustum_mask)
     {
         VisibilityDesc desc{};
-        desc.has_frustum = frustum_opt.has_value();
+        desc.has_frustum = view_opt.has_value();
 
-        if (frustum_opt.has_value())
+        if (view_opt.has_value())
         {
-            desc.frustum = *frustum_opt;
+            const glm::vec3 position = glm::vec3(glm::inverse(view_opt->view_matrix)[3]);
+
+            desc.view = *view_opt;
+            desc.frustum = Frustum::from_view_projection(view_opt->proj_matrix * view_opt->view_matrix, position);
             desc.mask = frustum_mask;
         }
         else
@@ -111,13 +124,9 @@ struct VisibilityDesc
             return true;
 
         // clang-format off
-        return planes_equal(frustum.top, other.frustum.top) 
-            && planes_equal(frustum.bottom, other.frustum.bottom)
-            && planes_equal(frustum.left, other.frustum.left)
-            && planes_equal(frustum.right, other.frustum.right)
-            && planes_equal(frustum.near, other.frustum.near)
-            && planes_equal(frustum.far, other.frustum.far)
-            && vec3_equal(frustum.center, other.frustum.center);
+        return view.view_matrix == other.view.view_matrix
+            && view.proj_matrix == other.view.proj_matrix
+            && view.znear == other.view.znear;
         // clang-format on
     }
 
@@ -128,13 +137,9 @@ struct VisibilityDesc
         if (!has_frustum)
             return h;
 
-        hash_plane(h, frustum.top);
-        hash_plane(h, frustum.bottom);
-        hash_plane(h, frustum.left);
-        hash_plane(h, frustum.right);
-        hash_plane(h, frustum.near);
-        hash_plane(h, frustum.far);
-        hash_vec3(h, frustum.center);
+        hash_mat4(h, view.view_matrix);
+        hash_mat4(h, view.proj_matrix);
+        hash_combine(h, float_bits(view.znear));
 
         return h;
     }
@@ -151,29 +156,13 @@ struct VisibilityDesc
         return bits;
     }
 
-    static bool vec3_equal(const glm::vec3& a, const glm::vec3& b)
+    static void hash_mat4(size_t& h, const glm::mat4& m)
     {
-        // clang-format off
-        return float_bits(a.x) == float_bits(b.x)
-            && float_bits(a.y) == float_bits(b.y)
-            && float_bits(a.z) == float_bits(b.z);
-        // clang-format on
-    }
-
-    static bool planes_equal(const Plane& a, const Plane& b)
-    {
-        return vec3_equal(a.normal, b.normal) && float_bits(a.distance) == float_bits(b.distance);
-    }
-
-    static void hash_vec3(size_t& h, const glm::vec3& v)
-    {
-        hash_combine(h, float_bits(v.x), float_bits(v.y), float_bits(v.z));
-    }
-
-    static void hash_plane(size_t& h, const Plane& plane)
-    {
-        hash_vec3(h, plane.normal);
-        hash_combine(h, float_bits(plane.distance));
+        for (glm::length_t column = 0; column < 4; ++column)
+        {
+            hash_combine(
+                h, float_bits(m[column].x), float_bits(m[column].y), float_bits(m[column].z), float_bits(m[column].w));
+        }
     }
 };
 
@@ -183,6 +172,7 @@ struct DrawListKey
 
     uint32_t visibility_idx = INVALID_VISIBILITY_IDX;
     uint32_t view_count = 1;
+    uint8_t lod_bias = 0;
     DrawableFlags filter_required = DrawableFlags::None;
     DrawableFlags filter_excluded = DrawableFlags::None;
     size_t raster_state_hash = 0;
@@ -192,6 +182,7 @@ struct DrawListKey
         // clang-format off
         return visibility_idx    == other.visibility_idx
             && view_count        == other.view_count
+            && lod_bias          == other.lod_bias
             && filter_required   == other.filter_required
             && filter_excluded   == other.filter_excluded
             && raster_state_hash == other.raster_state_hash;
@@ -200,12 +191,7 @@ struct DrawListKey
 
     size_t hash() const
     {
-        return hash_compute(
-            visibility_idx,
-            view_count,
-            static_cast<uint32_t>(filter_required),
-            static_cast<uint32_t>(filter_excluded),
-            raster_state_hash);
+        return hash_compute(visibility_idx, view_count, lod_bias, filter_required, filter_excluded, raster_state_hash);
     }
 };
 

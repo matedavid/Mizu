@@ -14,6 +14,7 @@
 #include "render/scene/draw_list_system.h"
 #include "render/scene/draw_list_system_types.h"
 #include "render/systems/frame_linear_allocator.h"
+#include "streaming/mesh_lod_utils.h"
 
 namespace Mizu
 {
@@ -40,11 +41,12 @@ struct GpuDrawableInstance
     uint32_t transform_slot;
     glm::vec3 aabb_max;
     uint32_t material_offset;
+    uint32_t mesh_lod_table_index;
 
-    uint32_t index_count;
-    uint32_t first_index;
-    uint32_t first_vertex;
     uint32_t class_and_flags;
+
+    uint32_t _pad0;
+    uint32_t _pad1;
 };
 
 // Must match GpuVisibilityInfo in compile_draw_lists.slang
@@ -54,7 +56,8 @@ struct GpuVisibilityInfo
     uint32_t frustum_mask;
     uint32_t draw_list_begin;
     uint32_t draw_list_count;
-    uint32_t _pad;
+    uint32_t has_lod_view;
+    MeshLodView lod_view;
 };
 
 // Must match GpuDrawListInfo in compile_draw_lists.slang
@@ -62,8 +65,9 @@ struct GpuDrawListInfo
 {
     uint32_t bucket_map_offset;
     uint32_t view_count;
-    uint32_t filter_required;
-    uint32_t filter_excluded;
+    uint32_t lod_bias;
+    DrawableFlags filter_required;
+    DrawableFlags filter_excluded;
 };
 
 // Must match GpuBucketInfo in compile_draw_lists.slang
@@ -115,6 +119,7 @@ struct VisibilityEntry
     VisibilityDesc desc{};
 
     std::vector<uint32_t> visible{};
+    std::vector<uint8_t> lods{};
 
     // Cpu backend
     std::vector<DrawClassRange> ranges{};
@@ -133,6 +138,7 @@ struct DrawListEntry
     FramebufferInfo targets{};
     DrawFilter filter{};
     uint32_t view_count = 1;
+    uint8_t lod_bias = 0;
     uint32_t visibility_idx = 0;
 
     // Indexed by DrawClassId, INVALID_BUCKET_INDEX when the pass does not draw that class
@@ -196,6 +202,7 @@ class DrawListSystem
         FrameAllocation visibility_lists{};
         FrameAllocation bucket_map{};
         FrameAllocation buckets{};
+        FrameAllocation mesh_lod_tables{};
 
         BufferResource* resolved_indirect_commands_buffer = nullptr;
         BufferResource* resolved_count_buffer = nullptr;

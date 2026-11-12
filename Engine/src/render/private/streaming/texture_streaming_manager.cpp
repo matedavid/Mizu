@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <format>
 #include <glm/glm.hpp>
 
@@ -13,11 +12,9 @@
 #include "base/math/geometric.h"
 #include "base/math/math.h"
 #include "base/math/shapes.h"
-#include "render_core/rhi/image_resource.h"
 
 #include "registries/render_view_registry.h"
 #include "registries/transform_registry.h"
-#include "render/runtime/renderer.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
 #include "streaming/streaming_utils.h"
@@ -252,6 +249,7 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
         if (!m_residency.transition_status(record.handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
         {
             MIZU_UNREACHABLE("Failed to transition handle state when finalizing an upload");
+            continue;
         }
 
         m_texture_updates.push_back({

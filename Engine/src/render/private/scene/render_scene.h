@@ -1,8 +1,11 @@
 #pragma once
 
 #include <array>
+#include <limits>
+#include <span>
 #include <unordered_map>
 
+#include "asset/asset_metadata.h"
 #include "base/containers/inplace_vector.h"
 #include "base/math/shapes.h"
 
@@ -18,9 +21,29 @@ class MaterialSystem;
 class MeshStreamingManager;
 class StreamingPlanner;
 struct MaterialUpdate;
+struct MeshStreamingResidency;
 struct MeshStreamingUpdate;
 
 constexpr size_t INVALID_SLOT = std::numeric_limits<size_t>::max();
+constexpr uint32_t INVALID_MESH_LOD_TABLE = std::numeric_limits<uint32_t>::max();
+
+struct GpuMeshLodRange
+{
+    uint32_t first_index = 0;
+    uint32_t index_count = 0;
+    float screen_size = 0.0f;
+    uint32_t _pad = 0;
+};
+
+struct GpuMeshLodTable
+{
+    uint32_t first_vertex = 0;
+    // Lod values are uint32_t instead of uint8_t to match the shader layout
+    uint32_t num_lods = 0;
+    uint32_t resident_first_lod = 0;
+    uint32_t _pad = 0;
+    std::array<GpuMeshLodRange, MAX_NUM_MESH_LODS> lods{};
+};
 
 struct SceneDrawable
 {
@@ -29,7 +52,7 @@ struct SceneDrawable
     MeshAssetHandle mesh_handle{};
     MaterialAssetHandle material_handle{};
 
-    GpuMeshDrawPayload gpu_mesh_draw{};
+    uint32_t mesh_lod_table_index = INVALID_MESH_LOD_TABLE;
     math::AABB bounding_box{};
 
     uint32_t transform_slot_index = std::numeric_limits<uint32_t>::max();
@@ -48,6 +71,7 @@ class RenderScene : public StaticMeshStateManagerConsumer
     void update();
 
     std::span<const SceneDrawable> get_drawables() const { return m_drawables; }
+    std::span<const GpuMeshLodTable> get_mesh_lod_tables() const { return m_mesh_lod_tables; }
     const DrawClassRegistry& get_draw_class_registry() const { return m_draw_class_registry; }
 
     // StaticMeshStateManagerConsumer
@@ -97,6 +121,13 @@ class RenderScene : public StaticMeshStateManagerConsumer
     // Point to a RenderableSlot, the head of the chain
     std::unordered_map<MeshAssetHandle, size_t> m_mesh_dependency_chain_head_map{};
     std::unordered_map<MaterialAssetHandle, size_t> m_material_dependency_head_map{};
+
+    inplace_vector<GpuMeshLodTable, StaticMeshConfig::MaxNumHandles> m_mesh_lod_tables{};
+    inplace_vector<uint32_t, StaticMeshConfig::MaxNumHandles> m_free_mesh_lod_tables{};
+    std::unordered_map<MeshAssetHandle, uint32_t> m_mesh_to_lod_table{};
+
+    uint32_t write_mesh_lod_table(MeshAssetHandle handle, const MeshStreamingResidency& residency);
+    void free_mesh_lod_table(MeshAssetHandle handle);
 
     void handle_mesh_update(const MeshStreamingUpdate& update);
     void handle_material_update(const MaterialUpdate& update);

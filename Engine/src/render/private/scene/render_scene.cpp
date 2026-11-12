@@ -21,21 +21,28 @@ static MeshStreamingManager* get_mesh_streaming_manager(StreamingPlanner& planne
     return manager;
 }
 
-static GpuMeshDrawPayload create_gpu_mesh_draw_payload(const MeshStreamingResidency& residency)
+static GpuMeshLodTable create_mesh_lod_table(const MeshStreamingResidency& residency)
 {
-    // TODO: Select lod per instance, clamped to the finest resident lod
-    constexpr uint8_t lod = 0;
-
     const MeshAssetMetadata& metadata = residency.metadata;
-    const uint64_t first_index = residency.allocation_handle.index_offset / metadata.get_index_stride_bytes();
+    const uint64_t base_index = residency.allocation_handle.index_offset / metadata.get_index_stride_bytes();
 
-    return {
-        .vertex_count = metadata.get_draw_vertex_count(lod),
-        .index_count = metadata.get_draw_index_count(lod),
+    GpuMeshLodTable table{
         .first_vertex =
             static_cast<uint32_t>(residency.allocation_handle.vertex_offset / metadata.get_vertex_stride_bytes()),
-        .first_index = static_cast<uint32_t>(first_index + metadata.get_draw_first_index(lod)),
+        .num_lods = metadata.get_num_lods(),
+        .resident_first_lod = residency.resident_first_lod,
     };
+
+    for (uint8_t lod = 0; lod < metadata.get_num_lods(); ++lod)
+    {
+        table.lods[lod] = GpuMeshLodRange{
+            .first_index = static_cast<uint32_t>(base_index + metadata.get_draw_first_index(lod)),
+            .index_count = metadata.get_draw_index_count(lod),
+            .screen_size = metadata.lods[lod].screen_size,
+        };
+    }
+
+    return table;
 }
 
 RenderScene::RenderScene(StreamingPlanner& streaming_planner, MaterialSystem& material_system)
@@ -132,17 +139,70 @@ void RenderScene::rend_on_destroy(StaticMeshHandle handle)
         slot.drawable_slot_index = INVALID_SLOT;
     }
 
+    if (!m_mesh_dependency_chain_head_map.contains(slot.ss.mesh_handle))
+    {
+        free_mesh_lod_table(slot.ss.mesh_handle);
+    }
+
     slot.occupied = false;
 
     m_mesh_streaming_manager.remove_usage(handle.get_internal_id());
     m_material_system.unregister_material(slot.ss.material_handle, handle.get_internal_id());
 }
 
+uint32_t RenderScene::write_mesh_lod_table(MeshAssetHandle handle, const MeshStreamingResidency& residency)
+{
+    const auto it = m_mesh_to_lod_table.find(handle);
+    if (it != m_mesh_to_lod_table.end())
+    {
+        m_mesh_lod_tables[it->second] = create_mesh_lod_table(residency);
+        return it->second;
+    }
+
+    uint32_t index = static_cast<uint32_t>(m_mesh_lod_tables.size());
+    if (!m_free_mesh_lod_tables.empty())
+    {
+        const size_t last = m_free_mesh_lod_tables.size() - 1;
+        index = m_free_mesh_lod_tables[last];
+        m_free_mesh_lod_tables.resize(last);
+    }
+    else
+    {
+        m_mesh_lod_tables.emplace_back();
+    }
+
+    m_mesh_lod_tables[index] = create_mesh_lod_table(residency);
+    m_mesh_to_lod_table.emplace(handle, index);
+
+    return index;
+}
+
+void RenderScene::free_mesh_lod_table(MeshAssetHandle handle)
+{
+    const auto it = m_mesh_to_lod_table.find(handle);
+    if (it == m_mesh_to_lod_table.end())
+        return;
+
+    m_mesh_lod_tables[it->second] = GpuMeshLodTable{};
+    m_free_mesh_lod_tables.push_back(it->second);
+    m_mesh_to_lod_table.erase(it);
+}
+
 void RenderScene::handle_mesh_update(const MeshStreamingUpdate& update)
 {
+    if (!update.resident)
+    {
+        free_mesh_lod_table(update.handle);
+    }
+
     const auto mesh_head_it = m_mesh_dependency_chain_head_map.find(update.handle);
     if (mesh_head_it == m_mesh_dependency_chain_head_map.end())
         return;
+
+    if (update.resident)
+    {
+        write_mesh_lod_table(update.handle, update.residency);
+    }
 
     size_t slot_index = mesh_head_it->second;
     while (slot_index != INVALID_SLOT)
@@ -177,12 +237,7 @@ void RenderScene::handle_mesh_update(const MeshStreamingUpdate& update)
             continue;
         }
 
-        // If slot is drawable and update is for resident mesh, just update the drawable
-        if (slot.is_drawable)
-        {
-            SceneDrawable& drawable = m_drawables[slot.drawable_slot_index];
-            drawable.gpu_mesh_draw = create_gpu_mesh_draw_payload(update.residency);
-        }
+        // If slot is drawable and update is for resident mesh, the mesh lod table is already updated
 
         // If slot is waiting for material to become drawable, do nothing
     }
@@ -269,7 +324,7 @@ bool RenderScene::try_transition_to_drawable(RenderableSlot& slot)
             .owner_slot = slot.slot_index,
             .mesh_handle = slot.ss.mesh_handle,
             .material_handle = slot.ss.material_handle,
-            .gpu_mesh_draw = create_gpu_mesh_draw_payload(*mesh_residency),
+            .mesh_lod_table_index = write_mesh_lod_table(slot.ss.mesh_handle, *mesh_residency),
             .bounding_box = mesh_residency->metadata.bounding_box,
             .transform_slot_index = transform_index,
             .material_buffer_offset = material_binding->buffer_offset,
@@ -383,7 +438,7 @@ void RenderScene::remove_dependency(
 
     if (head_it->second == removing_slot)
     {
-        head_it->second = prev_slot_idx;
+        head_it->second = next_slot_idx;
     }
 
     if (head_it->second == INVALID_SLOT)
