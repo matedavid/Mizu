@@ -1,5 +1,6 @@
 #include "dx12_device.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include "base/debug/assert.h"
@@ -143,10 +144,10 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     // Select adapter
     DX12_CHECK(DXCoreCreateAdapterFactory(&m_factory));
 
-    constexpr uint32_t DISCRETE_GPU_SCORE = 40;
+    constexpr int32_t DISCRETE_GPU_SCORE = 40;
 
     IDXGIAdapter1* best_adapter = nullptr;
-    uint32_t best_adapter_score = 0;
+    int32_t best_adapter_score = -1;
 
     IDXGIAdapter1* tmp_adapter;
     for (uint32_t i = 0; Dx12Context.factory->EnumAdapters1(i, &tmp_adapter) != DXGI_ERROR_NOT_FOUND; ++i)
@@ -164,21 +165,24 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
         // Check to see if the adapter supports Direct3D 12
         if (!DX12_CHECK_RESULT(D3D12CreateDevice(tmp_adapter, D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr)))
         {
+            tmp_adapter->Release();
             continue;
         }
-
-        uint32_t adapter_score = 0;
 
         IDXCoreAdapter* core_adapter;
         if (!DX12_CHECK_RESULT(m_factory->GetAdapterByLuid(tmp_adapter_desc.AdapterLuid, &core_adapter)))
         {
+            tmp_adapter->Release();
             continue;
         }
 
-        bool is_dedicated_gpu = false;
-        DX12_CHECK(core_adapter->GetProperty(DXCoreAdapterProperty::IsHardware, &is_dedicated_gpu));
+        bool is_integrated_gpu = false;
+        DX12_CHECK(core_adapter->GetProperty(DXCoreAdapterProperty::IsIntegrated, &is_integrated_gpu));
+        core_adapter->Release();
 
-        if (is_dedicated_gpu)
+        int32_t adapter_score = 0;
+
+        if (!is_integrated_gpu)
         {
             adapter_score += DISCRETE_GPU_SCORE;
         }
@@ -195,15 +199,16 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
         {
             tmp_adapter->Release();
         }
-
-        core_adapter->Release();
     }
 
     MIZU_VERIFY(best_adapter != nullptr, "Failed to find suitable adapter");
 
     // Create Device
     m_adapter = best_adapter;
-    DX12_CHECK_RESULT(D3D12CreateDevice(m_adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device)));
+
+    const bool device_created =
+        DX12_CHECK_RESULT(D3D12CreateDevice(m_adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device)));
+    MIZU_VERIFY(device_created, "Failed to create D3D12 device");
 
     Dx12Context.device = this;
 
@@ -591,19 +596,43 @@ void Dx12Device::retrieve_device_capabilities()
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5{};
     DX12_CHECK(check_feature_support(D3D12_FEATURE_D3D12_OPTIONS5, options5));
 
+    uint64_t sparse_address_space_size = 0;
+
+    D3D12_FEATURE_DATA_GPU_VIRTUAL_ADDRESS_SUPPORT virtual_address_support{};
+    if (DX12_CHECK_RESULT(check_feature_support(D3D12_FEATURE_GPU_VIRTUAL_ADDRESS_SUPPORT, virtual_address_support)))
+    {
+        const uint32_t address_bits = (std::min)(virtual_address_support.MaxGPUVirtualAddressBitsPerProcess, 63u);
+        sparse_address_space_size = 1ull << address_bits;
+    }
+
+    const D3D12_TILED_RESOURCES_TIER tiled_resources_tier = m_feature_data_options.TiledResourcesTier;
+
     m_properties = DeviceProperties{
         .name = name,
         // Depth clamping is core functionality, every D3D12 device supports it
-        .depth_clamp_enabled = true,
+        .depth_clamp = true,
         .async_compute = m_compute_queue != m_graphics_queue,
         .async_transfer = m_transfer_queue != m_graphics_queue,
-        .ray_tracing_hardware = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED,
-        .min_constant_buffer_offset_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT,
-        .min_raw_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT,
-        .min_texture_row_pitch_alignment = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT,
-        .min_texture_data_placement_alignment = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT,
-        .acceleration_structure_instance_size = sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
         .max_bindless_descriptors = NUM_BINDLESS_DESCRIPTORS,
+        .alignments =
+            DeviceAlignments{
+                .min_constant_buffer_offset = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT,
+                .min_raw_buffer_offset = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT,
+                .min_texture_row_pitch = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT,
+                .min_texture_data_placement = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT,
+            },
+        .ray_tracing =
+            RayTracingProperties{
+                .supported = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED,
+                .acceleration_structure_instance_size = sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+            },
+        .sparse =
+            SparseResourcesProperties{
+                .buffers = tiled_resources_tier >= D3D12_TILED_RESOURCES_TIER_1,
+                .images = tiled_resources_tier >= D3D12_TILED_RESOURCES_TIER_1,
+                .non_resident_strict = tiled_resources_tier >= D3D12_TILED_RESOURCES_TIER_2,
+                .address_space_size = sparse_address_space_size,
+            },
     };
 }
 

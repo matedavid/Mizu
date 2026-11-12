@@ -38,7 +38,7 @@ Dx12AccelerationStructure::Dx12AccelerationStructure(AccelerationStructureDescri
     : m_description(std::move(desc))
 {
     MIZU_VERIFY(
-        Dx12Context.device->get_properties().ray_tracing_hardware, "Rtx hardware is not supported on current device");
+        Dx12Context.device->get_properties().ray_tracing.supported, "Rtx hardware is not supported on current device");
 
     m_type = std::holds_alternative<TopLevelAccelerationStructureDescription>(m_description.description)
                  ? AccelerationStructureType::TopLevel

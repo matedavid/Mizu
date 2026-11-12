@@ -399,7 +399,7 @@ Dx12Pipeline::Dx12Pipeline(const ComputePipelineDescription& desc) : m_pipeline_
 Dx12Pipeline::Dx12Pipeline(const RayTracingPipelineDescription& desc) : m_pipeline_type(PipelineType::RayTracing)
 {
     MIZU_ASSERT(
-        Dx12Context.device->get_properties().ray_tracing_hardware,
+        Dx12Context.device->get_properties().ray_tracing.supported,
         "Can't create RayTracingPipeline because ray tracing hardware is not supported");
 
     MIZU_ASSERT(desc.raygen_shader != nullptr, "Raygen shader is required in RayTracingPipeline");

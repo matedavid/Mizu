@@ -22,9 +22,6 @@
 namespace Mizu
 {
 
-// TODO: Get this from the device, it's the global toggle if sparse resources are supported
-static bool s_sparse_resources_supported = true;
-
 TextureStreamingPool::TextureStreamingPool(
     TextureStreamingPoolDescription desc,
     GpuPageAllocator& page_allocator,
@@ -236,8 +233,8 @@ static void record_staged_mips_upload(
     MIZU_ASSERT(!upload.data.empty(), "Upgrade without staged data");
 
     const DeviceProperties& properties = g_render_device->get_properties();
-    const uint64_t row_pitch_alignment = properties.min_texture_row_pitch_alignment;
-    const uint64_t placement_alignment = properties.min_texture_data_placement_alignment;
+    const uint64_t row_pitch_alignment = properties.alignments.min_texture_row_pitch;
+    const uint64_t placement_alignment = properties.alignments.min_texture_data_placement;
 
     const uint32_t streamed_count = upload.old_first_mip - upload.new_first_mip;
 
@@ -379,8 +376,7 @@ void TextureStreamingPool::record_gpu_upload(
     case ResourceBacking::Placed:
         MIZU_ASSERT(entry->texture != nullptr, "Recording upload of placed texture without a texture");
 
-        record_placed_gpu_upload(
-            *entry->texture, entry->old_texture.get(), metadata, upload, command, frame_allocator);
+        record_placed_gpu_upload(*entry->texture, entry->old_texture.get(), metadata, upload, command, frame_allocator);
 
         release_delayed(std::move(entry->old_texture));
         entry->old_texture = nullptr;
@@ -809,7 +805,7 @@ ResourceBacking TextureStreamingPool::select_resource_backing(
     TextureAssetHandle handle,
     const TextureAssetMetadata& metadata)
 {
-    if (!s_sparse_resources_supported)
+    if (!g_render_device->get_properties().sparse.images)
     {
         return ResourceBacking::Placed;
     }

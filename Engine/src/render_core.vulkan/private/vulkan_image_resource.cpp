@@ -37,6 +37,9 @@ VulkanImageResource::VulkanImageResource(const ImageDescription& desc, SparseTag
     , m_description(desc)
     , m_owns_resources(true)
 {
+    MIZU_VERIFY(
+        VulkanContext.device->get_properties().sparse.images, "Sparse images are not supported on current device");
+
     QueueFamiliesArray queue_families;
     VkImageCreateInfo image_create_info = get_vulkan_image_create_info(m_description, queue_families);
     image_create_info.flags |= VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT;

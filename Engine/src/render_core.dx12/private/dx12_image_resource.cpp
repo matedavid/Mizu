@@ -61,6 +61,9 @@ Dx12ImageResource::Dx12ImageResource(const ImageDescription& desc, SparseTag)
     , m_description(desc)
     , m_owns_resources(true)
 {
+    MIZU_VERIFY(
+        Dx12Context.device->get_properties().sparse.images, "Sparse images are not supported on current device");
+
     const D3D12_RESOURCE_DESC1 resource_desc1 = get_dx12_resource_desc(m_description);
 
     // TODO: Not the happiest person right now

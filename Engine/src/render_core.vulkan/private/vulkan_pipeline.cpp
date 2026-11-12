@@ -264,7 +264,7 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
 
     // Rasterization
     bool depth_clamp_enable = desc.rasterization.depth_clamp;
-    if (depth_clamp_enable && !VulkanContext.device->get_properties().depth_clamp_enabled)
+    if (depth_clamp_enable && !VulkanContext.device->get_properties().depth_clamp)
     {
         MIZU_LOG_ONCE_ERROR(
             "Requesting DepthClamp enabled but feature is not supported by Physical Device, setting to false");
@@ -437,7 +437,7 @@ VulkanPipeline::VulkanPipeline(const ComputePipelineDescription& desc) : m_pipel
 VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pipeline_type(PipelineType::RayTracing)
 {
     MIZU_ASSERT(
-        VulkanContext.device->get_properties().ray_tracing_hardware,
+        VulkanContext.device->get_properties().ray_tracing.supported,
         "Can't create RayTracingPipeline because ray tracing hardware is not supported");
 
     MIZU_ASSERT(desc.raygen_shader != nullptr, "Raygen shader is required in RayTracingPipeline");

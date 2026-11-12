@@ -84,23 +84,41 @@ struct DeviceCreationDescription
     Version engine_version{};
 };
 
+struct DeviceAlignments
+{
+    uint64_t min_constant_buffer_offset = 1;
+    uint64_t min_raw_buffer_offset = 1;
+    uint64_t min_texture_row_pitch = 1;
+    uint64_t min_texture_data_placement = 1;
+};
+
+struct RayTracingProperties
+{
+    bool supported = false;
+    uint64_t acceleration_structure_instance_size = 0;
+};
+
+struct SparseResourcesProperties
+{
+    bool buffers = false;
+    bool images = false;
+    bool non_resident_strict = false;
+    uint64_t address_space_size = 0;
+};
+
 struct DeviceProperties
 {
     std::string name;
 
-    bool depth_clamp_enabled;
-    bool async_compute;
-    bool async_transfer;
-    bool ray_tracing_hardware;
+    bool depth_clamp = false;
+    bool async_compute = false;
+    bool async_transfer = false;
 
-    uint64_t min_constant_buffer_offset_alignment;
-    uint64_t min_raw_buffer_offset_alignment;
-    uint64_t min_texture_row_pitch_alignment;
-    uint64_t min_texture_data_placement_alignment;
+    uint32_t max_bindless_descriptors = 0;
 
-    uint64_t acceleration_structure_instance_size;
-
-    uint32_t max_bindless_descriptors;
+    DeviceAlignments alignments{};
+    RayTracingProperties ray_tracing{};
+    SparseResourcesProperties sparse{};
 };
 
 class MIZU_RENDER_CORE_API Device

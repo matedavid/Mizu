@@ -54,7 +54,8 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
     : m_description(std::move(desc))
 {
     MIZU_VERIFY(
-        VulkanContext.device->get_properties().ray_tracing_hardware, "Rtx hardware is not supported on current device");
+        VulkanContext.device->get_properties().ray_tracing.supported,
+        "Rtx hardware is not supported on current device");
 
     m_type = std::holds_alternative<TopLevelAccelerationStructureDescription>(m_description.description)
                  ? AccelerationStructureType::TopLevel

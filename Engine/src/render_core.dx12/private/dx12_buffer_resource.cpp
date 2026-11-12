@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "base/debug/assert.h"
 #include "base/math/math.h"
 
 #include "dx12_context.h"
@@ -41,6 +42,9 @@ Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, const Memo
 
 Dx12BufferResource::Dx12BufferResource(const BufferDescription& desc, SparseTag) : m_sparse(true), m_description(desc)
 {
+    MIZU_VERIFY(
+        Dx12Context.device->get_properties().sparse.buffers, "Sparse buffers are not supported on current device");
+
     const D3D12_RESOURCE_DESC1 resource_desc1 = get_dx12_resource_desc(m_description);
 
     // TODO: Not the happiest person right now

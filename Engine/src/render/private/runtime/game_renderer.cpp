@@ -401,10 +401,12 @@ bool GameRenderer::init_render_device(const GameRendererDescription& desc)
 
     const DeviceProperties& device_props = g_render_device->get_properties();
     MIZU_LOG_INFO("Created Device on {}", device_props.name);
-    MIZU_LOG_INFO("    DepthClampEnabled:  {}", device_props.depth_clamp_enabled);
+    MIZU_LOG_INFO("    DepthClampEnabled:  {}", device_props.depth_clamp);
     MIZU_LOG_INFO("    AsyncCompute:       {}", device_props.async_compute);
     MIZU_LOG_INFO("    AsyncTransfer:      {}", device_props.async_transfer);
-    MIZU_LOG_INFO("    RayTracingHardware: {}", device_props.ray_tracing_hardware);
+    MIZU_LOG_INFO("    RayTracingHardware: {}", device_props.ray_tracing.supported);
+    MIZU_LOG_INFO("    SparseBuffers:      {}", device_props.sparse.buffers);
+    MIZU_LOG_INFO("    SparseImages:       {}", device_props.sparse.images);
 #endif
 
     return true;

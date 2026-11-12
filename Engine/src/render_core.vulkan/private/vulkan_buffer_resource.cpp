@@ -37,6 +37,9 @@ VulkanBufferResource::VulkanBufferResource(const BufferDescription& desc, Sparse
     : m_sparse(true)
     , m_description(desc)
 {
+    MIZU_VERIFY(
+        VulkanContext.device->get_properties().sparse.buffers, "Sparse buffers are not supported on current device");
+
     QueueFamiliesArray queue_families;
     VkBufferCreateInfo buffer_create_info = get_vulkan_buffer_create_info(m_description, queue_families);
     MIZU_ASSERT(

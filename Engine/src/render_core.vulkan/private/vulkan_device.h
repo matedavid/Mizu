@@ -13,6 +13,8 @@
 namespace Mizu::Vulkan
 {
 
+struct VulkanPhysicalDeviceInfo;
+
 class VulkanDevice : public Device
 {
   public:
@@ -31,7 +33,7 @@ class VulkanDevice : public Device
     std::optional<uint32_t> find_memory_type_index(HeapDomain domain, uint32_t memory_type_bits) const;
     const VkPhysicalDeviceMemoryProperties& get_memory_properties() const { return m_memory_properties; }
 
-    bool is_buffer_device_address_enabled() const { return m_buffer_device_address_enabled; }
+    bool is_buffer_device_address_enabled() const { return m_optional_features.ray_tracing; }
 
     bool is_queue_available(CommandBufferType type) const;
     VulkanQueue& get_native_queue(CommandBufferType type) const;
@@ -100,7 +102,19 @@ class VulkanDevice : public Device
     DeviceProperties m_properties{};
 
     VkPhysicalDeviceMemoryProperties m_memory_properties{};
-    bool m_buffer_device_address_enabled = false;
+
+    struct OptionalFeatures
+    {
+        bool ray_tracing = false;
+        bool sparse_buffers = false;
+        bool sparse_images = false;
+    };
+    OptionalFeatures m_optional_features{};
+
+    struct DeviceRequirements
+    {
+        bool swapchain = false;
+    };
 
     struct QueueFamilies
     {
@@ -151,8 +165,10 @@ class VulkanDevice : public Device
     std::mutex m_assign_thread_info_mutex;
 
     void create_instance(const DeviceCreationDescription& desc, std::span<const char*> extensions);
-    void select_physical_device();
-    void create_device(std::span<const char*> instance_extensions);
+    static const char* find_missing_requirement(VulkanPhysicalDeviceInfo& info, const DeviceRequirements& requirements);
+    static bool select_queue_families(std::span<const VkQueueFamilyProperties> families, QueueFamilies& selection);
+    void select_physical_device(const DeviceRequirements& requirements);
+    void create_device(const DeviceRequirements& requirements);
 
     ThreadCommandInfo create_thread_command_info();
     ThreadCommandInfo::Type& get_thread_command_info(std::thread::id id, CommandBufferType type);

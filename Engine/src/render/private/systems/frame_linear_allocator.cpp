@@ -56,7 +56,7 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
                                | BufferUsageBits::TransferSrc;
     // clang-format on
 
-    if (g_render_device->get_properties().ray_tracing_hardware)
+    if (g_render_device->get_properties().ray_tracing.supported)
         usage_bits |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
 
     BufferDescription buffer_desc{};

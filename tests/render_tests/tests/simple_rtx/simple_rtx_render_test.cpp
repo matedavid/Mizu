@@ -48,7 +48,7 @@ class SimpleRtxRenderTest : public RenderTest
 
     bool should_run_test(const RenderTestEnvironment&, const DeviceProperties& device_props) const override
     {
-        return device_props.ray_tracing_hardware;
+        return device_props.ray_tracing.supported;
     }
 
     void prepare_test(const RenderTestExecutionEnvironment& environment) override
@@ -96,11 +96,12 @@ class SimpleRtxRenderTest : public RenderTest
                 data.scratch_buffer = pass.accel_struct_scratch(scratch_buffer_ref);
 
                 const uint64_t instances_buffer_size =
-                    g_render_device->get_properties().acceleration_structure_instance_size * 2;
+                    g_render_device->get_properties().ray_tracing.acceleration_structure_instance_size * 2;
                 data.instances_allocation = environment.frame_allocator->allocate(
                     instances_buffer_size,
                     1,
-                    static_cast<uint32_t>(g_render_device->get_properties().acceleration_structure_instance_size));
+                    static_cast<uint32_t>(
+                        g_render_device->get_properties().ray_tracing.acceleration_structure_instance_size));
             },
             [=, this](CommandBuffer& command, const BuildAsData& data, const RenderGraphPassResources& resources) {
                 glm::mat4 cube_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
@@ -363,11 +364,11 @@ class SimpleRtxRenderTest : public RenderTest
         });
 
         const uint64_t instances_buffer_size =
-            g_render_device->get_properties().acceleration_structure_instance_size * 2;
+            g_render_device->get_properties().ray_tracing.acceleration_structure_instance_size * 2;
         const FrameAllocation instances_allocation = frame_allocator.allocate(
             instances_buffer_size,
             1,
-            static_cast<uint32_t>(g_render_device->get_properties().acceleration_structure_instance_size));
+            static_cast<uint32_t>(g_render_device->get_properties().ray_tracing.acceleration_structure_instance_size));
 
         CommandUtils::submit_single_time(CommandBufferType::Graphics, [=, this](CommandBuffer& command) {
             glm::mat4 cube_transform = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));

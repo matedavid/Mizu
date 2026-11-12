@@ -45,8 +45,8 @@ struct GpuDrawableInstance
 
     uint32_t class_and_flags;
 
-    uint32_t _pad0;
-    uint32_t _pad1;
+    uint32_t _pad0{};
+    uint32_t _pad1{};
 };
 
 // Must match GpuVisibilityInfo in compile_draw_lists.slang

@@ -164,9 +164,6 @@ void BufferRangeAllocator::free(uint64_t offset, uint64_t size)
 // MeshStreamingPool
 //
 
-// TODO: Get this from the device, it's the global toggle if sparse resources are supported
-static bool s_mesh_sparse_buffers_supported = true;
-
 static uint64_t get_mesh_resident_vertex_size(const MeshAssetMetadata& metadata, uint8_t first_lod)
 {
     if (first_lod >= metadata.get_num_lods())
@@ -219,7 +216,7 @@ MeshStreamingPool::MeshStreamingPool(
         return alignment != 0 && page_size % alignment == 0;
     };
 
-    if (s_mesh_sparse_buffers_supported)
+    if (g_render_device->get_properties().sparse.buffers)
     {
         m_vertex_buffer = g_render_device->create_sparse_buffer(vertex_buffer_desc);
         m_index_buffer = g_render_device->create_sparse_buffer(index_buffer_desc);
@@ -426,7 +423,7 @@ static void record_lods_upload(
         upload.data.size(),
         range_file_size);
 
-    const uint64_t alignment = g_render_device->get_properties().min_raw_buffer_offset_alignment;
+    const uint64_t alignment = g_render_device->get_properties().alignments.min_raw_buffer_offset;
     const FrameAllocation allocation = frame_allocator.allocate(range_file_size, alignment, sizeof(uint8_t));
     allocation.upload(upload.data.first(range_file_size));
 
