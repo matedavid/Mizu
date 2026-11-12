@@ -200,12 +200,12 @@ struct TextureAssetMetadata
     uint32_t height = 0;
     uint32_t depth = 0;
 
-    uint32_t num_mips = 1;
+    uint8_t num_mips = 1;
     ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
 
     uint8_t streamable_mips = 0;
 
-    uint64_t get_mip_size_bytes(uint32_t mip) const
+    uint64_t get_mip_size_bytes(uint8_t mip) const
     {
         MIZU_ASSERT(
             mip < num_mips, "Trying to request mip size in bytes for mip {} on metadata with {} mips", mip, num_mips);
@@ -217,16 +217,16 @@ struct TextureAssetMetadata
         return static_cast<uint64_t>(mip_size.x) * mip_size.y * depth * get_image_format_size(format);
     }
 
-    uint64_t get_mip_offset(uint32_t mip) const
+    uint64_t get_mip_offset(uint8_t mip) const
     {
         uint64_t offset = 0;
-        for (uint32_t i = 0; i < mip; ++i)
+        for (uint8_t i = 0; i < mip; ++i)
             offset += get_mip_size_bytes(i);
 
         return offset;
     }
 
-    uint64_t get_mip_range_size_bytes(uint32_t first, uint32_t count) const
+    uint64_t get_mip_range_size_bytes(uint8_t first, uint8_t count) const
     {
         if (width == 0 || height == 0 || depth == 0 || num_mips == 0)
             return 0;

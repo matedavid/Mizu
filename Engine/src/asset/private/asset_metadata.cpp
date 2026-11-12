@@ -166,7 +166,7 @@ template <>
 struct MetadataTraits<TextureAssetMetadata>
 {
     static constexpr MetadataType type = MetadataType::Texture;
-    static constexpr uint32_t version = 3;
+    static constexpr uint32_t version = 4;
 };
 
 template <typename Archive, MetadataOf<TextureAssetMetadata> T>

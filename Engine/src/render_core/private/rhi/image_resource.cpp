@@ -84,9 +84,9 @@ uint32_t get_image_format_size(ImageFormat format)
     }
 }
 
-uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth)
+uint8_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth)
 {
-    return static_cast<uint32_t>(std::floor(std::log2(std::max(width, std::max(height, depth))))) + 1;
+    return static_cast<uint8_t>(std::floor(std::log2(std::max(width, std::max(height, depth))))) + 1;
 }
 
 glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level)

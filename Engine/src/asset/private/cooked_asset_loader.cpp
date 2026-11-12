@@ -273,8 +273,8 @@ bool CookedAssetLoader::load_texture_payload(const TextureAssetHandle& handle, s
 
 bool CookedAssetLoader::load_texture_payload_mips(
     const TextureAssetHandle& handle,
-    uint32_t first_mip,
-    uint32_t mip_count,
+    uint8_t first_mip,
+    uint8_t mip_count,
     std::span<uint8_t> destination)
 {
     const std::optional<AssetLocation> location = m_registry.resolve(handle);

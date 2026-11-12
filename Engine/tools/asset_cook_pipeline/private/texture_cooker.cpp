@@ -58,7 +58,7 @@ void TextureImporter::import(
     timestamp_record(id, request.path, version(), context.timestamp_db);
 
     static constexpr bool GENERATE_MIPS = true;
-    static constexpr uint32_t MAX_MIPS = 6;
+    static constexpr uint8_t MAX_MIPS = 6;
     static constexpr uint8_t STREAMABLE_MIPS = 2;
 
     // TODO: Some information here should probably come from the asset metadata file
@@ -66,11 +66,12 @@ void TextureImporter::import(
     metadata.width = static_cast<uint32_t>(width);
     metadata.height = static_cast<uint32_t>(height);
     metadata.depth = 1;
-    metadata.num_mips = GENERATE_MIPS ? std::min(compute_num_mips(metadata.width, metadata.height, 1), MAX_MIPS) : 1;
+    metadata.num_mips =
+        GENERATE_MIPS ? std::min(compute_num_mips(metadata.width, metadata.height, 1), MAX_MIPS) : 1;
     metadata.format = ImageFormat::R8G8B8A8_UNORM; // TODO: Incorrect for albedo textures
 
     const uint8_t streamable_mips =
-        metadata.num_mips > 1 ? glm::min(STREAMABLE_MIPS, static_cast<uint8_t>(metadata.num_mips - 1)) : 0;
+        metadata.num_mips > 1 ? glm::min<uint8_t>(STREAMABLE_MIPS, metadata.num_mips - 1) : 0;
     metadata.streamable_mips = GENERATE_MIPS ? streamable_mips : 0;
 
     MIZU_ASSERT(
@@ -88,7 +89,7 @@ void TextureImporter::import(
     memcpy(data.data(), pixels, metadata.get_mip_size_bytes(0));
 
     // The rest of mips
-    for (uint32_t mip = 1; mip < metadata.num_mips; ++mip)
+    for (uint8_t mip = 1; mip < metadata.num_mips; ++mip)
     {
         const glm::uvec2 src_size = compute_mip_size(metadata.width, metadata.height, mip - 1);
         const glm::uvec2 dst_size = compute_mip_size(metadata.width, metadata.height, mip);

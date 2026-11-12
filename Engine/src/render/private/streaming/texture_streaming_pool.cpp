@@ -90,12 +90,11 @@ void TextureStreamingPool::register_texture(TextureAssetHandle handle, const Tex
         entry.texture = g_render_device->create_sparse_image(desc);
 
         const SparseImageMemoryRequirements reqs = entry.texture->get_sparse_memory_requirements();
-        entry.mip_tail_first_mip = std::min(reqs.mip_tail_first_mip, metadata.num_mips);
+        entry.mip_tail_first_mip = std::min(static_cast<uint8_t>(reqs.mip_tail_first_mip), metadata.num_mips);
         entry.mip_pages.resize(entry.mip_tail_first_mip);
 
-        const uint32_t requested_streamable_mips =
-            std::min(static_cast<uint32_t>(metadata.streamable_mips), metadata.num_mips - 1);
-        const uint32_t effective_streamable_mips = std::min(requested_streamable_mips, entry.mip_tail_first_mip);
+        const uint8_t requested_streamable_mips = std::min<uint8_t>(metadata.streamable_mips, metadata.num_mips - 1);
+        const uint8_t effective_streamable_mips = std::min(requested_streamable_mips, entry.mip_tail_first_mip);
 
         entry.base_first_mip = effective_streamable_mips;
 
@@ -161,7 +160,7 @@ void TextureStreamingPool::unregister_texture(TextureAssetHandle handle)
 bool TextureStreamingPool::update_residency_state(
     TextureAssetHandle handle,
     const TextureAssetMetadata& metadata,
-    uint32_t first_mip)
+    uint8_t first_mip)
 {
     TextureEntry* entry = get_entry(handle);
     MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
@@ -188,8 +187,8 @@ struct MipUploadLayout
 
 static std::vector<MipUploadLayout> compute_mips_upload_layout(
     const TextureAssetMetadata& metadata,
-    uint32_t first_mip,
-    uint32_t mip_count,
+    uint8_t first_mip,
+    uint8_t mip_count,
     uint64_t row_pitch_alignment,
     uint64_t placement_alignment,
     uint64_t& out_total_size)
@@ -201,9 +200,9 @@ static std::vector<MipUploadLayout> compute_mips_upload_layout(
     layouts.reserve(mip_count);
 
     uint64_t total = 0;
-    for (uint32_t i = 0; i < mip_count; ++i)
+    for (uint8_t i = 0; i < mip_count; ++i)
     {
-        const uint32_t mip = first_mip + i;
+        const uint8_t mip = first_mip + i;
         const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
 
         const uint32_t row_pitch = static_cast<uint32_t>(
@@ -223,7 +222,7 @@ static void record_staged_mips_upload(
     ImageResource& texture,
     const TextureAssetMetadata& metadata,
     const TextureUploadData& upload,
-    uint32_t texture_first_mip,
+    uint8_t texture_first_mip,
     CommandBuffer& command,
     FrameLinearAllocator& frame_allocator)
 {
@@ -236,7 +235,7 @@ static void record_staged_mips_upload(
     const uint64_t row_pitch_alignment = properties.alignments.min_texture_row_pitch;
     const uint64_t placement_alignment = properties.alignments.min_texture_data_placement;
 
-    const uint32_t streamed_count = upload.old_first_mip - upload.new_first_mip;
+    const uint8_t streamed_count = upload.old_first_mip - upload.new_first_mip;
 
     uint64_t frame_alloc_size = 0;
     const std::vector<MipUploadLayout> layouts = compute_mips_upload_layout(
@@ -295,7 +294,7 @@ static void record_placed_gpu_upload(
     CommandBuffer& command,
     FrameLinearAllocator& frame_allocator)
 {
-    const uint32_t num_mips = metadata.num_mips;
+    const uint8_t num_mips = metadata.num_mips;
 
     command.transition_resource(new_texture, ImageResourceState::Undefined, ImageResourceState::TransferDst);
 
@@ -303,7 +302,7 @@ static void record_placed_gpu_upload(
     {
         command.transition_resource(*old_texture, ImageResourceState::ShaderReadOnly, ImageResourceState::TransferSrc);
 
-        const uint32_t shared_first_mip = std::max(upload.old_first_mip, upload.new_first_mip);
+        const uint8_t shared_first_mip = std::max(upload.old_first_mip, upload.new_first_mip);
         for (uint32_t mip = shared_first_mip; mip < num_mips; ++mip)
         {
             const glm::uvec2 dims = compute_mip_size(metadata.width, metadata.height, mip);
@@ -350,9 +349,11 @@ static void record_sparse_gpu_upload(
     if (upload.new_first_mip >= upload.old_first_mip)
         return;
 
+    const uint32_t upload_mip_count = upload.old_first_mip - upload.new_first_mip;
+
     const ImageResourceViewDescription upload_range{
         .mip_base = upload.new_first_mip,
-        .mip_count = upload.old_first_mip - upload.new_first_mip,
+        .mip_count = upload_mip_count,
     };
 
     command.transition_resource(texture, ImageResourceState::Undefined, ImageResourceState::TransferDst, upload_range);
@@ -384,7 +385,7 @@ void TextureStreamingPool::record_gpu_upload(
     case ResourceBacking::Sparse:
         MIZU_ASSERT(entry->texture != nullptr, "Sparse resources should have the texture created on register");
 
-        for (uint32_t mip = upload.old_first_mip; mip < upload.new_first_mip; ++mip)
+        for (uint8_t mip = upload.old_first_mip; mip < upload.new_first_mip; ++mip)
         {
             release_sparse_pages(handle, *entry, mip);
         }
@@ -394,13 +395,13 @@ void TextureStreamingPool::record_gpu_upload(
     }
 }
 
-uint32_t TextureStreamingPool::get_coarsest_first_mip(TextureAssetHandle handle) const
+uint8_t TextureStreamingPool::get_coarsest_first_mip(TextureAssetHandle handle) const
 {
     const TextureEntry* entry = get_entry(handle);
     MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
 
     if (entry->backing != ResourceBacking::Sparse)
-        return std::numeric_limits<uint32_t>::max();
+        return std::numeric_limits<uint8_t>::max();
 
     return entry->base_first_mip;
 }
@@ -428,9 +429,9 @@ bool TextureStreamingPool::update_placed_residency_state(
     TextureAssetHandle handle,
     TextureEntry& entry,
     const TextureAssetMetadata& metadata,
-    uint32_t first_mip)
+    uint8_t first_mip)
 {
-    const uint32_t resident_first_mip = metadata.num_mips - entry.resident_mips;
+    const uint8_t resident_first_mip = metadata.num_mips - entry.resident_mips;
 
     if (resident_first_mip == first_mip)
     {
@@ -463,7 +464,7 @@ bool TextureStreamingPool::update_sparse_residency_state(
     TextureAssetHandle handle,
     TextureEntry& entry,
     const TextureAssetMetadata& metadata,
-    uint32_t first_mip)
+    uint8_t first_mip)
 {
     MIZU_ASSERT(entry.texture != nullptr, "Sparse resources should have the texture created on register");
     MIZU_ASSERT(
@@ -475,8 +476,8 @@ bool TextureStreamingPool::update_sparse_residency_state(
         first_mip,
         entry.base_first_mip);
 
-    const uint32_t num_mips = metadata.num_mips;
-    const uint32_t old_first_mip = num_mips - entry.resident_mips;
+    const uint8_t num_mips = metadata.num_mips;
+    const uint8_t old_first_mip = num_mips - entry.resident_mips;
 
     if (first_mip == old_first_mip)
         return true;
@@ -485,7 +486,7 @@ bool TextureStreamingPool::update_sparse_residency_state(
     {
         // Eviction case
 
-        for (uint32_t mip = old_first_mip; mip < entry.mip_tail_first_mip; ++mip)
+        for (uint8_t mip = old_first_mip; mip < entry.mip_tail_first_mip; ++mip)
         {
             release_sparse_pages(handle, entry, mip);
         }
@@ -503,9 +504,9 @@ bool TextureStreamingPool::update_sparse_residency_state(
     }
 
     const bool first_load = entry.resident_mips == 0;
-    const uint32_t bound_first_mip = first_load ? entry.base_first_mip : old_first_mip;
+    const uint8_t bound_first_mip = first_load ? entry.base_first_mip : old_first_mip;
 
-    std::vector<uint32_t> mips{};
+    std::vector<uint8_t> mips{};
 
     if (first_load)
     {
@@ -514,13 +515,13 @@ bool TextureStreamingPool::update_sparse_residency_state(
             mips.push_back(MIP_TAIL);
         }
 
-        for (uint32_t mip = entry.base_first_mip; mip < entry.mip_tail_first_mip; ++mip)
+        for (uint8_t mip = entry.base_first_mip; mip < entry.mip_tail_first_mip; ++mip)
         {
             mips.push_back(mip);
         }
     }
 
-    for (uint32_t mip = first_mip; mip < bound_first_mip; ++mip)
+    for (uint8_t mip = first_mip; mip < bound_first_mip; ++mip)
     {
         mips.push_back(mip);
     }
@@ -560,7 +561,7 @@ static glm::uvec3 get_mip_extent(const ImageDescription& desc, uint32_t mip)
     return glm::uvec3(size, depth);
 }
 
-std::vector<GpuPage>& TextureStreamingPool::get_sparse_pages(TextureEntry& entry, uint32_t mip)
+std::vector<GpuPage>& TextureStreamingPool::get_sparse_pages(TextureEntry& entry, uint8_t mip)
 {
     if (mip == MIP_TAIL)
         return entry.mip_tail_pages;
@@ -569,7 +570,7 @@ std::vector<GpuPage>& TextureStreamingPool::get_sparse_pages(TextureEntry& entry
     return entry.mip_pages[mip];
 }
 
-uint32_t TextureStreamingPool::count_sparse_pages(const TextureEntry& entry, uint32_t mip) const
+uint32_t TextureStreamingPool::count_sparse_pages(const TextureEntry& entry, uint8_t mip) const
 {
     const SparseImageMemoryRequirements reqs = entry.texture->get_sparse_memory_requirements();
 
@@ -583,16 +584,16 @@ uint32_t TextureStreamingPool::count_sparse_pages(const TextureEntry& entry, uin
 bool TextureStreamingPool::acquire_sparse_pages(
     TextureAssetHandle handle,
     TextureEntry& entry,
-    std::span<const uint32_t> mips)
+    std::span<const uint8_t> mips)
 {
-    const auto find_pending_release = [&](uint32_t mip) {
+    const auto find_pending_release = [&](uint8_t mip) {
         return std::ranges::find_if(m_pending_page_releases, [&](const PendingPageRelease& release) {
             return release.handle == handle && release.mip == mip;
         });
     };
 
     uint32_t num_new_pages = 0;
-    for (const uint32_t mip : mips)
+    for (const uint8_t mip : mips)
     {
         MIZU_ASSERT(
             get_sparse_pages(entry, mip).empty(), "Sparse mip {} of texture {} is already bound", mip, handle.get_id());
@@ -614,7 +615,7 @@ bool TextureStreamingPool::acquire_sparse_pages(
     }
 
     size_t next_page = 0;
-    for (const uint32_t mip : mips)
+    for (const uint8_t mip : mips)
     {
         std::vector<GpuPage>& pages = get_sparse_pages(entry, mip);
 
@@ -639,7 +640,7 @@ bool TextureStreamingPool::acquire_sparse_pages(
     return true;
 }
 
-void TextureStreamingPool::release_sparse_pages(TextureAssetHandle handle, TextureEntry& entry, uint32_t mip)
+void TextureStreamingPool::release_sparse_pages(TextureAssetHandle handle, TextureEntry& entry, uint8_t mip)
 {
     std::vector<GpuPage>& pages = get_sparse_pages(entry, mip);
     if (pages.empty())
@@ -655,7 +656,7 @@ void TextureStreamingPool::release_sparse_pages(TextureAssetHandle handle, Textu
     pages.clear();
 }
 
-void TextureStreamingPool::enqueue_sparse_binds(const TextureEntry& entry, uint32_t mip)
+void TextureStreamingPool::enqueue_sparse_binds(const TextureEntry& entry, uint8_t mip)
 {
     ImageResource* texture = entry.texture.get();
     const SparseImageMemoryRequirements reqs = texture->get_sparse_memory_requirements();
@@ -728,7 +729,7 @@ void TextureStreamingPool::enqueue_sparse_binds(const TextureEntry& entry, uint3
     }
 }
 
-void TextureStreamingPool::enqueue_sparse_unbinds(ImageResource& texture, uint32_t mip)
+void TextureStreamingPool::enqueue_sparse_unbinds(ImageResource& texture, uint8_t mip)
 {
     if (mip == MIP_TAIL)
     {
@@ -784,7 +785,7 @@ void TextureStreamingPool::process_pending_page_releases()
 ImageDescription TextureStreamingPool::create_image_description(
     TextureAssetHandle handle,
     const TextureAssetMetadata& metadata,
-    uint32_t first_mip)
+    uint8_t first_mip)
 {
     const glm::uvec2 mip_dims = compute_mip_size(metadata.width, metadata.height, first_mip);
 
@@ -831,8 +832,8 @@ ResourceBacking TextureStreamingPool::select_resource_backing(
         return ResourceBacking::Placed;
     }
 
-    const uint32_t num_streamable_mips = math::min(
-        static_cast<uint32_t>(metadata.streamable_mips), metadata.num_mips - 1, sparse_reqs.mip_tail_first_mip);
+    const uint32_t num_streamable_mips =
+        std::min<uint32_t>({metadata.streamable_mips, metadata.num_mips - 1u, sparse_reqs.mip_tail_first_mip});
 
     // This means that all of the mips of the texture are tail mips, can't stream
     if (num_streamable_mips == 0)

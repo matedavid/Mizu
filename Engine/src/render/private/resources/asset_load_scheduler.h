@@ -32,8 +32,8 @@ class AssetLoadScheduler
         const MeshLoadingFinishedFunc& callback);
     void request_texture_load(
         TextureAssetHandle handle,
-        uint32_t first_mip,
-        uint32_t mip_count,
+        uint8_t first_mip,
+        uint8_t mip_count,
         std::span<uint8_t> destination,
         const TextureLoadingFinishedFunc& callback);
 
@@ -50,8 +50,8 @@ class AssetLoadScheduler
     struct LoadJobRecord
     {
         AssetHandleT asset_handle;
-        uint32_t level_base;
-        uint32_t level_count;
+        uint8_t level_base;
+        uint8_t level_count;
         std::span<uint8_t> destination;
         LoadingFinishedFunc callback_func;
     };

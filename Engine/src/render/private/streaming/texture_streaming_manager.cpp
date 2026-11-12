@@ -140,9 +140,8 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
             continue;
         }
 
-        const uint32_t first_mip = metadata.num_mips - request.desired_level;
-        const int32_t mip_delta =
-            static_cast<int32_t>(request.desired_level) - static_cast<int32_t>(request.resident_level);
+        const uint8_t first_mip = metadata.num_mips - request.desired_level;
+        const int8_t mip_delta = request.desired_level - request.resident_level;
 
         MIZU_LOG_INFO(
             "Streaming handle={}, first_mip={}, mip_delta={}, desired_level={}, resident_level={}",
@@ -156,7 +155,7 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
 
         if (mip_delta > 0)
         {
-            const uint64_t size = metadata.get_mip_range_size_bytes(first_mip, static_cast<uint32_t>(mip_delta));
+            const uint64_t size = metadata.get_mip_range_size_bytes(first_mip, static_cast<uint8_t>(mip_delta));
 
             const std::optional<StagingBlock> block_opt = m_staging_pool.allocate(size);
             if (!block_opt.has_value())
@@ -203,7 +202,7 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
         m_load_scheduler.request_texture_load(
             handle,
             first_mip,
-            static_cast<uint32_t>(mip_delta),
+            static_cast<uint8_t>(mip_delta),
             block.as_span(),
             [this, metadata, request, block](TextureAssetHandle handle) {
                 m_gpu_upload_queue.push({
@@ -227,11 +226,13 @@ void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLi
 
         command.begin_gpu_marker("TextureStreamingManager::TextureUpload");
 
-        const uint32_t num_mips = record.metadata.num_mips;
+        const uint8_t num_mips = record.metadata.num_mips;
+        const uint8_t old_first_mip = num_mips - record.request.resident_level;
+        const uint8_t new_first_mip = num_mips - record.request.desired_level;
 
         const TextureUploadData upload{
-            .old_first_mip = num_mips - record.request.resident_level,
-            .new_first_mip = num_mips - record.request.desired_level,
+            .old_first_mip = old_first_mip,
+            .new_first_mip = new_first_mip,
             .data = record.staging_block.is_valid() ? std::span<const uint8_t>(record.staging_block.as_span())
                                                     : std::span<const uint8_t>{},
         };
@@ -418,7 +419,7 @@ auto TextureStreamingManager::evaluate(
     }
 
     const bool streamable = entry.is_streamable();
-    const uint8_t max_level = static_cast<uint8_t>(metadata.num_mips);
+    const uint8_t max_level = metadata.num_mips;
 
     // If it's not streamable, and the resident level is 0, it means it's the first load of the asset, and because
     // we don't have to take into account which quality to load, just request the load.
@@ -435,12 +436,12 @@ auto TextureStreamingManager::evaluate(
 
     const uint32_t texture_dim = glm::max(metadata.width, metadata.height);
 
-    const uint32_t coarsest_first_mip = m_texture_pool.get_coarsest_first_mip(handle);
+    const uint8_t coarsest_first_mip = m_texture_pool.get_coarsest_first_mip(handle);
 
-    const uint32_t streamable_mip_limit = glm::min<uint32_t>(metadata.streamable_mips, metadata.num_mips - 1);
-    const uint32_t mip_tail_start = glm::min(streamable_mip_limit, coarsest_first_mip);
+    const uint8_t streamable_mip_limit = glm::min<uint8_t>(metadata.streamable_mips, metadata.num_mips - 1);
+    const uint8_t mip_tail_start = glm::min(streamable_mip_limit, coarsest_first_mip);
     // TODO: Kept as a variable in case in the future we add the ability to "skip mips"
-    const uint32_t finest_top_mip = 0;
+    const uint8_t finest_top_mip = 0;
 
     const TransformRegistry& transform_registry = transform_registry_get();
 
@@ -481,9 +482,9 @@ auto TextureStreamingManager::evaluate(
 
             const float clamped =
                 glm::clamp(lod, static_cast<float>(finest_top_mip), static_cast<float>(mip_tail_start));
-            const int32_t top_mip = static_cast<int32_t>(std::floor(clamped));
+            const uint8_t top_mip = static_cast<uint8_t>(std::floor(clamped));
 
-            const uint8_t desired = static_cast<uint8_t>(metadata.num_mips - static_cast<uint32_t>(top_mip));
+            const uint8_t desired = metadata.num_mips - top_mip;
             const float coverage = projected_area_fraction(sphere, view, context.viewport_size);
 
             desired_level = glm::max(desired_level, desired);

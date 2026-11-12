@@ -29,8 +29,8 @@ struct TextureStreamingPoolDescription
 
 struct TextureUploadData
 {
-    uint32_t old_first_mip = 0;
-    uint32_t new_first_mip = 0;
+    uint8_t old_first_mip = 0;
+    uint8_t new_first_mip = 0;
     std::span<const uint8_t> data{};
 };
 
@@ -48,7 +48,7 @@ class TextureStreamingPool
     void register_texture(TextureAssetHandle handle, const TextureAssetMetadata& metadata);
     void unregister_texture(TextureAssetHandle handle);
 
-    bool update_residency_state(TextureAssetHandle handle, const TextureAssetMetadata& metadata, uint32_t first_mip);
+    bool update_residency_state(TextureAssetHandle handle, const TextureAssetMetadata& metadata, uint8_t first_mip);
 
     void record_gpu_upload(
         TextureAssetHandle handle,
@@ -57,7 +57,7 @@ class TextureStreamingPool
         CommandBuffer& command,
         FrameLinearAllocator& frame_allocator);
 
-    uint32_t get_coarsest_first_mip(TextureAssetHandle handle) const;
+    uint8_t get_coarsest_first_mip(TextureAssetHandle handle) const;
     ImageResourceView get_resource_view(TextureAssetHandle handle) const;
 
   private:
@@ -72,10 +72,10 @@ class TextureStreamingPool
         std::shared_ptr<ImageResource> old_texture = nullptr;
 
         ResourceBacking backing = ResourceBacking::Placed;
-        uint32_t resident_mips = 0;
+        uint8_t resident_mips = 0;
 
-        uint32_t mip_tail_first_mip = 0;
-        uint32_t base_first_mip = 0;
+        uint8_t mip_tail_first_mip = 0;
+        uint8_t base_first_mip = 0;
         std::vector<std::vector<GpuPage>> mip_pages{};
         std::vector<GpuPage> mip_tail_pages{};
     };
@@ -91,12 +91,12 @@ class TextureStreamingPool
 
     std::vector<PendingRelease> m_pending_releases{};
 
-    static constexpr uint32_t MIP_TAIL = std::numeric_limits<uint32_t>::max();
+    static constexpr uint8_t MIP_TAIL = std::numeric_limits<uint8_t>::max();
 
     struct PendingPageRelease
     {
         TextureAssetHandle handle{};
-        uint32_t mip = 0;
+        uint8_t mip = 0;
         std::vector<GpuPage> pages{};
         uint32_t frames = 0;
     };
@@ -107,21 +107,21 @@ class TextureStreamingPool
         TextureAssetHandle handle,
         TextureEntry& entry,
         const TextureAssetMetadata& metadata,
-        uint32_t first_mip);
+        uint8_t first_mip);
     bool update_sparse_residency_state(
         TextureAssetHandle handle,
         TextureEntry& entry,
         const TextureAssetMetadata& metadata,
-        uint32_t first_mip);
+        uint8_t first_mip);
 
-    std::vector<GpuPage>& get_sparse_pages(TextureEntry& entry, uint32_t mip);
-    uint32_t count_sparse_pages(const TextureEntry& entry, uint32_t mip) const;
+    std::vector<GpuPage>& get_sparse_pages(TextureEntry& entry, uint8_t mip);
+    uint32_t count_sparse_pages(const TextureEntry& entry, uint8_t mip) const;
 
-    bool acquire_sparse_pages(TextureAssetHandle handle, TextureEntry& entry, std::span<const uint32_t> mips);
-    void release_sparse_pages(TextureAssetHandle handle, TextureEntry& entry, uint32_t mip);
+    bool acquire_sparse_pages(TextureAssetHandle handle, TextureEntry& entry, std::span<const uint8_t> mips);
+    void release_sparse_pages(TextureAssetHandle handle, TextureEntry& entry, uint8_t mip);
 
-    void enqueue_sparse_binds(const TextureEntry& entry, uint32_t mip);
-    void enqueue_sparse_unbinds(ImageResource& texture, uint32_t mip);
+    void enqueue_sparse_binds(const TextureEntry& entry, uint8_t mip);
+    void enqueue_sparse_unbinds(ImageResource& texture, uint8_t mip);
 
     void release_delayed(std::shared_ptr<ImageResource> texture);
     void process_pending_page_releases();
@@ -129,7 +129,7 @@ class TextureStreamingPool
     ImageDescription create_image_description(
         TextureAssetHandle handle,
         const TextureAssetMetadata& metadata,
-        uint32_t first_mip);
+        uint8_t first_mip);
 
     ResourceBacking select_resource_backing(TextureAssetHandle handle, const TextureAssetMetadata& metadata);
 

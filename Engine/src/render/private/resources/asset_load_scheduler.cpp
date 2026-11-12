@@ -115,8 +115,8 @@ void AssetLoadScheduler::request_mesh_load(
 
 void AssetLoadScheduler::request_texture_load(
     TextureAssetHandle handle,
-    uint32_t first_mip,
-    uint32_t mip_count,
+    uint8_t first_mip,
+    uint8_t mip_count,
     std::span<uint8_t> destination,
     const TextureLoadingFinishedFunc& callback)
 {
@@ -174,8 +174,8 @@ bool AssetLoadScheduler::load_asset(const MeshAssetHandle& handle, const LoadJob
 
     if (!m_asset_loader.load_mesh_payload_lods(
             handle,
-            static_cast<uint8_t>(job_record.level_base),
-            static_cast<uint8_t>(job_record.level_count),
+            job_record.level_base,
+            job_record.level_count,
             job_record.destination))
     {
         MIZU_LOG_ERROR("Failed to load mesh payload for handle: {}", handle.get_id());
