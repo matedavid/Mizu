@@ -163,9 +163,10 @@ PipelineLayoutHandle Dx12PipelineLayoutCache::create(const PipelineLayoutDescrip
     constexpr size_t MAX_NUM_ROOT_PARAMETERS = 12;
     inplace_vector<D3D12_ROOT_PARAMETER1, MAX_NUM_ROOT_PARAMETERS> root_parameters;
 
-    constexpr size_t MAX_DESCRIPTOR_RANGES = 10;
+    constexpr size_t MAX_DESCRIPTOR_RANGES = 16;
+    constexpr size_t MAX_DESCRIPTOR_TABLES = 12;
     using RangesVec = inplace_vector<D3D12_DESCRIPTOR_RANGE1, MAX_DESCRIPTOR_RANGES>;
-    std::array<RangesVec, MAX_DESCRIPTOR_RANGES> descriptor_ranges_vec;
+    std::array<RangesVec, MAX_DESCRIPTOR_TABLES> descriptor_ranges_vec;
     uint32_t ranges_vec_index = 0;
 
     uint32_t num_resource_parameters = 0;
