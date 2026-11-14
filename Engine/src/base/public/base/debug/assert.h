@@ -49,19 +49,18 @@ namespace Mizu
 namespace Mizu
 {
 
-#define MIZU_ASSERT(cond, ...) \
-    do                         \
-    {                          \
-        (void)sizeof(cond);    \
-    } while (false)
+#define MIZU_ASSERT_DISCARD(...) (void)sizeof(__VA_ARGS__)
 
-#define MIZU_VERIFY(cond, ...) \
-    do                         \
-    {                          \
-        if (!(cond))           \
-        {                      \
-            exit(1);           \
-        }                      \
+#define MIZU_ASSERT(cond, ...) MIZU_ASSERT_DISCARD(cond, __VA_ARGS__)
+
+#define MIZU_VERIFY(cond, ...)            \
+    do                                    \
+    {                                     \
+        MIZU_ASSERT_DISCARD(__VA_ARGS__); \
+        if (!(cond))                      \
+        {                                 \
+            exit(1);                      \
+        }                                 \
     } while (false)
 
 #define MIZU_UNREACHABLE(...) MIZU_VERIFY(false, __VA_ARGS__);
