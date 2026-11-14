@@ -31,7 +31,7 @@ class RenderTest
 
     virtual bool should_run_test(const RenderTestEnvironment&, const Mizu::DeviceProperties&) const { return true; }
 
-    virtual void prepare_test([[maybe_unused]] const RenderTestExecutionEnvironment& environment) {}
+    virtual void prepare_test(const RenderTestExecutionEnvironment& /*environment*/) {}
     virtual void cleanup_test() {}
 
     virtual void run_test(Mizu::RenderGraphBuilder& builder, const RenderTestExecutionEnvironment& environment) = 0;

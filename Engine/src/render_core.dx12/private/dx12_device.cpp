@@ -43,11 +43,11 @@ static constexpr uint32_t NUM_BINDLESS_DESCRIPTORS = 400'000;
 static bool s_pix_gpu_capturer_loaded = false;
 
 static void d3d12_validation_message_callback(
-    [[maybe_unused]] D3D12_MESSAGE_CATEGORY category,
+    D3D12_MESSAGE_CATEGORY /*category*/,
     D3D12_MESSAGE_SEVERITY severity,
     D3D12_MESSAGE_ID id,
     LPCSTR pDescription,
-    [[maybe_unused]] void* pContext)
+    void* /*pContext*/)
 {
     // Newer versions of the sdk have replaced the call to CheckFeatureSupport to CheckFeatureSupport1, which is not
     // available on older versions. The WinPixGpuCapturer.dll uses the deprecated ID3D12Device::CheckFeatureSupport, so

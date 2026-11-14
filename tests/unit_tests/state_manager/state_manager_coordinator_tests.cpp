@@ -17,10 +17,10 @@ class MockStateManager : public IStateManager
     {
     }
 
-    void sim_begin_tick(const TickUpdateState&) override { m_order.push_back(m_identifier); }
+    void sim_begin_tick(const TickUpdateState& /*state*/) override { m_order.push_back(m_identifier); }
 
     void sim_end_tick() override {}
-    void rend_apply_updates([[maybe_unused]] const FrameUpdateState&) override {}
+    void rend_apply_updates(const FrameUpdateState& /*state*/) override {}
 
     std::string_view get_identifier() const override { return m_identifier; }
 

@@ -47,12 +47,12 @@ class ShaderDeclaration
 {
   public:
     static void modify_compilation_environment(
-        [[maybe_unused]] const ShaderCompilationTarget& target,
-        [[maybe_unused]] ShaderCompilationEnvironment& environment)
+        const ShaderCompilationTarget& /*target*/,
+        ShaderCompilationEnvironment& /*environment*/)
     {
     }
 
-    static bool should_compile_permutation([[maybe_unused]] const ShaderCompilationTarget& target) { return true; }
+    static bool should_compile_permutation(const ShaderCompilationTarget& /*target*/) { return true; }
 
     ShaderInstance get_instance() const
     {

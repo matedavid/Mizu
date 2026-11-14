@@ -54,7 +54,7 @@ static bool init_asset_game_context(std::string_view package_path, const char* e
 }
 
 static void print_results(
-    [[maybe_unused]] const RenderTestsRunnerResults& results,
+    const RenderTestsRunnerResults& results,
     [[maybe_unused]] const RenderTestEnvironment& environment)
 {
     if (results.failed_tests > 0)

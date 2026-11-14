@@ -16,7 +16,7 @@ FiberHandle fiber_convert_thread_to_fiber()
     return FiberHandle{};
 }
 
-void fiber_revert_fiber_to_thread([[maybe_unused]] const FiberHandle& handle)
+void fiber_revert_fiber_to_thread(const FiberHandle& /*handle*/)
 {
     // Empty implementation
 }
@@ -98,10 +98,7 @@ FiberHandle fiber_create(uint8_t* stack_memory, size_t stack_size, FiberStartFun
     return handle;
 }
 
-void fiber_destroy(const FiberHandle& handle)
-{
-    (void)handle;
-}
+void fiber_destroy(const FiberHandle& /*handle*/) {}
 
 extern "C" void fiber_switch_internal(FiberContext& from, const FiberContext& to);
 
