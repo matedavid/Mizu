@@ -70,7 +70,7 @@ class TextureStreamingManager : public IStreamingManager
 
     void update(const StreamingContext& context) override;
     void gather(std::vector<StreamingRequest>& requests) override;
-    void execute(std::span<StreamingAward> awards) override;
+    void execute(const StreamingContext& context, std::span<StreamingAward> awards) override;
     void post_execute() override;
 
     void record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator) override;

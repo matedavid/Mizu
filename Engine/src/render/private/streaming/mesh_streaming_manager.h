@@ -74,7 +74,7 @@ class MeshStreamingManager : public IStreamingManager
 
     void update(const StreamingContext& context) override;
     void gather(std::vector<StreamingRequest>& requests) override;
-    void execute(std::span<StreamingAward> awards) override;
+    void execute(const StreamingContext& context, std::span<StreamingAward> awards) override;
     void post_execute() override;
 
     void setup_render_graph_upload_pass(RenderGraphBuilder& builder, RenderGraphPassBuilder& pass) override;

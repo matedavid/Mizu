@@ -58,7 +58,7 @@ class IStreamingManager
 
     virtual void update(const StreamingContext& context) = 0;
     virtual void gather(std::vector<StreamingRequest>& requests) = 0;
-    virtual void execute(std::span<StreamingAward> awards) = 0;
+    virtual void execute(const StreamingContext& context, std::span<StreamingAward> awards) = 0;
     virtual void post_execute() = 0;
 
     virtual void setup_render_graph_upload_pass(RenderGraphBuilder& /*builder*/, RenderGraphPassBuilder& /*pass*/) {}

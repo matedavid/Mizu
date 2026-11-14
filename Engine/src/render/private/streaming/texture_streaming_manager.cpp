@@ -92,7 +92,7 @@ void TextureStreamingManager::gather(std::vector<StreamingRequest>& requests)
     m_pending_requests.clear();
 }
 
-void TextureStreamingManager::execute(std::span<StreamingAward> awards)
+void TextureStreamingManager::execute(const StreamingContext& context, std::span<StreamingAward> awards)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -153,13 +153,16 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
         const uint8_t first_mip = metadata.num_mips - request.desired_level;
         const int8_t mip_delta = request.desired_level - request.resident_level;
 
-        MIZU_LOG_INFO(
-            "Streaming handle={}, first_mip={}, mip_delta={}, desired_level={}, resident_level={}",
-            request.asset_key.id,
-            first_mip,
-            mip_delta,
-            request.desired_level,
-            request.resident_level);
+        if (context.settings.logging_enabled)
+        {
+            MIZU_LOG_INFO(
+                "Streaming handle={}, first_mip={}, mip_delta={}, desired_level={}, resident_level={}",
+                request.asset_key.id,
+                first_mip,
+                mip_delta,
+                request.desired_level,
+                request.resident_level);
+        }
 
         if (!m_texture_pool.update_residency_state(handle, metadata, first_mip))
         {

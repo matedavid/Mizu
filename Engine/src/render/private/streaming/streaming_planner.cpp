@@ -113,7 +113,7 @@ void StreamingPlanner::update(const StreamingFrameData& frame_data)
 
         if (num_awards > 0)
         {
-            m_streaming_managers[i]->execute(awards_span.subspan(first_award, num_awards));
+            m_streaming_managers[i]->execute(context, awards_span.subspan(first_award, num_awards));
         }
     }
 

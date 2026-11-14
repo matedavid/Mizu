@@ -89,7 +89,7 @@ void MeshStreamingManager::gather(std::vector<StreamingRequest>& requests)
     m_pending_requests.clear();
 }
 
-void MeshStreamingManager::execute(std::span<StreamingAward> awards)
+void MeshStreamingManager::execute(const StreamingContext& context, std::span<StreamingAward> awards)
 {
     MIZU_PROFILE_SCOPED;
 
@@ -151,13 +151,16 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
         const int32_t lod_delta =
             static_cast<int32_t>(request.desired_level) - static_cast<int32_t>(request.resident_level);
 
-        MIZU_LOG_INFO(
-            "Streaming handle={}, first_lod={}, lod_delta={}, desired_level={}, resident_level={}",
-            request.asset_key.id,
-            first_lod,
-            lod_delta,
-            request.desired_level,
-            request.resident_level);
+        if (context.settings.logging_enabled)
+        {
+            MIZU_LOG_INFO(
+                "Streaming handle={}, first_lod={}, lod_delta={}, desired_level={}, resident_level={}",
+                request.asset_key.id,
+                first_lod,
+                lod_delta,
+                request.desired_level,
+                request.resident_level);
+        }
 
         if (!m_mesh_streaming_pool.update_residency_state(handle, metadata, first_lod))
         {
