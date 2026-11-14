@@ -575,7 +575,7 @@ bool GameRenderer::init_asset_systems()
             .name = "GameRenderer::GpuPageAllocator",
         });
 
-    m_sparse_bind_scheduler = std::make_unique<SparseBindScheduler>(CommandBufferType::Graphics);
+    m_sparse_bind_scheduler = std::make_unique<SparseBindScheduler>();
 
     constexpr uint64_t STAGING_POOL_BUDGET = 128ull * 1024 * 1024;
     m_staging_pool = std::make_unique<StagingPool>(STAGING_POOL_BUDGET);

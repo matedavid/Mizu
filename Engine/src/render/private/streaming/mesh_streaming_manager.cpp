@@ -91,6 +91,8 @@ void MeshStreamingManager::gather(std::vector<StreamingRequest>& requests)
 
 void MeshStreamingManager::execute(std::span<StreamingAward> awards)
 {
+    MIZU_PROFILE_SCOPED;
+
     for (const StreamingAward& award : awards)
     {
         MIZU_ASSERT(
@@ -156,24 +158,6 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             lod_delta,
             request.desired_level,
             request.resident_level);
-
-        /*
-        StagingBlock block;
-
-        if (lod_delta > 0)
-        {
-            const uint64_t size = metadata.get_lod_range_file_size_bytes(first_lod, static_cast<uint8_t>(lod_delta));
-
-            const std::optional<StagingBlock> block_opt = m_staging_pool.allocate(size, MESH_FILE_SEGMENT_ALIGNMENT);
-            if (!block_opt.has_value())
-            {
-                MIZU_ASSERT(false, "Failed to allocate from StagingPool");
-                continue;
-            }
-
-            block = block_opt.value();
-        }
-        */
 
         if (!m_mesh_streaming_pool.update_residency_state(handle, metadata, first_lod))
         {

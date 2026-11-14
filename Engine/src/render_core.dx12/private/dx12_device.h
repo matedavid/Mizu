@@ -50,6 +50,11 @@ class Dx12Device : public Device
     void wait_idle() const override;
 
     Queue& get_queue(CommandBufferType type) const override;
+    Queue& get_sparse_queue() const override
+    {
+        // Tiled resources support is reported per device, not per queue
+        return *m_transfer_queue;
+    }
 
     // Creation functions
 

@@ -8,8 +8,6 @@ namespace Mizu
 class SparseBindScheduler
 {
   public:
-    SparseBindScheduler(CommandBufferType type);
-
     void enqueue_buffer_bind(const SparseBufferBind& bind);
     void enqueue_buffer_unbind(const SparseBufferUnbind& unbind);
 
@@ -25,10 +23,7 @@ class SparseBindScheduler
     SyncPoint flush(const SubmitInfo& submit_info);
 
   private:
-    CommandBufferType m_queue_type{};
     SparseBindBatch m_current_batch{};
-
-    Queue& get_queue() const;
 };
 
 } // namespace Mizu

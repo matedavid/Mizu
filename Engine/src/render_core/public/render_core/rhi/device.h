@@ -139,6 +139,7 @@ class MIZU_RENDER_CORE_API Device
     virtual void wait_idle() const = 0;
 
     virtual Queue& get_queue(CommandBufferType type) const = 0;
+    virtual Queue& get_sparse_queue() const = 0;
 
     // Creation functions
 

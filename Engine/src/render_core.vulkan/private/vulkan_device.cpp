@@ -741,6 +741,9 @@ bool VulkanDevice::select_queue_families(std::span<const VkQueueFamilyProperties
     if (dedicated_transfer != INVALID)
         selection.transfer = dedicated_transfer;
 
+    const bool transfer_has_sparse = families[selection.transfer].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT;
+    selection.sparse = transfer_has_sparse ? selection.transfer : graphics;
+
     return true;
 }
 
@@ -799,8 +802,7 @@ void VulkanDevice::select_physical_device(const DeviceRequirements& requirements
         m_physical_device = device;
         m_queue_families = families;
 
-        // TODO: Sparse binds are submitted on the graphics queue, pick a sparse capable queue instead
-        const bool sparse_queue = info.queue_families[families.graphics].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT;
+        const bool sparse_queue = info.queue_families[families.sparse].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT;
 
         m_optional_features = OptionalFeatures{};
 
@@ -947,6 +949,11 @@ void VulkanDevice::create_device(const DeviceRequirements& requirements)
     m_graphics_queue = get_queue_or_insert(m_queue_families.graphics, CommandBufferType::Graphics);
     m_compute_queue = get_queue_or_insert(m_queue_families.compute, CommandBufferType::Compute);
     m_transfer_queue = get_queue_or_insert(m_queue_families.transfer, CommandBufferType::Transfer);
+
+    const auto sparse_queue_it = queue_family_to_queue.find(m_queue_families.sparse);
+    MIZU_ASSERT(
+        sparse_queue_it != queue_family_to_queue.end(), "Sparse queue family {} has no queue", m_queue_families.sparse);
+    m_sparse_queue = sparse_queue_it->second;
 
     // Create command pools
     const uint32_t num_threads = std::thread::hardware_concurrency();

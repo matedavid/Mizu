@@ -48,6 +48,7 @@ class VulkanDevice : public Device
     void wait_idle() const override;
 
     Queue& get_queue(CommandBufferType type) const override;
+    Queue& get_sparse_queue() const override { return *m_sparse_queue; }
 
     // Creation functions
 
@@ -121,6 +122,7 @@ class VulkanDevice : public Device
         uint32_t graphics;
         uint32_t compute;
         uint32_t transfer;
+        uint32_t sparse;
     };
     QueueFamilies m_queue_families{};
 
@@ -128,6 +130,7 @@ class VulkanDevice : public Device
     VulkanQueue* m_graphics_queue = nullptr;
     VulkanQueue* m_compute_queue = nullptr;
     VulkanQueue* m_transfer_queue = nullptr;
+    VulkanQueue* m_sparse_queue = nullptr;
 
     struct ThreadCommandInfo
     {

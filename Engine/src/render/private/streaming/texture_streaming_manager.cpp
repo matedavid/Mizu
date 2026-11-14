@@ -94,6 +94,8 @@ void TextureStreamingManager::gather(std::vector<StreamingRequest>& requests)
 
 void TextureStreamingManager::execute(std::span<StreamingAward> awards)
 {
+    MIZU_PROFILE_SCOPED;
+
     for (const StreamingAward& award : awards)
     {
         MIZU_ASSERT(
@@ -158,24 +160,6 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
             mip_delta,
             request.desired_level,
             request.resident_level);
-
-        /*
-        StagingBlock block;
-
-        if (mip_delta > 0)
-        {
-            const uint64_t size = metadata.get_mip_range_size_bytes(first_mip, static_cast<uint8_t>(mip_delta));
-
-            const std::optional<StagingBlock> block_opt = m_staging_pool.allocate(size);
-            if (!block_opt.has_value())
-            {
-                MIZU_ASSERT(false, "Failed to allocate from StagingPool");
-                continue;
-            }
-
-            block = block_opt.value();
-        }
-        */
 
         if (!m_texture_pool.update_residency_state(handle, metadata, first_mip))
         {

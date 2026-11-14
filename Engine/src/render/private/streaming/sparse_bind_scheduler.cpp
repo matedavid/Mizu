@@ -5,8 +5,6 @@
 namespace Mizu
 {
 
-SparseBindScheduler::SparseBindScheduler(CommandBufferType type) : m_queue_type(type) {}
-
 void SparseBindScheduler::enqueue_buffer_bind(const SparseBufferBind& bind)
 {
     m_current_batch.add_buffer_bind(bind);
@@ -52,17 +50,12 @@ SyncPoint SparseBindScheduler::flush(const SubmitInfo& submit_info)
     if (m_current_batch.is_empty())
         return SyncPoint{};
 
-    Queue& queue = get_queue();
+    Queue& queue = g_render_device->get_sparse_queue();
 
     const SyncPoint sync = queue.bind_sparse(m_current_batch, submit_info);
     m_current_batch = SparseBindBatch{};
 
     return sync;
-}
-
-Queue& SparseBindScheduler::get_queue() const
-{
-    return g_render_device->get_queue(m_queue_type);
 }
 
 } // namespace Mizu
