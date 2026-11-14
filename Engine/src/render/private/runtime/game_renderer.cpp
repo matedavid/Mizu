@@ -39,12 +39,10 @@
 #include "runtime/swapchain_manager.h"
 #include "scene/render_scene.h"
 #include "streaming/mesh_streaming_manager.h"
-#include "streaming/mesh_streaming_pool.h"
 #include "streaming/sparse_bind_scheduler.h"
 #include "streaming/staging_pool.h"
 #include "streaming/streaming_planner.h"
 #include "streaming/texture_streaming_manager.h"
-#include "streaming/texture_streaming_pool.h"
 
 namespace Mizu
 {
@@ -221,9 +219,6 @@ void GameRenderer::update_systems_job()
         .views = render_view_registry_get_views(),
         .viewport_size = {width, height},
     });
-
-    m_mesh_streaming_pool->update();
-    m_texture_streaming_pool->update();
 
     m_asset_load_scheduler->dispatch_load_jobs();
 }
@@ -451,12 +446,16 @@ bool GameRenderer::init_renderer()
 
     m_render_scene = std::make_unique<RenderScene>(*m_streaming_planner, *m_material_system);
 
-    draw_list_system_init(*m_render_scene, *m_mesh_streaming_pool);
+    const MeshStreamingManager* mesh_streaming_manager =
+        m_streaming_planner->get_streaming_manager<MeshStreamingManager>();
+    MIZU_VERIFY(mesh_streaming_manager != nullptr, "GameRenderer requires a MeshStreamingManager");
+
+    draw_list_system_init(*m_render_scene, mesh_streaming_manager->get_streaming_pool());
 
     const bool fullscreen_helpers_ok = FullscreenHelpers::init();
 
     // clang-format off
-    return m_render_graph_transient_memory != nullptr 
+    return m_render_graph_transient_memory      != nullptr 
         && m_render_graph_resource_registry     != nullptr
         && m_frame_linear_allocator             != nullptr
         && fullscreen_helpers_ok;
@@ -579,58 +578,62 @@ bool GameRenderer::init_asset_systems()
 
     m_sparse_bind_scheduler = std::make_unique<SparseBindScheduler>(CommandBufferType::Graphics);
 
-    constexpr uint64_t STAGING_POOL_BUDGET = 512ull * 1024 * 1024;
+    constexpr uint64_t STAGING_POOL_BUDGET = 128ull * 1024 * 1024;
     m_staging_pool = std::make_unique<StagingPool>(STAGING_POOL_BUDGET);
-
-    constexpr uint64_t MESH_POOL_VERTEX_BUFFER_SIZE = 512ull * 1024 * 1024;
-    constexpr uint64_t MESH_POOL_INDEX_BUFFER_SIZE = 256ull * 1024 * 1024;
-
-    const MeshStreamingPoolDescription mesh_pool_desc{
-        .vertex_buffer_size = MESH_POOL_VERTEX_BUFFER_SIZE,
-        .index_buffer_size = MESH_POOL_INDEX_BUFFER_SIZE,
-        .release_delay_frames = m_frames_in_flight + 2,
-    };
-    m_mesh_streaming_pool =
-        std::make_unique<MeshStreamingPool>(mesh_pool_desc, *m_gpu_page_allocator, *m_sparse_bind_scheduler);
-
-    const TextureStreamingPoolDescription texture_pool_desc{
-        .release_delay_frames = m_frames_in_flight + 2,
-    };
-    m_texture_streaming_pool =
-        std::make_unique<TextureStreamingPool>(texture_pool_desc, *m_gpu_page_allocator, *m_sparse_bind_scheduler);
 
     IAssetLoader& asset_loader = g_game_context->get_asset_loader();
 
     m_asset_load_scheduler = std::make_unique<AssetLoadScheduler>(asset_loader);
 
-    m_mesh_streaming_manager = std::make_unique<MeshStreamingManager>(
-        asset_loader, *m_asset_load_scheduler, *m_staging_pool, *m_mesh_streaming_pool);
-    m_texture_streaming_manager = std::make_unique<TextureStreamingManager>(
-        asset_loader, *m_asset_load_scheduler, *m_staging_pool, *m_texture_streaming_pool);
+    m_streaming_planner = std::make_unique<StreamingPlanner>(*m_staging_pool);
 
-    m_material_system =
-        std::make_unique<MaterialSystem>(*m_texture_streaming_manager, asset_loader, m_frames_in_flight);
+    constexpr uint64_t MESH_POOL_VERTEX_BUFFER_SIZE = 512ull * 1024 * 1024;
+    constexpr uint64_t MESH_POOL_INDEX_BUFFER_SIZE = 256ull * 1024 * 1024;
 
-    m_streaming_planner = std::make_unique<StreamingPlanner>();
-    m_streaming_planner->register_streaming_manager(m_mesh_streaming_manager.get());
-    m_streaming_planner->register_streaming_manager(m_texture_streaming_manager.get());
+    const MeshStreamingManagerDescription mesh_streaming_desc{
+        .pool =
+            MeshStreamingPoolDescription{
+                .vertex_buffer_size = MESH_POOL_VERTEX_BUFFER_SIZE,
+                .index_buffer_size = MESH_POOL_INDEX_BUFFER_SIZE,
+                .release_delay_frames = m_frames_in_flight + 2,
+            },
+    };
+    m_streaming_planner->create_streaming_manager<MeshStreamingManager>(
+        mesh_streaming_desc,
+        asset_loader,
+        *m_asset_load_scheduler,
+        *m_staging_pool,
+        *m_gpu_page_allocator,
+        *m_sparse_bind_scheduler);
+
+    const TextureStreamingManagerDescription texture_streaming_desc{
+        .pool =
+            TextureStreamingPoolDescription{
+                .release_delay_frames = m_frames_in_flight + 2,
+            },
+    };
+    TextureStreamingManager& texture_streaming_manager =
+        m_streaming_planner->create_streaming_manager<TextureStreamingManager>(
+            texture_streaming_desc,
+            asset_loader,
+            *m_asset_load_scheduler,
+            *m_staging_pool,
+            *m_gpu_page_allocator,
+            *m_sparse_bind_scheduler);
+
+    m_material_system = std::make_unique<MaterialSystem>(texture_streaming_manager, asset_loader, m_frames_in_flight);
 
     return true;
 }
 
 void GameRenderer::shutdown_asset_systems()
 {
-    m_streaming_planner.reset();
-
     m_material_system.reset();
 
-    m_texture_streaming_manager.reset();
-    m_mesh_streaming_manager.reset();
+    m_streaming_planner.reset();
 
     m_asset_load_scheduler.reset();
 
-    m_texture_streaming_pool.reset();
-    m_mesh_streaming_pool.reset();
     m_staging_pool.reset();
 
     m_sparse_bind_scheduler.reset();

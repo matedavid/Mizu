@@ -157,7 +157,7 @@ struct DrawListEntry
 class DrawListSystem
 {
   public:
-    DrawListSystem(RenderScene& scene_system, MeshStreamingPool& mesh_streaming_pool);
+    DrawListSystem(RenderScene& scene_system, const MeshStreamingPool& mesh_streaming_pool);
 
     void reset();
 
@@ -171,7 +171,7 @@ class DrawListSystem
 
   private:
     RenderScene& m_render_scene;
-    MeshStreamingPool& m_mesh_streaming_pool;
+    const MeshStreamingPool& m_mesh_streaming_pool;
 
     bool m_gpu_driven_rendering_enabled = false;
 

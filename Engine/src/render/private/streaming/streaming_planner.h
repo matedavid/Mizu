@@ -1,9 +1,10 @@
 #pragma once
 
-#include <typeindex>
-#include <unordered_map>
+#include <typeinfo>
+#include <utility>
+#include <vector>
 
-#include "base/debug/logging.h"
+#include "base/debug/assert.h"
 
 #include "streaming/streaming_manager.h"
 
@@ -12,40 +13,52 @@ namespace Mizu
 
 class FrameLinearAllocator;
 class RenderGraphBuilder;
+class StagingPool;
 
 class StreamingPlanner
 {
   public:
-    StreamingPlanner() = default;
+    StreamingPlanner(StagingPool& staging_pool);
+    ~StreamingPlanner();
 
-    void update(const StreamingContext& context);
+    StreamingPlanner(const StreamingPlanner&) = delete;
+    StreamingPlanner& operator=(const StreamingPlanner&) = delete;
+
+    void update(const StreamingFrameData& frame_data);
     void add_gpu_uploads_pass(RenderGraphBuilder& builder, FrameLinearAllocator& frame_allocator);
 
-    template <StreamingManagerType T>
-    void register_streaming_manager(T* manager)
+    template <StreamingManagerType T, typename... Args>
+    T& create_streaming_manager(Args&&... args)
     {
-        const std::type_index index = typeid(T);
+        MIZU_VERIFY(
+            get_streaming_manager<T>() == nullptr,
+            "Streaming manager with type '{}' has already been created",
+            typeid(T).name());
 
-        if (m_streaming_manager_map.contains(index))
-        {
-            MIZU_LOG_WARNING("Streaming manager with type '{}' has already been registered", typeid(T).name());
-            return;
-        }
+        T* manager = new T(std::forward<Args>(args)...);
+        m_streaming_managers.push_back(manager);
 
-        m_streaming_manager_map.emplace(index, manager);
+        return *manager;
     }
 
     template <StreamingManagerType T>
     T* get_streaming_manager()
     {
-        const std::type_index index = typeid(T);
+        for (IStreamingManager* manager : m_streaming_managers)
+        {
+            if (typeid(*manager) == typeid(T))
+            {
+                return static_cast<T*>(manager);
+            }
+        }
 
-        const auto it = m_streaming_manager_map.find(index);
-        return it != m_streaming_manager_map.end() ? static_cast<T*>(it->second) : nullptr;
+        return nullptr;
     }
 
   private:
-    std::unordered_map<std::type_index, IStreamingManager*> m_streaming_manager_map;
+    StagingPool& m_staging_pool;
+
+    std::vector<IStreamingManager*> m_streaming_managers;
 };
 
 } // namespace Mizu

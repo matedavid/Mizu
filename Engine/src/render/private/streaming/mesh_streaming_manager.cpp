@@ -16,6 +16,7 @@
 #include "resources/asset_load_scheduler.h"
 #include "streaming/mesh_lod_utils.h"
 #include "streaming/mesh_streaming_pool.h"
+#include "streaming/streaming_settings.h"
 
 namespace Mizu
 {
@@ -23,14 +24,16 @@ namespace Mizu
 static constexpr uint32_t MESH_FRAMES_TO_UPDATE = 3u;
 
 MeshStreamingManager::MeshStreamingManager(
+    MeshStreamingManagerDescription desc,
     IAssetLoader& asset_loader,
     AssetLoadScheduler& load_scheduler,
     StagingPool& staging_pool,
-    MeshStreamingPool& mesh_streaming_pool)
+    GpuPageAllocator& page_allocator,
+    SparseBindScheduler& sparse_bind_scheduler)
     : m_asset_loader(asset_loader)
     , m_load_scheduler(load_scheduler)
     , m_staging_pool(staging_pool)
-    , m_mesh_streaming_pool(mesh_streaming_pool)
+    , m_mesh_streaming_pool(desc.pool, page_allocator, sparse_bind_scheduler)
 {
 }
 
@@ -39,6 +42,11 @@ void MeshStreamingManager::update(const StreamingContext& context)
     MIZU_PROFILE_SCOPED;
 
     m_mesh_updates.clear();
+
+    if (context.settings.mode == StreamingMode::Frozen)
+    {
+        return;
+    }
 
     if (m_update_cursor >= MESH_FRAMES_TO_UPDATE)
     {
@@ -149,6 +157,7 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             request.desired_level,
             request.resident_level);
 
+        /*
         StagingBlock block;
 
         if (lod_delta > 0)
@@ -164,12 +173,13 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
 
             block = block_opt.value();
         }
+        */
 
         if (!m_mesh_streaming_pool.update_residency_state(handle, metadata, first_lod))
         {
-            if (block.is_valid())
+            if (award.staging_block.is_valid())
             {
-                m_staging_pool.free(block);
+                m_staging_pool.free(award.staging_block);
             }
 
             continue;
@@ -189,7 +199,7 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
                 .handle = handle,
                 .metadata = metadata,
                 .request = request,
-                .staging_block = block,
+                .staging_block = StagingBlock{},
             });
 
             continue;
@@ -199,8 +209,8 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
             handle,
             first_lod,
             static_cast<uint8_t>(lod_delta),
-            block.as_span(),
-            [this, metadata, request, block](MeshAssetHandle handle) {
+            award.staging_block.as_span(),
+            [this, metadata, request, block = award.staging_block](MeshAssetHandle handle) {
                 m_gpu_upload_queue.push({
                     .handle = handle,
                     .metadata = metadata,
@@ -209,6 +219,11 @@ void MeshStreamingManager::execute(std::span<StreamingAward> awards)
                 });
             });
     }
+}
+
+void MeshStreamingManager::post_execute()
+{
+    m_mesh_streaming_pool.update();
 }
 
 void MeshStreamingManager::setup_render_graph_upload_pass(RenderGraphBuilder& builder, RenderGraphPassBuilder& pass)
@@ -413,12 +428,12 @@ void MeshStreamingManager::refresh(MeshAssetHandle handle, const StreamingContex
     {
         const int8_t delta = static_cast<int8_t>(result->desired_level) - static_cast<int8_t>(payload->resident_level);
         m_pending_requests.push_back({
-            .manager = this,
             .asset_key = to_asset_key(handle),
             .resident_level = payload->resident_level,
             .desired_level = result->desired_level,
             .level_delta = delta,
             .score = result->score,
+            .staging_size_bytes = result->staging_size_bytes,
         });
     }
 }
@@ -453,6 +468,7 @@ auto MeshStreamingManager::evaluate(
         return EvaluateResult{
             .desired_level = 0,
             .score = EVICTION_SCORE,
+            .staging_size_bytes = 0,
         };
     }
 
@@ -467,6 +483,7 @@ auto MeshStreamingManager::evaluate(
         return EvaluateResult{
             .desired_level = max_level,
             .score = FIRST_LOAD_SCORE,
+            .staging_size_bytes = metadata.get_lod_range_file_size_bytes(0, metadata.get_num_lods()),
         };
     }
 
@@ -482,7 +499,9 @@ auto MeshStreamingManager::evaluate(
 
     const TransformRegistry& transform_registry = transform_registry_get();
 
-    uint8_t desired_level = 0;
+    const bool full_residency = context.settings.mode == StreamingMode::FullResidency;
+
+    uint8_t desired_level = full_residency ? num_lods - finest_lod : 0;
     float score = 0.0f;
 
     for (const MeshStreamingUsage& usage : entry.usages)
@@ -497,7 +516,7 @@ auto MeshStreamingManager::evaluate(
         const math::Sphere sphere =
             math::bounding_sphere_from_transformed_aabb(metadata.bounding_box, transform_info.transform);
 
-        for (const RenderViewRegistryEntry& view : context.views)
+        for (const RenderViewRegistryEntry& view : context.frame.views)
         {
             const MeshLodView lod_view = create_mesh_lod_view(view.view_matrix, view.proj_matrix, view.camera.znear);
 
@@ -525,9 +544,19 @@ auto MeshStreamingManager::evaluate(
     if (payload.resident_level == 0)
         score += FIRST_LOAD_SCORE;
 
+    uint64_t staging_size_bytes = 0;
+
+    const uint8_t first_mip = metadata.get_num_lods() - desired_level;
+    const int8_t lod_delta = desired_level - payload.resident_level;
+    if (lod_delta > 0)
+    {
+        staging_size_bytes = metadata.get_lod_range_file_size_bytes(first_mip, static_cast<uint8_t>(lod_delta));
+    }
+
     return EvaluateResult{
         .desired_level = desired_level,
         .score = score,
+        .staging_size_bytes = staging_size_bytes,
     };
 }
 

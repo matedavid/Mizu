@@ -11,6 +11,7 @@
 #include "render/resources/gpu_resource_types.h"
 #include "render/state_manager/transform_state_manager.h"
 #include "resources/residency_system.h"
+#include "streaming/mesh_streaming_pool.h"
 #include "streaming/staging_pool.h"
 #include "streaming/streaming_manager.h"
 
@@ -18,8 +19,9 @@ namespace Mizu
 {
 
 class AssetLoadScheduler;
+class GpuPageAllocator;
 class IAssetLoader;
-class MeshStreamingPool;
+class SparseBindScheduler;
 
 struct MeshStreamingHandle
 {
@@ -53,19 +55,27 @@ struct MeshStreamingUsage
     TransformHandle transform_handle{};
 };
 
+struct MeshStreamingManagerDescription
+{
+    MeshStreamingPoolDescription pool{};
+};
+
 class MeshStreamingManager : public IStreamingManager
 {
   public:
     MeshStreamingManager(
+        MeshStreamingManagerDescription desc,
         IAssetLoader& asset_loader,
         AssetLoadScheduler& load_scheduler,
         StagingPool& staging_pool,
-        MeshStreamingPool& mesh_streaming_pool);
+        GpuPageAllocator& page_allocator,
+        SparseBindScheduler& sparse_bind_scheduler);
     ~MeshStreamingManager() override = default;
 
     void update(const StreamingContext& context) override;
     void gather(std::vector<StreamingRequest>& requests) override;
     void execute(std::span<StreamingAward> awards) override;
+    void post_execute() override;
 
     void setup_render_graph_upload_pass(RenderGraphBuilder& builder, RenderGraphPassBuilder& pass) override;
     void record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator) override;
@@ -78,11 +88,13 @@ class MeshStreamingManager : public IStreamingManager
     bool is_drawable(MeshAssetHandle handle) const;
     std::span<const MeshStreamingUpdate> get_updates() const { return m_mesh_updates; }
 
+    const MeshStreamingPool& get_streaming_pool() const { return m_mesh_streaming_pool; }
+
   private:
     IAssetLoader& m_asset_loader;
     AssetLoadScheduler& m_load_scheduler;
     StagingPool& m_staging_pool;
-    MeshStreamingPool& m_mesh_streaming_pool;
+    MeshStreamingPool m_mesh_streaming_pool;
 
     struct MeshResidencyPayload
     {
@@ -134,6 +146,7 @@ class MeshStreamingManager : public IStreamingManager
     {
         uint8_t desired_level;
         float score;
+        uint64_t staging_size_bytes;
     };
 
     void refresh(MeshAssetHandle handle, const StreamingContext& context);

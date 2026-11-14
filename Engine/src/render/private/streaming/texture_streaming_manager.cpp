@@ -17,6 +17,7 @@
 #include "registries/transform_registry.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
+#include "streaming/streaming_settings.h"
 #include "streaming/streaming_utils.h"
 #include "streaming/texture_streaming_pool.h"
 
@@ -26,14 +27,16 @@ namespace Mizu
 static constexpr uint32_t TEXTURE_FRAMES_TO_UPDATE = 3u;
 
 TextureStreamingManager::TextureStreamingManager(
+    TextureStreamingManagerDescription desc,
     IAssetLoader& asset_loader,
     AssetLoadScheduler& load_scheduler,
     StagingPool& staging_pool,
-    TextureStreamingPool& texture_pool)
+    GpuPageAllocator& page_allocator,
+    SparseBindScheduler& sparse_bind_scheduler)
     : m_asset_loader(asset_loader)
     , m_load_scheduler(load_scheduler)
     , m_staging_pool(staging_pool)
-    , m_texture_pool(texture_pool)
+    , m_texture_pool(desc.pool, page_allocator, sparse_bind_scheduler)
 {
 }
 
@@ -42,6 +45,11 @@ void TextureStreamingManager::update(const StreamingContext& context)
     MIZU_PROFILE_SCOPED;
 
     m_texture_updates.clear();
+
+    if (context.settings.mode == StreamingMode::Frozen)
+    {
+        return;
+    }
 
     if (m_update_cursor >= TEXTURE_FRAMES_TO_UPDATE)
     {
@@ -151,6 +159,7 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
             request.desired_level,
             request.resident_level);
 
+        /*
         StagingBlock block;
 
         if (mip_delta > 0)
@@ -166,12 +175,13 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
 
             block = block_opt.value();
         }
+        */
 
         if (!m_texture_pool.update_residency_state(handle, metadata, first_mip))
         {
-            if (block.is_valid())
+            if (award.staging_block.is_valid())
             {
-                m_staging_pool.free(block);
+                m_staging_pool.free(award.staging_block);
             }
 
             continue;
@@ -193,7 +203,7 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
                 .handle = handle,
                 .metadata = metadata,
                 .request = request,
-                .staging_block = block,
+                .staging_block = StagingBlock{},
             });
 
             continue;
@@ -203,8 +213,8 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
             handle,
             first_mip,
             static_cast<uint8_t>(mip_delta),
-            block.as_span(),
-            [this, metadata, request, block](TextureAssetHandle handle) {
+            award.staging_block.as_span(),
+            [this, metadata, request, block = award.staging_block](TextureAssetHandle handle) {
                 m_gpu_upload_queue.push({
                     .handle = handle,
                     .metadata = metadata,
@@ -213,6 +223,11 @@ void TextureStreamingManager::execute(std::span<StreamingAward> awards)
                 });
             });
     }
+}
+
+void TextureStreamingManager::post_execute()
+{
+    m_texture_pool.update();
 }
 
 void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator)
@@ -387,12 +402,12 @@ void TextureStreamingManager::refresh(TextureAssetHandle handle, const Streaming
     {
         const int8_t delta = static_cast<int8_t>(result->desired_level) - static_cast<int8_t>(payload->resident_level);
         m_pending_requests.push_back({
-            .manager = this,
             .asset_key = to_asset_key(handle),
             .resident_level = payload->resident_level,
             .desired_level = result->desired_level,
             .level_delta = delta,
             .score = result->score,
+            .staging_size_bytes = result->staging_size_bytes,
         });
     }
 }
@@ -415,6 +430,7 @@ auto TextureStreamingManager::evaluate(
         return EvaluateResult{
             .desired_level = 0,
             .score = EVICTION_SCORE,
+            .staging_size_bytes = 0,
         };
     }
 
@@ -428,6 +444,7 @@ auto TextureStreamingManager::evaluate(
         return EvaluateResult{
             .desired_level = max_level,
             .score = FIRST_LOAD_SCORE,
+            .staging_size_bytes = metadata.get_mip_range_size_bytes(0, metadata.num_mips),
         };
     }
 
@@ -445,7 +462,9 @@ auto TextureStreamingManager::evaluate(
 
     const TransformRegistry& transform_registry = transform_registry_get();
 
-    uint8_t desired_level = 0;
+    const bool full_residency = context.settings.mode == StreamingMode::FullResidency;
+
+    uint8_t desired_level = full_residency ? metadata.num_mips - finest_top_mip : 0;
     float score = 0.0f;
 
     for (const TextureStreamingUsage& usage : entry.usages)
@@ -461,7 +480,7 @@ auto TextureStreamingManager::evaluate(
         const float scale = math::max_axis_scale(transform_info.transform);
         const math::Sphere sphere = bounding_sphere_from_transformed_aabb(usage.aabb, transform_info.transform);
 
-        for (const RenderViewRegistryEntry& view : context.views)
+        for (const RenderViewRegistryEntry& view : context.frame.views)
         {
             const float center_depth = -(view.view_matrix * glm::vec4(sphere.center, 1.0f)).z;
             // TODO: This is to ignore if it's behind the camera, keeping commented to prevent popping when doing a 180º
@@ -472,7 +491,7 @@ auto TextureStreamingManager::evaluate(
 
             const float pixels_per_uv =
                 usage.texel_factor * scale
-                * pixels_per_world_unit(view.viewport, view.camera.fov, depth, context.viewport_size);
+                * pixels_per_world_unit(view.viewport, view.camera.fov, depth, context.frame.viewport_size);
             const float texels_per_pixel = static_cast<float>(texture_dim) / std::max(pixels_per_uv, 0.0001f);
 
             constexpr float MIP_BIAS = 0.5f;
@@ -485,7 +504,7 @@ auto TextureStreamingManager::evaluate(
             const uint8_t top_mip = static_cast<uint8_t>(std::floor(clamped));
 
             const uint8_t desired = metadata.num_mips - top_mip;
-            const float coverage = projected_area_fraction(sphere, view, context.viewport_size);
+            const float coverage = projected_area_fraction(sphere, view, context.frame.viewport_size);
 
             desired_level = glm::max(desired_level, desired);
             score = glm::max(score, coverage);
@@ -495,9 +514,19 @@ auto TextureStreamingManager::evaluate(
     if (payload.resident_level == 0)
         score += FIRST_LOAD_SCORE;
 
+    uint64_t staging_size_bytes = 0;
+
+    const uint8_t first_mip = metadata.num_mips - desired_level;
+    const int8_t mip_delta = desired_level - payload.resident_level;
+    if (mip_delta > 0)
+    {
+        staging_size_bytes = metadata.get_mip_range_size_bytes(first_mip, static_cast<uint8_t>(mip_delta));
+    }
+
     return EvaluateResult{
         .desired_level = desired_level,
         .score = score,
+        .staging_size_bytes = staging_size_bytes,
     };
 }
 

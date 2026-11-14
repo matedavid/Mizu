@@ -21,7 +21,9 @@ namespace Mizu
 {
 
 class AssetLoadScheduler;
+class GpuPageAllocator;
 class IAssetLoader;
+class SparseBindScheduler;
 
 struct TextureStreamingHandle
 {
@@ -49,19 +51,27 @@ struct TextureStreamingUsage
     float texel_factor;
 };
 
+struct TextureStreamingManagerDescription
+{
+    TextureStreamingPoolDescription pool{};
+};
+
 class TextureStreamingManager : public IStreamingManager
 {
   public:
     TextureStreamingManager(
+        TextureStreamingManagerDescription desc,
         IAssetLoader& asset_loader,
         AssetLoadScheduler& load_scheduler,
         StagingPool& staging_pool,
-        TextureStreamingPool& texture_pool);
+        GpuPageAllocator& page_allocator,
+        SparseBindScheduler& sparse_bind_scheduler);
     ~TextureStreamingManager() override = default;
 
     void update(const StreamingContext& context) override;
     void gather(std::vector<StreamingRequest>& requests) override;
     void execute(std::span<StreamingAward> awards) override;
+    void post_execute() override;
 
     void record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator) override;
 
@@ -75,7 +85,7 @@ class TextureStreamingManager : public IStreamingManager
     IAssetLoader& m_asset_loader;
     AssetLoadScheduler& m_load_scheduler;
     StagingPool& m_staging_pool;
-    TextureStreamingPool& m_texture_pool;
+    TextureStreamingPool m_texture_pool;
 
     struct TextureResidencyPayload
     {
@@ -125,6 +135,7 @@ class TextureStreamingManager : public IStreamingManager
     {
         uint8_t desired_level;
         float score;
+        uint64_t staging_size_bytes;
     };
 
     void refresh(TextureAssetHandle handle, const StreamingContext& context);

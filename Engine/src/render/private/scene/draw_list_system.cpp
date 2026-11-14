@@ -66,7 +66,7 @@ size_t get_raster_state_hash(const RasterState& state, const FramebufferInfo& fr
 
 } // namespace
 
-DrawListSystem::DrawListSystem(RenderScene& render_scene, MeshStreamingPool& mesh_streaming_pool)
+DrawListSystem::DrawListSystem(RenderScene& render_scene, const MeshStreamingPool& mesh_streaming_pool)
     : m_render_scene(render_scene)
     , m_mesh_streaming_pool(mesh_streaming_pool)
 {
@@ -1034,7 +1034,7 @@ std::shared_ptr<DescriptorSet> DrawListSystem::create_draw_list_descriptor_set(c
 
 static DrawListSystem* s_draw_list_system = nullptr;
 
-void draw_list_system_init(RenderScene& render_scene, MeshStreamingPool& mesh_streaming_pool)
+void draw_list_system_init(RenderScene& render_scene, const MeshStreamingPool& mesh_streaming_pool)
 {
     MIZU_ASSERT(s_draw_list_system == nullptr, "DrawListSystem has already been initialized");
     s_draw_list_system = new DrawListSystem{render_scene, mesh_streaming_pool};
