@@ -21,8 +21,14 @@ class MIZU_RENDER_API RenderGraphResourceRegistry
   public:
     RenderGraphResourceRegistry(bool deferred_deletion = true);
 
-    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc, const MemoryPlacement& placement);
-    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, const MemoryPlacement& placement);
+    std::shared_ptr<BufferResource> create_buffer(
+        const BufferDescription& desc,
+        const std::shared_ptr<GpuHeap>& heap,
+        uint64_t offset);
+    std::shared_ptr<ImageResource> create_image(
+        const ImageDescription& desc,
+        const std::shared_ptr<GpuHeap>& heap,
+        uint64_t offset);
 
     void purge();
     void reset();
@@ -32,6 +38,7 @@ class MIZU_RENDER_API RenderGraphResourceRegistry
 
     struct ResourceInfo
     {
+        std::shared_ptr<GpuHeap> heap;
         uint64_t frames_non_used = 0;
     };
 

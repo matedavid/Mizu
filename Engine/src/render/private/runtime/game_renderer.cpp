@@ -2,7 +2,6 @@
 
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
-#include "base/math/math.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
 #include "core/settings_manager/settings_manager.h"

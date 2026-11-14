@@ -1066,29 +1066,23 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
 
     if (transient_memory.needs_recreate(*memory_type, total_size))
     {
-        // TODO: Look into ways of not stalling the gpu when a recreate happens
-        g_render_device->wait_idle();
-
-        resource_registry.reset();
         transient_memory.recreate(*memory_type, total_size);
     }
 
-    GpuHeap* heap = transient_memory.get_heap();
+    const std::shared_ptr<GpuHeap>& heap = transient_memory.get_heap();
 
     for (const AliasingResource& resource : aliasing_resources)
     {
         const RenderGraphResourceDescription& resource_desc = get_resource_desc(resource.resource);
-        const MemoryPlacement placement{.heap = heap, .offset = resource.offset};
-
         switch (resource_desc.type)
         {
         case RenderGraphResourceType::Buffer: {
-            const auto buffer = resource_registry.create_buffer(resource_desc.buffer(), placement);
+            const auto buffer = resource_registry.create_buffer(resource_desc.buffer(), heap, resource.offset);
             buffer_resources_map.insert({resource_desc.resource, buffer});
             break;
         }
         case RenderGraphResourceType::Texture: {
-            const auto image = resource_registry.create_image(resource_desc.image(), placement);
+            const auto image = resource_registry.create_image(resource_desc.image(), heap, resource.offset);
             image_resources_map.insert({resource_desc.resource, image});
             break;
         }

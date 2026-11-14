@@ -58,14 +58,17 @@ RenderGraphResourceRegistry::RenderGraphResourceRegistry(bool deferred_deletion)
 
 std::shared_ptr<BufferResource> RenderGraphResourceRegistry::create_buffer(
     const BufferDescription& desc,
-    const MemoryPlacement& placement)
+    const std::shared_ptr<GpuHeap>& heap,
+    uint64_t offset)
 {
+    const MemoryPlacement placement{.heap = heap.get(), .offset = offset};
     const size_t hash = hash_buffer_desc(desc, placement);
 
     auto it = m_buffer_cache.find(hash);
     if (it == m_buffer_cache.end())
     {
         BufferResourceInfo resource_info{};
+        resource_info.heap = heap;
         resource_info.frames_non_used = 0;
         resource_info.resource = g_render_device->create_buffer(desc, placement);
 
@@ -79,14 +82,17 @@ std::shared_ptr<BufferResource> RenderGraphResourceRegistry::create_buffer(
 
 std::shared_ptr<ImageResource> RenderGraphResourceRegistry::create_image(
     const ImageDescription& desc,
-    const MemoryPlacement& placement)
+    const std::shared_ptr<GpuHeap>& heap,
+    uint64_t offset)
 {
+    const MemoryPlacement placement{.heap = heap.get(), .offset = offset};
     const size_t hash = hash_image_desc(desc, placement);
 
     auto it = m_image_cache.find(hash);
     if (it == m_image_cache.end())
     {
         ImageResourceInfo resource_info{};
+        resource_info.heap = heap;
         resource_info.frames_non_used = 0;
         resource_info.resource = g_render_device->create_image(desc, placement);
 
@@ -115,15 +121,17 @@ static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool f
 
             if (deferred_deletion)
             {
-                PendingJob deletion_job = g_job_system->schedule([resource = info.resource]() mutable {
-                    MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry::deferred_deletion_job");
+                PendingJob deletion_job =
+                    g_job_system->schedule([resource = info.resource, heap = info.heap]() mutable {
+                        MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry::deferred_deletion_job");
 
-                    MIZU_ASSERT(
-                        resource.use_count() == 1,
-                        "Resource should only have one use count but it has {}",
-                        resource.use_count());
-                    resource.reset();
-                });
+                        MIZU_ASSERT(
+                            resource.use_count() == 1,
+                            "Resource should only have one use count but it has {}",
+                            resource.use_count());
+                        resource.reset();
+                        heap.reset();
+                    });
 
                 it = cache.erase(it);
 

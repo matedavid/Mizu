@@ -25,8 +25,6 @@ GpuHeap& RenderGraphTransientMemory::recreate(MemoryTypeId memory_type, uint64_t
     if (m_heap != nullptr && m_heap->get_memory_type() == memory_type)
         new_size = std::max(size, m_heap->get_size() + m_heap->get_size() / 2);
 
-    m_heap.reset();
-
     GpuHeapDescription heap_desc{};
     heap_desc.size = math::align_up(new_size, TRANSIENT_HEAP_SIZE_ALIGNMENT);
     heap_desc.domain = HeapDomain::DeviceLocal;

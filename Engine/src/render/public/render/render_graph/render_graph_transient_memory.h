@@ -20,10 +20,10 @@ class MIZU_RENDER_API RenderGraphTransientMemory
     RenderGraphTransientMemory(const RenderGraphTransientMemory&) = delete;
     RenderGraphTransientMemory& operator=(const RenderGraphTransientMemory&) = delete;
 
-    GpuHeap* get_heap() const { return m_heap.get(); }
-
     bool needs_recreate(MemoryTypeId memory_type, uint64_t size) const;
     GpuHeap& recreate(MemoryTypeId memory_type, uint64_t size);
+
+    const std::shared_ptr<GpuHeap>& get_heap() const { return m_heap; }
 
   private:
     std::string m_name;
