@@ -510,9 +510,9 @@ void JobSystem::process_wait_nodes(CompletionRecord& completion_record)
 
 JobHandle JobSystem::submit_internal(PendingJob&& job)
 {
+    FiberSlot& fiber_slot = allocate_fiber_slot(job.m_desc.m_stack_size);
     CompletionRecord& completion_record = allocate_completion_record();
     JobRecord& job_record = allocate_job_record();
-    FiberSlot& fiber_slot = allocate_fiber_slot(job.m_desc.m_stack_size);
 
     init_completion_record(completion_record, 1);
     init_fiber_slot(fiber_slot, job_record, job.m_desc);
@@ -539,8 +539,8 @@ JobHandle JobSystem::submit_internal(PendingBatch&& batch)
 
     for (JobDescription& desc : batch.m_jobs)
     {
-        JobRecord& job_record = allocate_job_record();
         FiberSlot& fiber_slot = allocate_fiber_slot(desc.m_stack_size);
+        JobRecord& job_record = allocate_job_record();
 
         init_fiber_slot(fiber_slot, job_record, desc);
         init_job_record(desc, job_record, completion_record, fiber_slot);
@@ -807,13 +807,28 @@ WaitNode& JobSystem::allocate_wait_node()
 
 FiberSlot& JobSystem::allocate_fiber_slot(StackSize stack_size)
 {
-    const FiberSlotPoolIndex index = m_fiber_slot_pool.allocate();
-    MIZU_ASSERT(index.is_valid(), "FiberSlot allocate failed");
+    FiberSlotPoolIndex index = m_fiber_slot_pool.allocate();
+    while (!index.is_valid())
+    {
+        wait_for_free_fiber_slot();
+        index = m_fiber_slot_pool.allocate();
+    }
 
     FiberSlot& fiber_slot = m_fiber_slot_pool.get(index);
     fiber_slot.stack_size = stack_size;
 
     return fiber_slot;
+}
+
+void JobSystem::wait_for_free_fiber_slot()
+{
+    if (is_valid_worker_id(s_worker_id))
+    {
+        yield();
+        return;
+    }
+
+    std::this_thread::yield();
 }
 
 void JobSystem::free_job_record(JobRecord& job_record)

@@ -385,7 +385,7 @@ TEST_CASE("BaseStateManager consumes updates in tick order", "[StateManager]")
     harness.update(handle, TestDynamicState{20.0f, 20, true});
     harness.end_tick();
 
-    harness.apply_render(300);
+    harness.apply_render(200);
     REQUIRE(harness.events().size() == 1);
     REQUIRE(harness.events()[0].kind == RecordedRenderEvent::Kind::Update);
     REQUIRE(harness.events()[0].value == Catch::Approx(10.0f));
@@ -873,7 +873,6 @@ TEST_CASE("BaseStateManager ignores stale entries beyond tick valid prefix on sl
     REQUIRE(harness.events()[0].enabled == false);
 }
 
-/*
 TEST_CASE("BaseStateManager catches up multiple ticks in a single apply_render call", "[StateManager]")
 {
     TestStateManagerHarness harness;
@@ -905,7 +904,6 @@ TEST_CASE("BaseStateManager catches up multiple ticks in a single apply_render c
     REQUIRE(harness.events()[1].count == 20);
     REQUIRE(harness.events()[1].enabled == true);
 }
-*/
 
 TEST_CASE("BaseStateManager notifies externally registered consumers", "[StateManager]")
 {
