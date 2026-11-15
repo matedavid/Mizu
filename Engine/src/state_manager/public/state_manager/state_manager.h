@@ -92,6 +92,8 @@ struct FrameUpdateState
     uint64_t render_time_us;
 };
 
+constexpr uint64_t NO_PENDING_TICK_TIME = std::numeric_limits<uint64_t>::max();
+
 class IStateManager
 {
   public:
@@ -100,7 +102,10 @@ class IStateManager
     virtual void sim_begin_tick(const TickUpdateState& state) = 0;
     virtual void sim_end_tick() = 0;
 
-    virtual void rend_apply_updates(const FrameUpdateState& state) = 0;
+    virtual void rend_begin_apply_updates() = 0;
+    virtual uint64_t rend_get_next_tick_time_us() const = 0;
+    virtual void rend_consume_ticks_until(uint64_t sim_time_us) = 0;
+    virtual void rend_interpolate(const FrameUpdateState& state) = 0;
 
     virtual std::string_view get_identifier() const = 0;
 };

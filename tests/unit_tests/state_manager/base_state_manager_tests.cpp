@@ -167,7 +167,9 @@ class TestStateManagerHarness : public TestStateManagerBase
     void apply_render(uint64_t render_time_us)
     {
         m_default_consumer.set_render_time_us(render_time_us);
-        rend_apply_updates(FrameUpdateState{render_time_us});
+        rend_begin_apply_updates();
+        rend_consume_ticks_until(render_time_us);
+        rend_interpolate(FrameUpdateState{render_time_us});
     }
 
     void clear_events() { m_default_consumer.clear_events(); }
@@ -210,7 +212,9 @@ class TestStateManagerNoInterpHarness : public TestStateManagerNoInterpBase
     void apply_render(uint64_t render_time_us)
     {
         m_default_consumer.set_render_time_us(render_time_us);
-        rend_apply_updates(FrameUpdateState{render_time_us});
+        rend_begin_apply_updates();
+        rend_consume_ticks_until(render_time_us);
+        rend_interpolate(FrameUpdateState{render_time_us});
     }
 
     void clear_events() { m_default_consumer.clear_events(); }

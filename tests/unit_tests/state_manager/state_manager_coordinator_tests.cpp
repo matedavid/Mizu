@@ -1,6 +1,8 @@
 #include <catch2/catch_all.hpp>
 
+#include <cstdint>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "state_manager/state_manager.h"
@@ -20,7 +22,11 @@ class MockStateManager : public IStateManager
     void sim_begin_tick(const TickUpdateState& /*state*/) override { m_order.push_back(m_identifier); }
 
     void sim_end_tick() override {}
-    void rend_apply_updates(const FrameUpdateState& /*state*/) override {}
+
+    void rend_begin_apply_updates() override {}
+    uint64_t rend_get_next_tick_time_us() const override { return NO_PENDING_TICK_TIME; }
+    void rend_consume_ticks_until(uint64_t /*sim_time_us*/) override {}
+    void rend_interpolate(const FrameUpdateState& /*state*/) override {}
 
     std::string_view get_identifier() const override { return m_identifier; }
 
@@ -29,6 +35,78 @@ class MockStateManager : public IStateManager
 
     std::vector<std::string_view>& m_order;
 };
+
+struct RendCall
+{
+    std::string_view identifier;
+    std::string_view kind;
+    uint64_t time_us;
+
+    bool operator==(const RendCall&) const = default;
+};
+
+class TickedMockStateManager : public IStateManager
+{
+  public:
+    TickedMockStateManager(std::string_view identifier, std::vector<uint64_t> tick_times_us, std::vector<RendCall>& calls)
+        : m_identifier(identifier)
+        , m_tick_times_us(std::move(tick_times_us))
+        , m_calls(calls)
+    {
+    }
+
+    void sim_begin_tick(const TickUpdateState& /*state*/) override {}
+    void sim_end_tick() override {}
+
+    void rend_begin_apply_updates() override { m_calls.push_back({m_identifier, "begin", 0}); }
+
+    uint64_t rend_get_next_tick_time_us() const override
+    {
+        if (m_next_tick >= m_tick_times_us.size())
+            return NO_PENDING_TICK_TIME;
+
+        return m_tick_times_us[m_next_tick];
+    }
+
+    void rend_consume_ticks_until(uint64_t sim_time_us) override
+    {
+        while (m_next_tick < m_tick_times_us.size())
+        {
+            const uint64_t tick_time_us = m_tick_times_us[m_next_tick];
+            if (tick_time_us > sim_time_us)
+                break;
+
+            m_calls.push_back({m_identifier, "consume", tick_time_us});
+            m_next_tick += 1;
+        }
+    }
+
+    void rend_interpolate(const FrameUpdateState& state) override
+    {
+        m_calls.push_back({m_identifier, "interpolate", state.render_time_us});
+    }
+
+    std::string_view get_identifier() const override { return m_identifier; }
+
+  private:
+    std::string_view m_identifier;
+    std::vector<uint64_t> m_tick_times_us;
+    size_t m_next_tick = 0;
+
+    std::vector<RendCall>& m_calls;
+};
+
+static std::vector<RendCall> filter_calls(const std::vector<RendCall>& calls, std::string_view kind)
+{
+    std::vector<RendCall> filtered;
+    for (const RendCall& call : calls)
+    {
+        if (call.kind == kind)
+            filtered.push_back(call);
+    }
+
+    return filtered;
+}
 
 static size_t index_of(const std::vector<std::string_view>& order, std::string_view id)
 {
@@ -249,4 +327,89 @@ TEST_CASE("Build is stable across multiple rebuilds", "[StateManagerCoordinator]
     REQUIRE(index_of(order, "A") < index_of(order, "C"));
     REQUIRE(index_of(order, "B") < index_of(order, "D"));
     REQUIRE(index_of(order, "C") < index_of(order, "D"));
+}
+
+TEST_CASE("rend_apply_updates steps dependent state managers together by sim time", "[StateManagerCoordinator]")
+{
+    std::vector<RendCall> calls;
+
+    TickedMockStateManager manager_a("A", {100, 300}, calls);
+    TickedMockStateManager manager_b("B", {100, 200, 300}, calls);
+
+    StateManagerCoordinator coordinator{};
+
+    coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
+
+    auto builder_b = StateManagerRegistrationBuilder::begin(&manager_b);
+    builder_b.depends_on(&manager_a);
+    coordinator.register_state_manager(builder_b);
+
+    coordinator.rend_apply_updates(FrameUpdateState{300});
+
+    const std::vector<RendCall> expected = {
+        {"A", "consume", 100},
+        {"B", "consume", 100},
+        {"B", "consume", 200},
+        {"A", "consume", 300},
+        {"B", "consume", 300},
+    };
+    REQUIRE(filter_calls(calls, "consume") == expected);
+}
+
+TEST_CASE("rend_apply_updates leaves ticks after render time for interpolation", "[StateManagerCoordinator]")
+{
+    std::vector<RendCall> calls;
+
+    TickedMockStateManager manager_a("A", {100, 300}, calls);
+    TickedMockStateManager manager_b("B", {100, 200, 300}, calls);
+
+    StateManagerCoordinator coordinator{};
+
+    coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
+
+    auto builder_b = StateManagerRegistrationBuilder::begin(&manager_b);
+    builder_b.depends_on(&manager_a);
+    coordinator.register_state_manager(builder_b);
+
+    coordinator.rend_apply_updates(FrameUpdateState{250});
+
+    const std::vector<RendCall> expected_consumes = {
+        {"A", "consume", 100},
+        {"B", "consume", 100},
+        {"B", "consume", 200},
+    };
+    REQUIRE(filter_calls(calls, "consume") == expected_consumes);
+
+    const std::vector<RendCall> expected_interpolates = {
+        {"A", "interpolate", 250},
+        {"B", "interpolate", 250},
+    };
+    REQUIRE(filter_calls(calls, "interpolate") == expected_interpolates);
+
+    REQUIRE(manager_a.rend_get_next_tick_time_us() == 300);
+    REQUIRE(manager_b.rend_get_next_tick_time_us() == 300);
+}
+
+TEST_CASE("rend_apply_updates snapshots dependents before their dependencies", "[StateManagerCoordinator]")
+{
+    std::vector<RendCall> calls;
+
+    TickedMockStateManager manager_a("A", {}, calls);
+    TickedMockStateManager manager_b("B", {}, calls);
+
+    StateManagerCoordinator coordinator{};
+
+    coordinator.register_state_manager(StateManagerRegistrationBuilder::begin(&manager_a));
+
+    auto builder_b = StateManagerRegistrationBuilder::begin(&manager_b);
+    builder_b.depends_on(&manager_a);
+    coordinator.register_state_manager(builder_b);
+
+    coordinator.rend_apply_updates(FrameUpdateState{100});
+
+    const std::vector<RendCall> expected = {
+        {"B", "begin", 0},
+        {"A", "begin", 0},
+    };
+    REQUIRE(filter_calls(calls, "begin") == expected);
 }
