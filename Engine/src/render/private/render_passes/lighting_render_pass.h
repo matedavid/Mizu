@@ -8,6 +8,7 @@ namespace Mizu
 
 class RenderGraphBlackboard;
 class RenderGraphBuilder;
+struct LightsData;
 
 struct LightingData
 {
@@ -19,6 +20,8 @@ struct LightCullingData
     struct GpuLightCullingInfo
     {
         glm::uvec2 num_tiles;
+        uint32_t num_point_lights;
+        uint32_t num_directional_lights;
     };
 
     GpuLightCullingInfo light_culling_info{};
@@ -31,6 +34,7 @@ LightCullingData create_light_culling_data(
     RenderGraphBuilder& builder,
     uint32_t width,
     uint32_t height,
+    const LightsData& lights_data,
     FrameLinearAllocator& frame_allocator);
 
 void add_light_culling_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackboard);

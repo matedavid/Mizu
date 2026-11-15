@@ -20,6 +20,7 @@ LightCullingData create_light_culling_data(
     RenderGraphBuilder& builder,
     uint32_t width,
     uint32_t height,
+    const LightsData& lights_data,
     FrameLinearAllocator& frame_allocator)
 {
     const glm::uvec3 group_count = compute_group_count(
@@ -30,6 +31,8 @@ LightCullingData create_light_culling_data(
 
     const LightCullingData::GpuLightCullingInfo light_culling_info{
         .num_tiles = glm::uvec2(group_count),
+        .num_point_lights = lights_data.num_point_lights,
+        .num_directional_lights = lights_data.num_directional_lights,
     };
 
     const FrameAllocation light_culling_info_allocation =
@@ -178,6 +181,7 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
                 MIZU_DESCRIPTOR_SET_LAYOUT_TEXTURE_SRV(3, 1, ShaderType::Compute)           // g_directional_shadow_map
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_cascade_splits
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(5, 1, ShaderType::Compute) // g_light_space_matrices
+                MIZU_DESCRIPTOR_SET_LAYOUT_CONSTANT_BUFFER(1, 1, ShaderType::Compute)       // g_cascaded_shadow_info
                 MIZU_DESCRIPTOR_SET_LAYOUT_SAMPLER_STATE(0, 1, ShaderType::Compute)         // g_shadow_map_sampler
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
@@ -200,6 +204,7 @@ void add_lighting_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
                 WriteDescriptor::StructuredBufferSrv(4, cascaded_shadow_data.cascade_splits_allocation.view),
                 WriteDescriptor::StructuredBufferSrv(
                     5, cascaded_shadow_data.cascade_light_space_matrices_allocation.view),
+                WriteDescriptor::ConstantBuffer(1, cascaded_shadow_data.cascaded_shadow_info_allocation.view),
                 WriteDescriptor::SamplerState(0, directional_shadow_map_sampler),
             };
 

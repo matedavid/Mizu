@@ -45,6 +45,7 @@ struct CascadedShadowData
     RenderGraphResource cascaded_shadow_atlas{};
     FrameAllocation cascade_splits_allocation{};
     FrameAllocation cascade_light_space_matrices_allocation{};
+    FrameAllocation cascaded_shadow_info_allocation{};
     uint32_t num_shadow_casting_directional_lights = 0;
 };
 

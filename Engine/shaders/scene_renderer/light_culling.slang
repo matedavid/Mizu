@@ -115,7 +115,7 @@ void cs_main(uint32_t group_index: SV_GroupIndex, uint3 group_id: SV_GroupID, ui
 
     // 4. Cull lights
 
-    uint32_t num_point_lights = g_point_lights.getCount();
+    uint32_t num_point_lights = g_light_culling_info.num_point_lights;
 
     uint32_t thread_count = TILE_SIZE * TILE_SIZE;
     uint32_t iterations_per_thread = (num_point_lights + thread_count - 1) / thread_count;

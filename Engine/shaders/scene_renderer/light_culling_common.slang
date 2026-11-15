@@ -12,6 +12,8 @@
 struct LightCullingInfo
 {
     uint2 num_tiles;
+    uint num_point_lights;
+    uint num_directional_lights;
 };
 
 static const uint16_t INVALID_TILE_VISIBLE_LIGHT = 0xFFFF;

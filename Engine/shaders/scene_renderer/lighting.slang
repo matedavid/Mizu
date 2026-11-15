@@ -39,6 +39,16 @@ MIZU_VK_BINDING_SRV(4, 1)
 StructuredBuffer<float> g_cascade_splits : register(t4, space1);
 MIZU_VK_BINDING_SRV(5, 1)
 StructuredBuffer<float4x4> g_light_space_matrices : register(t5, space1);
+
+struct CascadedShadowInfo
+{
+    uint32_t num_cascades;
+    uint32_t num_lights;
+};
+
+MIZU_VK_BINDING_CBV(1, 1)
+ConstantBuffer<CascadedShadowInfo> g_cascaded_shadow_info : register(b1, space1);
+
 MIZU_VK_BINDING_SAMPLER(0, 1)
 SamplerState g_shadow_map_sampler : register(s0, space1);
 
@@ -58,8 +68,8 @@ float shadow_visibility(uint32_t light_idx, float3 position_ws, float3 normal, f
     uint32_t width, height;
     g_directional_shadow_map.GetDimensions(width, height);
 
-    uint32_t num_cascades = g_cascade_splits.getCount();
-    uint32_t num_lights = g_light_space_matrices.getCount() / num_cascades;
+    uint32_t num_cascades = g_cascaded_shadow_info.num_cascades;
+    uint32_t num_lights = g_cascaded_shadow_info.num_lights;
 
     float4 position_vs = mul(g_camera_info.view, float4(position_ws, 1.0f));
 
@@ -72,7 +82,7 @@ float shadow_visibility(uint32_t light_idx, float3 position_ws, float3 normal, f
         }
     }
 
-    float4x4 light_space_matrix = g_light_space_matrices[cascade_idx];
+    float4x4 light_space_matrix = g_light_space_matrices[light_idx * num_cascades + cascade_idx];
     float4 position_ls = mul(light_space_matrix, float4(position_ws, 1.0f));
 
     float3 proj_coords = position_ls.xyz / position_ls.w;
@@ -152,7 +162,7 @@ void cs_main(uint3 thread_id: SV_DispatchThreadID)
     float3 lo = float3(0.0f);
 
     uint32_t directional_shadow_casting_light_idx = 0;
-    for (uint32_t i = 0; i < g_directional_lights.getCount(); ++i)
+    for (uint32_t i = 0; i < g_light_culling_info.num_directional_lights; ++i)
     {
         DirectionalLight light = g_directional_lights[i];
 
@@ -175,7 +185,7 @@ void cs_main(uint3 thread_id: SV_DispatchThreadID)
     uint32_t tile_index = uint32_t(tile_id.y) * g_light_culling_info.num_tiles.x + uint32_t(tile_id.x);
     uint32_t index = tile_index * MAX_LIGHTS_PER_TILE;
 
-    for (uint32_t i = 0; i < g_point_lights.getCount(); ++i)
+    for (uint32_t i = 0; i < g_light_culling_info.num_point_lights; ++i)
     {
         uint16_t tile_visible_light = g_tile_visible_lights[index + i];
         if (tile_visible_light == INVALID_TILE_VISIBLE_LIGHT)
