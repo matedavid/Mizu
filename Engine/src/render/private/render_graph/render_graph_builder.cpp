@@ -303,11 +303,14 @@ void RenderGraphPassBuilder::populate_dependency_info(
         frontier_passes.push_back(desc.last_write_pass);
     }
 
+    std::vector<RenderGraphPendingRead>& pending_reads = m_builder.m_pending_reads;
+
     if (is_output)
     {
-        for (size_t p : desc.pending_read_passes)
+        for (size_t read_idx = desc.pending_reads_head; read_idx != INVALID_PENDING_READ_IDX;
+             read_idx = pending_reads[read_idx].next)
         {
-            add_unique(frontier_passes, p);
+            add_unique(frontier_passes, pending_reads[read_idx].pass_idx);
         }
     }
 
@@ -324,11 +327,27 @@ void RenderGraphPassBuilder::populate_dependency_info(
     if (is_output)
     {
         desc.last_write_pass = m_pass_idx;
-        desc.pending_read_passes.clear();
+        desc.pending_reads_head = INVALID_PENDING_READ_IDX;
+        desc.pending_reads_tail = INVALID_PENDING_READ_IDX;
     }
     else if (is_input)
     {
-        add_unique(desc.pending_read_passes, m_pass_idx);
+        for (size_t read_idx = desc.pending_reads_head; read_idx != INVALID_PENDING_READ_IDX;
+             read_idx = pending_reads[read_idx].next)
+        {
+            if (pending_reads[read_idx].pass_idx == m_pass_idx)
+                return;
+        }
+
+        const size_t new_read_idx = pending_reads.size();
+        pending_reads.push_back({.pass_idx = m_pass_idx, .next = INVALID_PENDING_READ_IDX});
+
+        if (desc.pending_reads_tail == INVALID_PENDING_READ_IDX)
+            desc.pending_reads_head = new_read_idx;
+        else
+            pending_reads[desc.pending_reads_tail].next = new_read_idx;
+
+        desc.pending_reads_tail = new_read_idx;
     }
 }
 
@@ -347,6 +366,8 @@ void RenderGraphBuilder::reset()
     m_resources.clear();
     m_external_resources.clear();
     m_passes.clear();
+    m_pending_reads.clear();
+    m_access_links.clear();
 }
 
 RenderGraphResource RenderGraphBuilder::create_buffer(BufferDescription desc)
@@ -875,13 +896,28 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
 
     using Link = RenderGraphAccessRecord::Link;
 
+    static constexpr size_t INVALID_FRONTIER_READ_IDX = std::numeric_limits<size_t>::max();
+
+    struct FrontierRead
+    {
+        Link link{};
+        size_t next = INVALID_FRONTIER_READ_IDX;
+    };
+
     struct ResourceFrontier
     {
         Link last_write{};
-        inplace_vector<Link, RenderGraphResourceDescription::MAX_FRONTIER_PASSES> pending_reads{};
+        size_t reads_head = INVALID_FRONTIER_READ_IDX;
+        size_t reads_tail = INVALID_FRONTIER_READ_IDX;
     };
 
     std::vector<ResourceFrontier> frontiers(m_resources.size());
+    std::vector<FrontierRead> frontier_reads{};
+
+    std::vector<Link> prevs{};
+    std::vector<Link> candidates{};
+
+    m_access_links.clear();
 
     for (size_t pass_idx : sorted_topology)
     {
@@ -894,21 +930,23 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
 
             const bool is_output = render_graph_is_output_resource_usage(record.usage);
 
-            inplace_vector<Link, RenderGraphResourceDescription::MAX_FRONTIER_PASSES> prevs{};
+            prevs.clear();
             if (frontier.last_write.is_valid())
             {
                 prevs.push_back(frontier.last_write);
             }
 
-            for (Link r : frontier.pending_reads)
+            for (size_t read_idx = frontier.reads_head; read_idx != INVALID_FRONTIER_READ_IDX;
+                 read_idx = frontier_reads[read_idx].next)
             {
+                const Link r = frontier_reads[read_idx].link;
                 if (is_output || test_bit(reachable_vec[r.pass_idx], pass_idx))
                 {
                     prevs.push_back(r);
                 }
             }
 
-            auto candidates = prevs;
+            candidates = prevs;
             prevs.erase(
                 std::remove_if(
                     prevs.begin(),
@@ -925,22 +963,65 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
                     }),
                 prevs.end());
 
+            record.prevs_offset = m_access_links.size();
+            record.prevs_count = prevs.size();
+            record.nexts_count = 0;
+
             for (const Link& p : prevs)
             {
-                record.prevs.push_back(p);
+                m_access_links.push_back(p);
 
                 RenderGraphAccessRecord& prev_record = get_access_record(p);
-                prev_record.nexts.push_back({pass_idx, access_idx});
+                prev_record.nexts_count += 1;
             }
 
             if (is_output)
             {
                 frontier.last_write = {pass_idx, access_idx};
-                frontier.pending_reads.clear();
+                frontier.reads_head = INVALID_FRONTIER_READ_IDX;
+                frontier.reads_tail = INVALID_FRONTIER_READ_IDX;
             }
             else
             {
-                frontier.pending_reads.push_back({pass_idx, access_idx});
+                const size_t new_read_idx = frontier_reads.size();
+                frontier_reads.push_back({.link = {pass_idx, access_idx}, .next = INVALID_FRONTIER_READ_IDX});
+
+                if (frontier.reads_tail == INVALID_FRONTIER_READ_IDX)
+                    frontier.reads_head = new_read_idx;
+                else
+                    frontier_reads[frontier.reads_tail].next = new_read_idx;
+
+                frontier.reads_tail = new_read_idx;
+            }
+        }
+    }
+
+    size_t nexts_offset = m_access_links.size();
+    for (size_t pass_idx : sorted_topology)
+    {
+        for (RenderGraphAccessRecord& record : m_passes[pass_idx].m_accesses)
+        {
+            record.nexts_offset = nexts_offset;
+            nexts_offset += record.nexts_count;
+            record.nexts_count = 0;
+        }
+    }
+
+    m_access_links.resize(nexts_offset);
+
+    for (size_t pass_idx : sorted_topology)
+    {
+        const RenderGraphPassBuilder& pass_info = m_passes[pass_idx];
+
+        for (size_t access_idx = 0; access_idx < pass_info.m_accesses.size(); ++access_idx)
+        {
+            const RenderGraphAccessRecord& record = pass_info.m_accesses[access_idx];
+
+            for (size_t i = 0; i < record.prevs_count; ++i)
+            {
+                RenderGraphAccessRecord& prev_record = get_access_record(m_access_links[record.prevs_offset + i]);
+                m_access_links[prev_record.nexts_offset + prev_record.nexts_count] = {pass_idx, access_idx};
+                prev_record.nexts_count += 1;
             }
         }
     }
@@ -1229,6 +1310,20 @@ void RenderGraphBuilder::compile(RenderGraph& graph, const RenderGraphBuilderCom
     MIZU_PROFILE_ZONE_END(create_passes_ctx);
 }
 
+std::span<const RenderGraphAccessRecord::Link> RenderGraphBuilder::get_access_prevs(
+    const RenderGraphAccessRecord& record) const
+{
+    MIZU_ASSERT(record.prevs_offset + record.prevs_count <= m_access_links.size(), "Invalid access prevs range");
+    return std::span(m_access_links).subspan(record.prevs_offset, record.prevs_count);
+}
+
+std::span<const RenderGraphAccessRecord::Link> RenderGraphBuilder::get_access_nexts(
+    const RenderGraphAccessRecord& record) const
+{
+    MIZU_ASSERT(record.nexts_offset + record.nexts_count <= m_access_links.size(), "Invalid access nexts range");
+    return std::span(m_access_links).subspan(record.nexts_offset, record.nexts_count);
+}
+
 const RenderGraphAccessRecord& RenderGraphBuilder::get_access_record(RenderGraphAccessRecord::Link link) const
 {
     MIZU_ASSERT(link.is_valid(), "Invalid access link");
@@ -1494,7 +1589,8 @@ struct RenderGraphBuilderTransitionHelper
         ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
 
         const RenderGraphResourceDescription& resource_desc = builder.get_resource_desc(access.resource);
-        const bool is_first_usage = access.prevs.empty();
+        const std::span<const RenderGraphAccessRecord::Link> prevs = builder.get_access_prevs(access);
+        const bool is_first_usage = prevs.empty();
         final_state = Traits::convert_usage(access.usage, resource);
 
         if (is_first_usage && resource_desc.is_external())
@@ -1507,20 +1603,21 @@ struct RenderGraphBuilderTransitionHelper
         {
             initial_state = StateType::Undefined;
         }
-        else if (access.prevs.size() > 1)
+        else if (prevs.size() > 1)
         {
-            initial_state = get_common_state<ResourceT>(builder, resource, access.prevs);
+            initial_state = get_common_state<ResourceT>(builder, resource, prevs);
         }
         else
         {
-            const RenderGraphAccessRecord& prev_access = builder.get_access_record(access.prevs[0]);
+            const RenderGraphAccessRecord& prev_access = builder.get_access_record(prevs[0]);
+            const std::span<const RenderGraphAccessRecord::Link> prev_nexts = builder.get_access_nexts(prev_access);
             const size_t prev_batch_idx = pass_to_batch[prev_access.pass_idx];
             const CommandBufferBatch& prev_batch = batches[prev_batch_idx];
             const bool is_cross_queue = prev_batch_idx != batch.idx && prev_batch.type != batch.type;
 
-            if (prev_access.nexts.size() > 1)
+            if (prev_nexts.size() > 1)
             {
-                initial_state = get_common_state<ResourceT>(builder, resource, prev_access.nexts);
+                initial_state = get_common_state<ResourceT>(builder, resource, prev_nexts);
             }
             else if (is_cross_queue && resource_desc.concurrent_usage)
             {
@@ -1567,7 +1664,8 @@ struct RenderGraphBuilderTransitionHelper
         ResourceTransitionMode transition_mode = ResourceTransitionMode::Normal;
 
         const RenderGraphResourceDescription& resource_desc = builder.get_resource_desc(access.resource);
-        const bool is_last_usage = access.nexts.empty();
+        const std::span<const RenderGraphAccessRecord::Link> nexts = builder.get_access_nexts(access);
+        const bool is_last_usage = nexts.empty();
 
         initial_state = Traits::convert_usage(access.usage, resource);
 
@@ -1583,15 +1681,15 @@ struct RenderGraphBuilderTransitionHelper
         {
             return std::nullopt;
         }
-        else if (access.nexts.size() > 1)
+        else if (nexts.size() > 1)
         {
-            final_state = get_common_state<ResourceT>(builder, resource, access.nexts);
+            final_state = get_common_state<ResourceT>(builder, resource, nexts);
         }
-        else if (access.nexts.size() == 1)
+        else if (nexts.size() == 1)
         {
-            const RenderGraphAccessRecord& next_access = builder.get_access_record(access.nexts[0]);
+            const RenderGraphAccessRecord& next_access = builder.get_access_record(nexts[0]);
 
-            if (next_access.prevs.size() > 1)
+            if (builder.get_access_prevs(next_access).size() > 1)
                 return std::nullopt;
 
             const size_t next_batch_idx = pass_to_batch[next_access.pass_idx];
