@@ -5,8 +5,8 @@
 #include "core/runtime.h"
 
 #include "render/render_graph/render_graph_builder.h"
+#include "render/streaming/streaming_settings.h"
 #include "streaming/staging_pool.h"
-#include "streaming/streaming_settings.h"
 
 namespace Mizu
 {

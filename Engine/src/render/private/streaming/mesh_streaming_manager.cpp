@@ -12,11 +12,11 @@
 #include "registries/render_view_registry.h"
 #include "registries/transform_registry.h"
 #include "render/render_graph/render_graph_builder.h"
+#include "render/streaming/streaming_settings.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "resources/asset_load_scheduler.h"
 #include "streaming/mesh_lod_utils.h"
 #include "streaming/mesh_streaming_pool.h"
-#include "streaming/streaming_settings.h"
 
 namespace Mizu
 {

@@ -14,35 +14,54 @@ namespace Mizu
 
 void PrefabController::update(TransformDynamicState ds)
 {
-    if (!is_valid())
+    const PrefabEntry* entry = get_entry();
+    if (entry == nullptr)
     {
         MIZU_ASSERT(false, "Invalid PrefabController");
         return;
     }
 
-    g_transform_state_manager->sim_update(m_entry->transform_handle, ds);
+    g_transform_state_manager->sim_update(entry->transform_handle, ds);
 }
 
 TransformDynamicState PrefabController::get_transform_ds() const
 {
-    if (!is_valid())
+    const PrefabEntry* entry = get_entry();
+    if (entry == nullptr)
     {
         MIZU_ASSERT(false, "Invalid PrefabController");
         return TransformDynamicState{};
     }
 
-    return g_transform_state_manager->sim_get_dynamic_state(m_entry->transform_handle);
+    return g_transform_state_manager->sim_get_dynamic_state(entry->transform_handle);
 }
 
 TransformDynamicState& PrefabController::edit_transform_ds()
 {
-    MIZU_ASSERT(is_valid(), "Invalid PrefabController");
-    return g_transform_state_manager->sim_edit(m_entry->transform_handle);
+    const PrefabEntry* entry = get_entry();
+    if (entry == nullptr)
+    {
+        MIZU_ASSERT(false, "Invalid PrefabController");
+
+        static TransformDynamicState s_invalid_transform_ds{};
+        s_invalid_transform_ds = TransformDynamicState{};
+        return s_invalid_transform_ds;
+    }
+
+    return g_transform_state_manager->sim_edit(entry->transform_handle);
 }
 
 bool PrefabController::is_valid() const
 {
-    return m_owner != nullptr && m_entry != nullptr && m_owner->is_entry_valid(m_entry);
+    return get_entry() != nullptr;
+}
+
+PrefabEntry* PrefabController::get_entry() const
+{
+    if (m_owner == nullptr)
+        return nullptr;
+
+    return m_owner->find_entry(m_id);
 }
 
 //
@@ -62,12 +81,10 @@ PrefabController PrefabManager::create(PrefabAssetHandle handle, TransformHandle
 
 void PrefabManager::destroy(PrefabController controller)
 {
-    MIZU_ASSERT(controller.is_valid(), "Trying to destroy invalid PrefabController");
-
-    auto it = m_prefab_entries_map.find(controller.m_entry->id);
+    auto it = m_prefab_entries_map.find(controller.m_id);
     if (it == m_prefab_entries_map.end())
     {
-        MIZU_LOG_ERROR("Trying to destroy PrefabController that does not exist");
+        MIZU_ASSERT(false, "Trying to destroy invalid PrefabController");
         return;
     }
 
@@ -91,7 +108,7 @@ PrefabController PrefabManager::create_internal(
     TransformHandle transform_handle,
     bool owns_transform_handle)
 {
-    PrefabController invalid_controller{this, nullptr};
+    PrefabController invalid_controller{this, 0};
 
     IAssetLoader& asset_loader = g_game_context->get_asset_loader();
 
@@ -139,15 +156,13 @@ PrefabController PrefabManager::create_internal(
         return invalid_controller;
     }
 
-    return PrefabController{this, &inserted_it.first->second};
+    return PrefabController{this, entry.id};
 }
 
-bool PrefabManager::is_entry_valid(PrefabEntry* entry) const
+PrefabEntry* PrefabManager::find_entry(size_t id)
 {
-    if (entry == nullptr)
-        return false;
-
-    return m_prefab_entries_map.contains(entry->id);
+    const auto it = m_prefab_entries_map.find(id);
+    return it != m_prefab_entries_map.end() ? &it->second : nullptr;
 }
 
 } // namespace Mizu
