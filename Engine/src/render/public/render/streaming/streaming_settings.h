@@ -16,7 +16,8 @@ enum class StreamingMode
 #define MIZU_STREAMING_SETTINGS_MEMBERS(X)         \
     X(StreamingMode, mode, StreamingMode::Enabled) \
     X(bool, parallel_update, true)                 \
-    X(bool, logging_enabled, false)
+    X(bool, logging_enabled, false)                \
+    X(bool, sparse_enabled, true)
 
 MIZU_CREATE_SETTING(StreamingSettings, MIZU_STREAMING_SETTINGS_MEMBERS);
 

@@ -16,6 +16,7 @@
 #include "render_core/rhi/memory.h"
 
 #include "render/runtime/renderer.h"
+#include "render/streaming/streaming_settings.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "streaming/sparse_bind_scheduler.h"
 
@@ -30,6 +31,9 @@ TextureStreamingPool::TextureStreamingPool(
     , m_page_allocator(page_allocator)
     , m_sparse_bind_scheduler(sparse_bind_scheduler)
 {
+    const StreamingSettings& settings = get_setting<StreamingSettings>();
+
+    m_sparse_enabled = g_render_device->get_properties().sparse.images && settings.sparse_enabled;
 }
 
 TextureStreamingPool::~TextureStreamingPool()
@@ -122,6 +126,10 @@ void TextureStreamingPool::unregister_texture(TextureAssetHandle handle)
     }
 
     TextureEntry& entry = entry_it->second;
+    MIZU_ASSERT(
+        !entry.pending_residency.has_value(),
+        "Unregistering texture {} with a pending residency update",
+        handle.get_id());
 
     PendingRelease release{
         .texture = std::move(entry.texture),
@@ -157,24 +165,86 @@ void TextureStreamingPool::unregister_texture(TextureAssetHandle handle)
     m_texture_entry_map.erase(entry_it);
 }
 
-bool TextureStreamingPool::update_residency_state(
+PendingTextureResidencyUpdate TextureStreamingPool::begin_residency_update(
     TextureAssetHandle handle,
     const TextureAssetMetadata& metadata,
     uint8_t first_mip)
 {
     TextureEntry* entry = get_entry(handle);
     MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
+    MIZU_ASSERT(
+        first_mip <= metadata.num_mips, "Invalid first mip {}, texture has {} mips", first_mip, metadata.num_mips);
+    MIZU_ASSERT(
+        !entry->pending_residency.has_value(), "Texture {} already has a pending residency update", handle.get_id());
+
+    ResidencyInfo info{
+        .resident_mips = static_cast<uint8_t>(metadata.num_mips - first_mip),
+    };
+
+    bool reserved = false;
+    switch (entry->backing)
+    {
+    case ResourceBacking::Placed:
+        reserved = reserve_placed_residency(handle, *entry, metadata, first_mip, info);
+        break;
+    case ResourceBacking::Sparse:
+        reserved = reserve_sparse_residency(handle, *entry, metadata, first_mip, info);
+        break;
+    }
+
+    if (!reserved)
+        return PendingTextureResidencyUpdate{};
+
+    entry->pending_residency = std::move(info);
+    return PendingTextureResidencyUpdate(this, handle);
+}
+
+bool TextureStreamingPool::update_residency_state(
+    TextureAssetHandle handle,
+    const TextureAssetMetadata& metadata,
+    uint8_t first_mip)
+{
+    PendingTextureResidencyUpdate update = begin_residency_update(handle, metadata, first_mip);
+    if (!update)
+        return false;
+
+    update.commit();
+    return true;
+}
+
+void TextureStreamingPool::commit_residency_update(TextureAssetHandle handle)
+{
+    TextureEntry* entry = get_entry(handle);
+    MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
+    MIZU_ASSERT(entry->pending_residency.has_value(), "Texture {} has no pending residency update", handle.get_id());
+
+    ResidencyInfo info = std::move(*entry->pending_residency);
+    entry->pending_residency.reset();
 
     switch (entry->backing)
     {
     case ResourceBacking::Placed:
-        return update_placed_residency_state(handle, *entry, metadata, first_mip);
+        commit_placed_residency(*entry, info);
+        break;
     case ResourceBacking::Sparse:
-        return update_sparse_residency_state(handle, *entry, metadata, first_mip);
+        commit_sparse_residency(handle, *entry, info);
+        break;
     }
+}
 
-    MIZU_UNREACHABLE("Invalid resource backing");
-    return false;
+void TextureStreamingPool::abort_residency_update(TextureAssetHandle handle)
+{
+    TextureEntry* entry = get_entry(handle);
+    MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
+    MIZU_ASSERT(entry->pending_residency.has_value(), "Texture {} has no pending residency update", handle.get_id());
+
+    const ResidencyInfo info = std::move(*entry->pending_residency);
+    entry->pending_residency.reset();
+
+    for (const uint8_t mip : info.acquired_mips)
+    {
+        release_sparse_pages(handle, *entry, mip);
+    }
 }
 
 struct MipUploadLayout
@@ -425,12 +495,16 @@ ImageResourceView TextureStreamingPool::get_resource_view(TextureAssetHandle han
         });
 }
 
-bool TextureStreamingPool::update_placed_residency_state(
+bool TextureStreamingPool::reserve_placed_residency(
     TextureAssetHandle handle,
-    TextureEntry& entry,
+    const TextureEntry& entry,
     const TextureAssetMetadata& metadata,
-    uint8_t first_mip)
+    uint8_t first_mip,
+    ResidencyInfo& info)
 {
+    MIZU_ASSERT(
+        entry.old_texture == nullptr, "Updating residency of texture {} with a pending upload", handle.get_id());
+
     const uint8_t resident_first_mip = metadata.num_mips - entry.resident_mips;
 
     if (resident_first_mip == first_mip)
@@ -443,65 +517,32 @@ bool TextureStreamingPool::update_placed_residency_state(
     }
 
     if (first_mip == metadata.num_mips)
-    {
-        release_delayed(std::move(entry.texture));
-        entry.texture = nullptr;
-        entry.resident_mips = 0;
-
         return true;
-    }
 
     const ImageDescription image_desc = create_image_description(handle, metadata, first_mip);
-
-    entry.old_texture = std::move(entry.texture);
-    entry.texture = g_render_device->create_image(image_desc);
-    entry.resident_mips = metadata.num_mips - first_mip;
+    info.texture = g_render_device->create_image(image_desc);
 
     return true;
 }
 
-bool TextureStreamingPool::update_sparse_residency_state(
+bool TextureStreamingPool::reserve_sparse_residency(
     TextureAssetHandle handle,
     TextureEntry& entry,
     const TextureAssetMetadata& metadata,
-    uint8_t first_mip)
+    uint8_t first_mip,
+    ResidencyInfo& info)
 {
     MIZU_ASSERT(entry.texture != nullptr, "Sparse resources should have the texture created on register");
-    MIZU_ASSERT(
-        first_mip <= metadata.num_mips, "Invalid first mip {}, texture has {} mips", first_mip, metadata.num_mips);
-
     MIZU_ASSERT(
         first_mip == metadata.num_mips || first_mip <= entry.base_first_mip,
         "First mip {} is coarser than the base allocation (starts at {})",
         first_mip,
         entry.base_first_mip);
 
-    const uint8_t num_mips = metadata.num_mips;
-    const uint8_t old_first_mip = num_mips - entry.resident_mips;
+    const uint8_t old_first_mip = metadata.num_mips - entry.resident_mips;
 
-    if (first_mip == old_first_mip)
+    if (first_mip >= old_first_mip)
         return true;
-
-    if (first_mip == num_mips)
-    {
-        // Eviction case
-
-        for (uint8_t mip = old_first_mip; mip < entry.mip_tail_first_mip; ++mip)
-        {
-            release_sparse_pages(handle, entry, mip);
-        }
-
-        release_sparse_pages(handle, entry, MIP_TAIL);
-
-        entry.resident_mips = 0;
-        return true;
-    }
-
-    if (first_mip > old_first_mip)
-    {
-        entry.resident_mips = num_mips - first_mip;
-        return true;
-    }
 
     const bool first_load = entry.resident_mips == 0;
     const uint8_t bound_first_mip = first_load ? entry.base_first_mip : old_first_mip;
@@ -529,8 +570,44 @@ bool TextureStreamingPool::update_sparse_residency_state(
     if (!acquire_sparse_pages(handle, entry, mips))
         return false;
 
-    entry.resident_mips = num_mips - first_mip;
+    info.acquired_mips = std::move(mips);
     return true;
+}
+
+void TextureStreamingPool::commit_placed_residency(TextureEntry& entry, ResidencyInfo& info)
+{
+    if (info.resident_mips == 0)
+    {
+        release_delayed(std::move(entry.texture));
+        entry.texture = nullptr;
+        entry.resident_mips = 0;
+        return;
+    }
+
+    entry.old_texture = std::move(entry.texture);
+    entry.texture = std::move(info.texture);
+    entry.resident_mips = info.resident_mips;
+}
+
+void TextureStreamingPool::commit_sparse_residency(
+    TextureAssetHandle handle,
+    TextureEntry& entry,
+    const ResidencyInfo& info)
+{
+    if (info.resident_mips == 0)
+    {
+        const uint8_t num_mips = static_cast<uint8_t>(entry.texture->get_description().num_mips);
+        const uint8_t old_first_mip = num_mips - entry.resident_mips;
+
+        for (uint8_t mip = old_first_mip; mip < entry.mip_tail_first_mip; ++mip)
+        {
+            release_sparse_pages(handle, entry, mip);
+        }
+
+        release_sparse_pages(handle, entry, MIP_TAIL);
+    }
+
+    entry.resident_mips = info.resident_mips;
 }
 
 static bool are_pages_contiguous(const GpuPage& first, const GpuPage& second, uint64_t page_size)
@@ -806,7 +883,7 @@ ResourceBacking TextureStreamingPool::select_resource_backing(
     TextureAssetHandle handle,
     const TextureAssetMetadata& metadata)
 {
-    if (!g_render_device->get_properties().sparse.images)
+    if (!m_sparse_enabled)
     {
         return ResourceBacking::Placed;
     }

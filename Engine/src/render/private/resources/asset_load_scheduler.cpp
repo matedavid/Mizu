@@ -33,12 +33,9 @@ void AssetLoadScheduler::dispatch_load_jobs()
     if (num_load_jobs == 0)
         return;
 
-    while (m_load_jobs_in_flight.load(std::memory_order_relaxed) >= MAX_LOAD_JOBS)
-    {
-        g_job_system->yield();
-    }
-
     const uint32_t load_jobs_in_flight = m_load_jobs_in_flight.load(std::memory_order_acquire);
+    if (load_jobs_in_flight >= MAX_LOAD_JOBS)
+        return;
 
     const uint32_t max_num_jobs_to_dispatch = MAX_LOAD_JOBS - load_jobs_in_flight;
     const uint32_t num_requested_loads = num_load_jobs;
@@ -97,14 +94,14 @@ void AssetLoadScheduler::dispatch_load_jobs()
     }
 }
 
-void AssetLoadScheduler::request_mesh_load(
+bool AssetLoadScheduler::request_mesh_load(
     MeshAssetHandle handle,
     uint8_t first_lod,
     uint8_t lod_count,
     std::span<uint8_t> destination,
     const MeshLoadingFinishedFunc& callback)
 {
-    m_load_job_queue.push({
+    return m_load_job_queue.push({
         .asset_handle = handle,
         .level_base = first_lod,
         .level_count = lod_count,
@@ -113,14 +110,14 @@ void AssetLoadScheduler::request_mesh_load(
     });
 }
 
-void AssetLoadScheduler::request_texture_load(
+bool AssetLoadScheduler::request_texture_load(
     TextureAssetHandle handle,
     uint8_t first_mip,
     uint8_t mip_count,
     std::span<uint8_t> destination,
     const TextureLoadingFinishedFunc& callback)
 {
-    m_load_job_queue.push({
+    return m_load_job_queue.push({
         .asset_handle = handle,
         .level_base = first_mip,
         .level_count = mip_count,
@@ -173,10 +170,7 @@ bool AssetLoadScheduler::load_asset(const MeshAssetHandle& handle, const LoadJob
     }
 
     if (!m_asset_loader.load_mesh_payload_lods(
-            handle,
-            job_record.level_base,
-            job_record.level_count,
-            job_record.destination))
+            handle, job_record.level_base, job_record.level_count, job_record.destination))
     {
         MIZU_LOG_ERROR("Failed to load mesh payload for handle: {}", handle.get_id());
         return false;

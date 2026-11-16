@@ -162,8 +162,25 @@ void MeshStreamingManager::execute(const StreamingContext& context, std::span<St
                 request.resident_level);
         }
 
-        if (!m_mesh_streaming_pool.update_residency_state(handle, metadata, first_lod))
+        const ResidencyStatus expected_status =
+            payload->resident_level == 0 ? ResidencyStatus::Unloaded : ResidencyStatus::GpuResident;
+        if (!m_residency.transition_status(handle, expected_status, ResidencyStatus::Loading))
         {
+            if (award.staging_block.is_valid())
+            {
+                m_staging_pool.free(award.staging_block);
+            }
+
+            MIZU_UNREACHABLE("Failed to transition mesh when requesting a load");
+            continue;
+        }
+
+        PendingMeshResidencyUpdate residency_update =
+            m_mesh_streaming_pool.begin_residency_update(handle, metadata, first_lod);
+        if (!residency_update)
+        {
+            m_residency.transition_status(handle, ResidencyStatus::Loading, expected_status);
+
             if (award.staging_block.is_valid())
             {
                 m_staging_pool.free(award.staging_block);
@@ -172,39 +189,46 @@ void MeshStreamingManager::execute(const StreamingContext& context, std::span<St
             continue;
         }
 
-        const ResidencyStatus expected_status =
-            payload->resident_level == 0 ? ResidencyStatus::Unloaded : ResidencyStatus::GpuResident;
-        if (!m_residency.transition_status(handle, expected_status, ResidencyStatus::Loading))
+        if (lod_delta >= 0)
         {
-            MIZU_UNREACHABLE("Failed to transition mesh when requesting a load");
-            continue;
+            const bool requested = m_load_scheduler.request_mesh_load(
+                handle,
+                first_lod,
+                static_cast<uint8_t>(lod_delta),
+                award.staging_block.as_span(),
+                [this, metadata, request, block = award.staging_block](MeshAssetHandle handle) {
+                    m_gpu_upload_queue.push({
+                        .handle = handle,
+                        .metadata = metadata,
+                        .request = request,
+                        .staging_block = block,
+                    });
+                });
+
+            if (!requested)
+            {
+                residency_update.abort();
+                m_residency.transition_status(handle, ResidencyStatus::Loading, expected_status);
+                m_staging_pool.free(award.staging_block);
+
+                MIZU_UNREACHABLE("Mesh load queue is full, handle: {}", handle.get_id());
+                continue;
+            }
         }
+
+        residency_update.commit();
 
         if (lod_delta < 0)
         {
+            // Streaming out case, no need to request mesh load, just add the gpu upload
+
             m_gpu_upload_queue.push({
                 .handle = handle,
                 .metadata = metadata,
                 .request = request,
                 .staging_block = StagingBlock{},
             });
-
-            continue;
         }
-
-        m_load_scheduler.request_mesh_load(
-            handle,
-            first_lod,
-            static_cast<uint8_t>(lod_delta),
-            award.staging_block.as_span(),
-            [this, metadata, request, block = award.staging_block](MeshAssetHandle handle) {
-                m_gpu_upload_queue.push({
-                    .handle = handle,
-                    .metadata = metadata,
-                    .request = request,
-                    .staging_block = block,
-                });
-            });
     }
 }
 

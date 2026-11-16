@@ -12,6 +12,7 @@
 #include "render_core/rhi/device.h"
 
 #include "render/runtime/renderer.h"
+#include "render/streaming/streaming_settings.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "streaming/sparse_bind_scheduler.h"
 
@@ -216,7 +217,9 @@ MeshStreamingPool::MeshStreamingPool(
         return alignment != 0 && page_size % alignment == 0;
     };
 
-    if (g_render_device->get_properties().sparse.buffers)
+    const StreamingSettings& settings = get_setting<StreamingSettings>();
+
+    if (g_render_device->get_properties().sparse.buffers && settings.sparse_enabled)
     {
         m_vertex_buffer = g_render_device->create_sparse_buffer(vertex_buffer_desc);
         m_index_buffer = g_render_device->create_sparse_buffer(index_buffer_desc);
@@ -332,6 +335,8 @@ void MeshStreamingPool::unregister_mesh(MeshAssetHandle handle)
     }
 
     MeshEntry& entry = entry_it->second;
+    MIZU_ASSERT(
+        !entry.pending_residency.has_value(), "Unregistering mesh {} with a pending residency update", handle.get_id());
 
     if (m_backing == ResourceBacking::Sparse)
     {
@@ -355,7 +360,7 @@ void MeshStreamingPool::unregister_mesh(MeshAssetHandle handle)
     m_mesh_entry_map.erase(entry_it);
 }
 
-bool MeshStreamingPool::update_residency_state(
+PendingMeshResidencyUpdate MeshStreamingPool::begin_residency_update(
     MeshAssetHandle handle,
     const MeshAssetMetadata& metadata,
     uint8_t first_lod)
@@ -367,17 +372,111 @@ bool MeshStreamingPool::update_residency_state(
         "Invalid first lod {}, mesh has {} lods",
         first_lod,
         metadata.get_num_lods());
+    MIZU_ASSERT(
+        !entry->pending_residency.has_value(), "Mesh {} already has a pending residency update", handle.get_id());
+    MIZU_ASSERT(
+        m_backing != ResourceBacking::Placed
+            || (!entry->pending_copy_vertex_range.has_value() && !entry->pending_copy_index_range.has_value()),
+        "Updating residency of a mesh with a pending copy");
+
+    const uint8_t num_lods = metadata.get_num_lods();
+    const uint8_t old_first_lod = num_lods - entry->resident_lods;
+
+    ResidencyInfo info{
+        .resident_lods = static_cast<uint8_t>(num_lods - first_lod),
+        .vertex_range = entry->vertex_range,
+        .index_range = entry->index_range,
+        .vertex_size = entry->resident_vertex_size,
+        .index_size = entry->resident_index_size,
+    };
+
+    if (first_lod < old_first_lod)
+    {
+        info.vertex_size = get_mesh_resident_vertex_size(metadata, first_lod);
+        info.index_size = get_mesh_resident_index_size(metadata, first_lod);
+
+        switch (m_backing)
+        {
+        case ResourceBacking::Placed:
+            if (!reserve_placed_residency(*entry, metadata, info))
+                return PendingMeshResidencyUpdate{};
+            break;
+        case ResourceBacking::Sparse:
+            if (!reserve_sparse_residency(*entry, info))
+                return PendingMeshResidencyUpdate{};
+            break;
+        }
+    }
+
+    entry->pending_residency = info;
+    return PendingMeshResidencyUpdate(this, handle);
+}
+
+bool MeshStreamingPool::update_residency_state(
+    MeshAssetHandle handle,
+    const MeshAssetMetadata& metadata,
+    uint8_t first_lod)
+{
+    PendingMeshResidencyUpdate update = begin_residency_update(handle, metadata, first_lod);
+    if (!update)
+        return false;
+
+    update.commit();
+    return true;
+}
+
+void MeshStreamingPool::commit_residency_update(MeshAssetHandle handle)
+{
+    MeshEntry* entry = get_entry(handle);
+    MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
+    MIZU_ASSERT(entry->pending_residency.has_value(), "Mesh {} has no pending residency update", handle.get_id());
+
+    const ResidencyInfo info = *entry->pending_residency;
+    entry->pending_residency.reset();
+
+    if (info.resident_lods == 0)
+    {
+        evict_entry(*entry);
+        return;
+    }
+
+    if (info.vertex_relocated)
+    {
+        entry->pending_copy_vertex_range = entry->vertex_range;
+    }
+
+    if (info.index_relocated)
+    {
+        entry->pending_copy_index_range = entry->index_range;
+    }
+
+    entry->vertex_range = info.vertex_range;
+    entry->index_range = info.index_range;
+    entry->resident_vertex_size = info.vertex_size;
+    entry->resident_index_size = info.index_size;
+    entry->resident_lods = info.resident_lods;
+}
+
+void MeshStreamingPool::abort_residency_update(MeshAssetHandle handle)
+{
+    MeshEntry* entry = get_entry(handle);
+    MIZU_ASSERT(entry != nullptr, "Failed to find entry for handle: {}", handle.get_id());
+    MIZU_ASSERT(entry->pending_residency.has_value(), "Mesh {} has no pending residency update", handle.get_id());
+
+    const ResidencyInfo info = *entry->pending_residency;
+    entry->pending_residency.reset();
 
     switch (m_backing)
     {
     case ResourceBacking::Placed:
-        return update_placed_residency_state(*entry, metadata, first_lod);
+        release_reserved_range(m_vertex_allocator, entry->vertex_range, info.vertex_range, info.vertex_relocated);
+        release_reserved_range(m_index_allocator, entry->index_range, info.index_range, info.index_relocated);
+        break;
     case ResourceBacking::Sparse:
-        return update_sparse_residency_state(*entry, metadata, first_lod);
+        resize_resident_pages(m_vertex_page_table, entry->vertex_range, info.vertex_size, entry->resident_vertex_size);
+        resize_resident_pages(m_index_page_table, entry->index_range, info.index_size, entry->resident_index_size);
+        break;
     }
-
-    MIZU_UNREACHABLE("Invalid resource backing");
-    return false;
 }
 
 static void record_pending_copy(
@@ -529,122 +628,55 @@ std::optional<GpuMeshAllocationHandle> MeshStreamingPool::get_allocation(MeshAss
     };
 }
 
-bool MeshStreamingPool::update_placed_residency_state(
-    MeshEntry& entry,
+bool MeshStreamingPool::reserve_placed_residency(
+    const MeshEntry& entry,
     const MeshAssetMetadata& metadata,
-    uint8_t first_lod)
+    ResidencyInfo& info)
 {
-    MIZU_ASSERT(
-        !entry.pending_copy_vertex_range.has_value() && !entry.pending_copy_index_range.has_value(),
-        "Updating residency of a mesh with a pending copy");
-
-    const uint8_t num_lods = metadata.get_num_lods();
-    const uint8_t old_first_lod = num_lods - entry.resident_lods;
-
-    if (first_lod == old_first_lod)
-        return true;
-
-    if (first_lod == num_lods)
-    {
-        release_range_delayed(m_vertex_allocator, entry.vertex_range);
-        release_range_delayed(m_index_allocator, entry.index_range);
-
-        entry = MeshEntry{};
-        return true;
-    }
-
-    if (first_lod > old_first_lod)
-    {
-        entry.resident_lods = num_lods - first_lod;
-        return true;
-    }
-
-    const uint64_t old_vertex_size = entry.vertex_range.size;
-
-    const uint64_t new_vertex_size = get_mesh_resident_vertex_size(metadata, first_lod);
-    const uint64_t new_index_size = get_mesh_resident_index_size(metadata, first_lod);
-
-    if (!grow_placed_range(
+    if (!reserve_placed_range(
             m_vertex_allocator,
-            entry.vertex_range,
-            entry.pending_copy_vertex_range,
-            new_vertex_size,
+            info.vertex_range,
+            info.vertex_relocated,
+            info.vertex_size,
             metadata.get_vertex_stride_bytes()))
     {
-        MIZU_LOG_WARNING("Failed to allocate {} vertex bytes for mesh streaming", new_vertex_size);
+        MIZU_LOG_WARNING("Failed to allocate {} vertex bytes for mesh streaming", info.vertex_size);
         return false;
     }
 
-    if (!grow_placed_range(
+    if (!reserve_placed_range(
             m_index_allocator,
-            entry.index_range,
-            entry.pending_copy_index_range,
-            new_index_size,
+            info.index_range,
+            info.index_relocated,
+            info.index_size,
             metadata.get_index_stride_bytes()))
     {
-        MIZU_LOG_WARNING("Failed to allocate {} index bytes for mesh streaming", new_index_size);
-        rollback_placed_grow(m_vertex_allocator, entry.vertex_range, entry.pending_copy_vertex_range, old_vertex_size);
+        MIZU_LOG_WARNING("Failed to allocate {} index bytes for mesh streaming", info.index_size);
+        release_reserved_range(m_vertex_allocator, entry.vertex_range, info.vertex_range, info.vertex_relocated);
         return false;
     }
-
-    entry.resident_vertex_size = new_vertex_size;
-    entry.resident_index_size = new_index_size;
-    entry.resident_lods = num_lods - first_lod;
 
     return true;
 }
 
-bool MeshStreamingPool::update_sparse_residency_state(
-    MeshEntry& entry,
-    const MeshAssetMetadata& metadata,
-    uint8_t first_lod)
+bool MeshStreamingPool::reserve_sparse_residency(const MeshEntry& entry, const ResidencyInfo& info)
 {
-    const uint8_t num_lods = metadata.get_num_lods();
-    const uint8_t old_first_lod = num_lods - entry.resident_lods;
-
-    if (first_lod == old_first_lod)
-        return true;
-
-    if (first_lod == num_lods)
-    {
-        resize_resident_pages(m_vertex_page_table, entry.vertex_range, entry.resident_vertex_size, 0);
-        resize_resident_pages(m_index_page_table, entry.index_range, entry.resident_index_size, 0);
-
-        entry.resident_vertex_size = 0;
-        entry.resident_index_size = 0;
-        entry.resident_lods = 0;
-        return true;
-    }
-
-    if (first_lod > old_first_lod)
-    {
-        entry.resident_lods = num_lods - first_lod;
-        return true;
-    }
-
-    const uint64_t new_vertex_size = get_mesh_resident_vertex_size(metadata, first_lod);
-    const uint64_t new_index_size = get_mesh_resident_index_size(metadata, first_lod);
-
-    if (!resize_resident_pages(m_vertex_page_table, entry.vertex_range, entry.resident_vertex_size, new_vertex_size))
+    if (!resize_resident_pages(m_vertex_page_table, entry.vertex_range, entry.resident_vertex_size, info.vertex_size))
         return false;
 
-    if (!resize_resident_pages(m_index_page_table, entry.index_range, entry.resident_index_size, new_index_size))
+    if (!resize_resident_pages(m_index_page_table, entry.index_range, entry.resident_index_size, info.index_size))
     {
-        resize_resident_pages(m_vertex_page_table, entry.vertex_range, new_vertex_size, entry.resident_vertex_size);
+        resize_resident_pages(m_vertex_page_table, entry.vertex_range, info.vertex_size, entry.resident_vertex_size);
         return false;
     }
-
-    entry.resident_vertex_size = new_vertex_size;
-    entry.resident_index_size = new_index_size;
-    entry.resident_lods = num_lods - first_lod;
 
     return true;
 }
 
-bool MeshStreamingPool::grow_placed_range(
+bool MeshStreamingPool::reserve_placed_range(
     BufferRangeAllocator& allocator,
     BufferRange& range,
-    std::optional<BufferRange>& pending_copy_range,
+    bool& relocated,
     uint64_t new_size,
     uint64_t alignment)
 {
@@ -664,39 +696,46 @@ bool MeshStreamingPool::grow_placed_range(
     if (!offset.has_value())
         return false;
 
-    if (range.size != 0)
-    {
-        pending_copy_range = range;
-    }
-
+    relocated = range.size != 0;
     range = BufferRange{*offset, new_size};
     return true;
 }
 
-void MeshStreamingPool::rollback_placed_grow(
+void MeshStreamingPool::release_reserved_range(
     BufferRangeAllocator& allocator,
-    BufferRange& range,
-    std::optional<BufferRange>& pending_copy_range,
-    uint64_t old_size)
+    const BufferRange& current,
+    const BufferRange& reserved,
+    bool relocated)
 {
-    if (pending_copy_range.has_value())
+    if (relocated)
     {
-        allocator.free(range.offset, range.size);
-        range = *pending_copy_range;
-        pending_copy_range.reset();
+        allocator.free(reserved.offset, reserved.size);
         return;
     }
 
-    if (range.size > old_size)
+    if (reserved.size > current.size)
     {
-        allocator.free(range.offset + old_size, range.size - old_size);
+        allocator.free(reserved.offset + current.size, reserved.size - current.size);
+    }
+}
+
+void MeshStreamingPool::evict_entry(MeshEntry& entry)
+{
+    if (m_backing == ResourceBacking::Sparse)
+    {
+        resize_resident_pages(m_vertex_page_table, entry.vertex_range, entry.resident_vertex_size, 0);
+        resize_resident_pages(m_index_page_table, entry.index_range, entry.resident_index_size, 0);
+
+        entry.resident_vertex_size = 0;
+        entry.resident_index_size = 0;
+        entry.resident_lods = 0;
+        return;
     }
 
-    range.size = old_size;
-    if (old_size == 0)
-    {
-        range.offset = 0;
-    }
+    release_range_delayed(m_vertex_allocator, entry.vertex_range);
+    release_range_delayed(m_index_allocator, entry.index_range);
+
+    entry = MeshEntry{};
 }
 
 void MeshStreamingPool::shrink_resident_ranges(MeshEntry& entry, uint64_t new_vertex_size, uint64_t new_index_size)

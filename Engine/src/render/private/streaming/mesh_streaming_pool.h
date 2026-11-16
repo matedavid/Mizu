@@ -60,6 +60,10 @@ struct MeshUploadData
     std::span<const uint8_t> data{};
 };
 
+class MeshStreamingPool;
+
+using PendingMeshResidencyUpdate = PendingResidencyUpdate<MeshStreamingPool, MeshAssetHandle>;
+
 class MeshStreamingPool
 {
   public:
@@ -74,6 +78,10 @@ class MeshStreamingPool
     bool register_mesh(MeshAssetHandle handle, const MeshAssetMetadata& metadata);
     void unregister_mesh(MeshAssetHandle handle);
 
+    PendingMeshResidencyUpdate begin_residency_update(
+        MeshAssetHandle handle,
+        const MeshAssetMetadata& metadata,
+        uint8_t first_lod);
     bool update_residency_state(MeshAssetHandle handle, const MeshAssetMetadata& metadata, uint8_t first_lod);
 
     void record_gpu_upload(
@@ -109,6 +117,17 @@ class MeshStreamingPool
         uint64_t size = 0;
     };
 
+    struct ResidencyInfo
+    {
+        uint8_t resident_lods = 0;
+        BufferRange vertex_range{};
+        BufferRange index_range{};
+        uint64_t vertex_size = 0;
+        uint64_t index_size = 0;
+        bool vertex_relocated = false;
+        bool index_relocated = false;
+    };
+
     struct MeshEntry
     {
         BufferRange vertex_range{};
@@ -120,6 +139,8 @@ class MeshStreamingPool
 
         std::optional<BufferRange> pending_copy_vertex_range{};
         std::optional<BufferRange> pending_copy_index_range{};
+
+        std::optional<ResidencyInfo> pending_residency{};
     };
 
     std::unordered_map<MeshAssetHandle, MeshEntry> m_mesh_entry_map{};
@@ -160,20 +181,25 @@ class MeshStreamingPool
 
     std::vector<PendingPageRelease> m_pending_page_releases{};
 
-    bool update_placed_residency_state(MeshEntry& entry, const MeshAssetMetadata& metadata, uint8_t first_lod);
-    bool update_sparse_residency_state(MeshEntry& entry, const MeshAssetMetadata& metadata, uint8_t first_lod);
+    void commit_residency_update(MeshAssetHandle handle);
+    void abort_residency_update(MeshAssetHandle handle);
 
-    bool grow_placed_range(
+    bool reserve_placed_residency(const MeshEntry& entry, const MeshAssetMetadata& metadata, ResidencyInfo& info);
+    bool reserve_sparse_residency(const MeshEntry& entry, const ResidencyInfo& info);
+
+    bool reserve_placed_range(
         BufferRangeAllocator& allocator,
         BufferRange& range,
-        std::optional<BufferRange>& pending_copy_range,
+        bool& relocated,
         uint64_t new_size,
         uint64_t alignment);
-    void rollback_placed_grow(
+    void release_reserved_range(
         BufferRangeAllocator& allocator,
-        BufferRange& range,
-        std::optional<BufferRange>& pending_copy_range,
-        uint64_t old_size);
+        const BufferRange& current,
+        const BufferRange& reserved,
+        bool relocated);
+
+    void evict_entry(MeshEntry& entry);
 
     void shrink_resident_ranges(MeshEntry& entry, uint64_t new_vertex_size, uint64_t new_index_size);
 
@@ -190,6 +216,8 @@ class MeshStreamingPool
 
     MeshEntry* get_entry(MeshAssetHandle handle);
     const MeshEntry* get_entry(MeshAssetHandle handle) const;
+
+    friend PendingMeshResidencyUpdate;
 };
 
 } // namespace Mizu

@@ -24,13 +24,13 @@ class AssetLoadScheduler
 
     void dispatch_load_jobs();
 
-    void request_mesh_load(
+    bool request_mesh_load(
         MeshAssetHandle handle,
         uint8_t first_lod,
         uint8_t lod_count,
         std::span<uint8_t> destination,
         const MeshLoadingFinishedFunc& callback);
-    void request_texture_load(
+    bool request_texture_load(
         TextureAssetHandle handle,
         uint8_t first_mip,
         uint8_t mip_count,

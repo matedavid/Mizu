@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -34,6 +35,10 @@ struct TextureUploadData
     std::span<const uint8_t> data{};
 };
 
+class TextureStreamingPool;
+
+using PendingTextureResidencyUpdate = PendingResidencyUpdate<TextureStreamingPool, TextureAssetHandle>;
+
 class TextureStreamingPool
 {
   public:
@@ -48,6 +53,10 @@ class TextureStreamingPool
     void register_texture(TextureAssetHandle handle, const TextureAssetMetadata& metadata);
     void unregister_texture(TextureAssetHandle handle);
 
+    PendingTextureResidencyUpdate begin_residency_update(
+        TextureAssetHandle handle,
+        const TextureAssetMetadata& metadata,
+        uint8_t first_mip);
     bool update_residency_state(TextureAssetHandle handle, const TextureAssetMetadata& metadata, uint8_t first_mip);
 
     void record_gpu_upload(
@@ -65,6 +74,15 @@ class TextureStreamingPool
     GpuPageAllocator& m_page_allocator;
     SparseBindScheduler& m_sparse_bind_scheduler;
 
+    bool m_sparse_enabled = false;
+
+    struct ResidencyInfo
+    {
+        uint8_t resident_mips = 0;
+        std::shared_ptr<ImageResource> texture = nullptr;
+        std::vector<uint8_t> acquired_mips{};
+    };
+
     struct TextureEntry
     {
         std::shared_ptr<ImageResource> texture = nullptr;
@@ -78,6 +96,8 @@ class TextureStreamingPool
         uint8_t base_first_mip = 0;
         std::vector<std::vector<GpuPage>> mip_pages{};
         std::vector<GpuPage> mip_tail_pages{};
+
+        std::optional<ResidencyInfo> pending_residency{};
     };
 
     std::unordered_map<TextureAssetHandle, TextureEntry> m_texture_entry_map{};
@@ -103,16 +123,24 @@ class TextureStreamingPool
 
     std::vector<PendingPageRelease> m_pending_page_releases{};
 
-    bool update_placed_residency_state(
+    void commit_residency_update(TextureAssetHandle handle);
+    void abort_residency_update(TextureAssetHandle handle);
+
+    bool reserve_placed_residency(
+        TextureAssetHandle handle,
+        const TextureEntry& entry,
+        const TextureAssetMetadata& metadata,
+        uint8_t first_mip,
+        ResidencyInfo& info);
+    bool reserve_sparse_residency(
         TextureAssetHandle handle,
         TextureEntry& entry,
         const TextureAssetMetadata& metadata,
-        uint8_t first_mip);
-    bool update_sparse_residency_state(
-        TextureAssetHandle handle,
-        TextureEntry& entry,
-        const TextureAssetMetadata& metadata,
-        uint8_t first_mip);
+        uint8_t first_mip,
+        ResidencyInfo& info);
+
+    void commit_placed_residency(TextureEntry& entry, ResidencyInfo& info);
+    void commit_sparse_residency(TextureAssetHandle handle, TextureEntry& entry, const ResidencyInfo& info);
 
     std::vector<GpuPage>& get_sparse_pages(TextureEntry& entry, uint8_t mip);
     uint32_t count_sparse_pages(const TextureEntry& entry, uint8_t mip) const;
@@ -135,6 +163,8 @@ class TextureStreamingPool
 
     TextureEntry* get_entry(TextureAssetHandle handle);
     const TextureEntry* get_entry(TextureAssetHandle handle) const;
+
+    friend PendingTextureResidencyUpdate;
 };
 
 } // namespace Mizu
