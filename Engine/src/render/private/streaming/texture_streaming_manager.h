@@ -102,8 +102,10 @@ class TextureStreamingManager : public IStreamingManager
 
     struct TextureEntry
     {
-        TextureAssetMetadata metadata{}; // Cached once, when the texture is first registered
+        TextureAssetMetadata metadata{};
         std::vector<TextureStreamingUsage> usages{};
+
+        std::optional<uint64_t> residency_request_since_frame{};
 
         bool is_streamable() const { return metadata.streamable_mips > 0 && metadata.num_mips > 1; }
     };

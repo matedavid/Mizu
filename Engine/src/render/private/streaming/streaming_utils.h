@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <glm/glm.hpp>
+#include <optional>
 
 #include "base/math/geometric.h"
 #include "base/math/shapes.h"
@@ -10,7 +12,7 @@
 namespace Mizu
 {
 
-glm::vec2 viewport_pixel_size(const ViewportRect& viewport, glm::uvec2 output_size)
+inline glm::vec2 viewport_pixel_size(const ViewportRect& viewport, glm::uvec2 output_size)
 {
     return {
         std::round(viewport.extent.x * static_cast<float>(output_size.x)),
@@ -18,7 +20,7 @@ glm::vec2 viewport_pixel_size(const ViewportRect& viewport, glm::uvec2 output_si
     };
 }
 
-float pixels_per_world_unit(const ViewportRect& viewport, float fov, float depth, glm::uvec2 viewport_size)
+inline float pixels_per_world_unit(const ViewportRect& viewport, float fov, float depth, glm::uvec2 viewport_size)
 {
     const float height = viewport_pixel_size(viewport, viewport_size).y;
     const float tan_half_fov_y = glm::tan(fov / 2.0f);
@@ -26,7 +28,10 @@ float pixels_per_world_unit(const ViewportRect& viewport, float fov, float depth
     return height / (2.0f * depth * tan_half_fov_y);
 }
 
-float projected_area_fraction(const math::Sphere& sphere, const RenderViewRegistryEntry& view, glm::uvec2 viewport_size)
+inline float projected_area_fraction(
+    const math::Sphere& sphere,
+    const RenderViewRegistryEntry& view,
+    glm::uvec2 viewport_size)
 {
     const glm::vec2 viewport_px = viewport_pixel_size(view.viewport, viewport_size);
     const float screen_px = viewport_px.x * viewport_px.y;
@@ -47,6 +52,18 @@ float projected_area_fraction(const math::Sphere& sphere, const RenderViewRegist
     const float area_px = glm::pi<float>() * radius_px * radius_px;
 
     return glm::clamp(area_px / screen_px, 0.0f, 1.0f);
+}
+
+inline float streaming_age_score(std::optional<uint64_t> residency_request_since_frame, uint64_t frame_num)
+{
+    constexpr float AGE_SCORE_PER_FRAME = 0.04f;
+    constexpr uint64_t MAX_AGE_FRAMES = 60;
+
+    if (!residency_request_since_frame.has_value())
+        return 0.0f;
+
+    const uint64_t age = glm::min(frame_num - *residency_request_since_frame, MAX_AGE_FRAMES);
+    return AGE_SCORE_PER_FRAME * static_cast<float>(age);
 }
 
 } // namespace Mizu

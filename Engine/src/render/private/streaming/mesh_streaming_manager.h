@@ -113,8 +113,10 @@ class MeshStreamingManager : public IStreamingManager
 
     struct MeshEntry
     {
-        MeshAssetMetadata metadata{}; // Cached once, when the mesh is first registered
+        MeshAssetMetadata metadata{};
         std::vector<MeshStreamingUsage> usages{};
+
+        std::optional<uint64_t> residency_request_since_frame{};
 
         bool is_streamable() const { return metadata.streamable_lods > 0 && metadata.get_num_lods() > 1; }
     };

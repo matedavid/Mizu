@@ -108,7 +108,7 @@ void TextureStreamingManager::execute(const StreamingContext& context, std::span
 
         const TextureAssetHandle handle = to_asset_handle<TextureAssetHandle>(request.asset_key);
 
-        const TextureEntry* entry = find_entry(handle);
+        TextureEntry* entry = find_entry(handle);
         if (entry == nullptr)
         {
             MIZU_UNREACHABLE("Failed to find texture entry for handle: {}", handle.get_id());
@@ -134,6 +134,7 @@ void TextureStreamingManager::execute(const StreamingContext& context, std::span
             }
 
             payload->resident_level = 0;
+            entry->residency_request_since_frame.reset();
 
             m_texture_pool.update_residency_state(handle, metadata, metadata.num_mips);
 
@@ -231,6 +232,8 @@ void TextureStreamingManager::execute(const StreamingContext& context, std::span
                 .staging_block = StagingBlock{},
             });
         }
+
+        entry->residency_request_since_frame.reset();
     }
 }
 
@@ -396,7 +399,7 @@ void TextureStreamingManager::refresh(TextureAssetHandle handle, const Streaming
         return;
     }
 
-    const TextureEntry* entry = find_entry(handle);
+    TextureEntry* entry = find_entry(handle);
     if (entry == nullptr)
     {
         MIZU_UNREACHABLE("Failed to find texture entry for handle: {}", handle.get_id());
@@ -405,20 +408,31 @@ void TextureStreamingManager::refresh(TextureAssetHandle handle, const Streaming
 
     const std::optional<EvaluateResult> result = evaluate(handle, *entry, context, *payload, references);
     if (!result.has_value())
-        return;
-
-    if (result->desired_level != payload->resident_level)
     {
-        const int8_t delta = static_cast<int8_t>(result->desired_level) - static_cast<int8_t>(payload->resident_level);
-        m_pending_requests.push_back({
-            .asset_key = to_asset_key(handle),
-            .resident_level = payload->resident_level,
-            .desired_level = result->desired_level,
-            .level_delta = delta,
-            .score = result->score,
-            .staging_size_bytes = result->staging_size_bytes,
-        });
+        entry->residency_request_since_frame.reset();
+        return;
     }
+
+    if (result->desired_level == payload->resident_level)
+    {
+        entry->residency_request_since_frame.reset();
+        return;
+    }
+
+    if (!entry->residency_request_since_frame.has_value())
+    {
+        entry->residency_request_since_frame = context.frame.frame_num;
+    }
+
+    const int8_t delta = static_cast<int8_t>(result->desired_level) - static_cast<int8_t>(payload->resident_level);
+    m_pending_requests.push_back({
+        .asset_key = to_asset_key(handle),
+        .resident_level = payload->resident_level,
+        .desired_level = result->desired_level,
+        .level_delta = delta,
+        .score = result->score + streaming_age_score(entry->residency_request_since_frame, context.frame.frame_num),
+        .staging_size_bytes = result->staging_size_bytes,
+    });
 }
 
 auto TextureStreamingManager::evaluate(

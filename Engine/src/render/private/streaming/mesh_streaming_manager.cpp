@@ -17,6 +17,7 @@
 #include "resources/asset_load_scheduler.h"
 #include "streaming/mesh_lod_utils.h"
 #include "streaming/mesh_streaming_pool.h"
+#include "streaming/streaming_utils.h"
 
 namespace Mizu
 {
@@ -105,7 +106,7 @@ void MeshStreamingManager::execute(const StreamingContext& context, std::span<St
 
         const MeshAssetHandle handle = to_asset_handle<MeshAssetHandle>(request.asset_key);
 
-        const MeshEntry* entry = find_entry(handle);
+        MeshEntry* entry = find_entry(handle);
         if (entry == nullptr)
         {
             MIZU_UNREACHABLE("Failed to find mesh entry for handle: {}", handle.get_id());
@@ -130,6 +131,7 @@ void MeshStreamingManager::execute(const StreamingContext& context, std::span<St
 
             payload->resident_level = 0;
             payload->residency = {};
+            entry->residency_request_since_frame.reset();
 
             m_mesh_streaming_pool.update_residency_state(handle, metadata, metadata.get_num_lods());
 
@@ -229,6 +231,8 @@ void MeshStreamingManager::execute(const StreamingContext& context, std::span<St
                 .staging_block = StagingBlock{},
             });
         }
+
+        entry->residency_request_since_frame.reset();
     }
 }
 
@@ -424,7 +428,7 @@ void MeshStreamingManager::refresh(MeshAssetHandle handle, const StreamingContex
         return;
     }
 
-    const MeshEntry* entry = find_entry(handle);
+    MeshEntry* entry = find_entry(handle);
     if (entry == nullptr)
     {
         MIZU_UNREACHABLE("Failed to find mesh entry for handle: {}", handle.get_id());
@@ -433,20 +437,31 @@ void MeshStreamingManager::refresh(MeshAssetHandle handle, const StreamingContex
 
     const std::optional<EvaluateResult> result = evaluate(*entry, context, *payload, references);
     if (!result.has_value())
-        return;
-
-    if (result->desired_level != payload->resident_level)
     {
-        const int8_t delta = static_cast<int8_t>(result->desired_level) - static_cast<int8_t>(payload->resident_level);
-        m_pending_requests.push_back({
-            .asset_key = to_asset_key(handle),
-            .resident_level = payload->resident_level,
-            .desired_level = result->desired_level,
-            .level_delta = delta,
-            .score = result->score,
-            .staging_size_bytes = result->staging_size_bytes,
-        });
+        entry->residency_request_since_frame.reset();
+        return;
     }
+
+    if (result->desired_level == payload->resident_level)
+    {
+        entry->residency_request_since_frame.reset();
+        return;
+    }
+
+    if (!entry->residency_request_since_frame.has_value())
+    {
+        entry->residency_request_since_frame = context.frame.frame_num;
+    }
+
+    const int8_t delta = static_cast<int8_t>(result->desired_level) - static_cast<int8_t>(payload->resident_level);
+    m_pending_requests.push_back({
+        .asset_key = to_asset_key(handle),
+        .resident_level = payload->resident_level,
+        .desired_level = result->desired_level,
+        .level_delta = delta,
+        .score = result->score + streaming_age_score(entry->residency_request_since_frame, context.frame.frame_num),
+        .staging_size_bytes = result->staging_size_bytes,
+    });
 }
 
 static uint8_t select_mesh_lod(const MeshAssetMetadata& metadata, float screen_size)
@@ -546,7 +561,7 @@ auto MeshStreamingManager::evaluate(
             const uint8_t desired = num_lods - lod;
 
             desired_level = glm::max<uint8_t>(desired_level, desired);
-            score = glm::max(score, screen_size);
+            score = glm::max(score, glm::min(screen_size, 1.0f));
         }
     }
 
