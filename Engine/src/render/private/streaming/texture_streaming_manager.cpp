@@ -214,7 +214,7 @@ void TextureStreamingManager::execute(const StreamingContext& context, std::span
                 m_residency.transition_status(handle, ResidencyStatus::Loading, expected_status);
                 m_staging_pool.free(award.staging_block);
 
-                MIZU_UNREACHABLE("Texture load queue is full, handle: {}", handle.get_id());
+                MIZU_LOG_WARNING("Texture load queue is full, handle: {}", handle.get_id());
                 continue;
             }
         }

@@ -213,7 +213,7 @@ void MeshStreamingManager::execute(const StreamingContext& context, std::span<St
                 m_residency.transition_status(handle, ResidencyStatus::Loading, expected_status);
                 m_staging_pool.free(award.staging_block);
 
-                MIZU_UNREACHABLE("Mesh load queue is full, handle: {}", handle.get_id());
+                MIZU_LOG_WARNING("Mesh load queue is full, handle: {}", handle.get_id());
                 continue;
             }
         }

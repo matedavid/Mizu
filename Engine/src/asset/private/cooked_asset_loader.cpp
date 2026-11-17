@@ -254,7 +254,7 @@ bool CookedAssetLoader::load_mesh_payload_lods(
         return false;
     }
 
-    file.ignore(static_cast<std::streamsize>(offset));
+    file.seekg(static_cast<std::streamoff>(offset), std::ios::cur);
 
     if (!file.read(reinterpret_cast<char*>(destination.data()), static_cast<std::streamsize>(total_size)))
     {
@@ -322,7 +322,7 @@ bool CookedAssetLoader::load_texture_payload_mips(
         return false;
     }
 
-    file.ignore(static_cast<std::streamsize>(offset));
+    file.seekg(static_cast<std::streamoff>(offset), std::ios::cur);
 
     if (!file.read(reinterpret_cast<char*>(destination.data()), static_cast<std::streamsize>(total_size)))
     {
