@@ -7,7 +7,7 @@
 
 #include "dx12_context.h"
 #include "dx12_image_resource.h"
-#include "dx12_synchronization.h"
+#include "dx12_queue.h"
 #include "dx12_types.h"
 
 namespace Mizu::Dx12
@@ -53,23 +53,17 @@ Dx12Swapchain::~Dx12Swapchain()
     cleanup();
 }
 
-void Dx12Swapchain::acquire_next_image(
-    std::shared_ptr<Semaphore> signal_semaphore,
-    [[maybe_unused]] std::shared_ptr<Fence> signal_fence)
+SyncPoint Dx12Swapchain::acquire_next_image()
 {
-    // In D3D12, Swapchain images are always ready to render at the CurrentBackBufferIndex, therefore there is no need
-    // to signal or wait for fences.
-
-    if (signal_semaphore != nullptr)
-    {
-        Dx12Semaphore& native_signal_semaphore = static_cast<Dx12Semaphore&>(*signal_semaphore);
-        native_signal_semaphore.signal(Dx12Context.device->get_graphics_queue());
-    }
+    // In D3D12, the image at CurrentBackBufferIndex is always ready to be rendered to
+    return SyncPoint{};
 }
 
-void Dx12Swapchain::present(std::span<std::shared_ptr<Semaphore>>)
+void Dx12Swapchain::present(const SyncPoint& rendering_done)
 {
     MIZU_PROFILE_SCOPED;
+
+    Dx12Context.device->get_native_queue(CommandBufferType::Graphics).wait(rendering_done);
 
     const IRhiWindow& window = *m_description.window;
 
@@ -118,7 +112,12 @@ void Dx12Swapchain::create_swapchain()
 
     IDXGISwapChain1* swapchain1;
     DX12_CHECK(Dx12Context.factory->CreateSwapChainForHwnd(
-        Dx12Context.device->get_graphics_queue(), m_window_handle, &swapchain_desc, nullptr, nullptr, &swapchain1));
+        Dx12Context.device->get_native_queue(CommandBufferType::Graphics).handle(),
+        m_window_handle,
+        &swapchain_desc,
+        nullptr,
+        nullptr,
+        &swapchain1));
 
     swapchain1->QueryInterface(IID_PPV_ARGS(&m_swapchain));
     swapchain1->Release();

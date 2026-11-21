@@ -7,11 +7,14 @@ namespace Mizu::Vulkan
 
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
 
+namespace debug
+{
+
 static PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT;
 static PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT;
 static PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 
-void VulkanDebug::init(VkInstance instance)
+void init(VkInstance instance)
 {
     vkCmdBeginDebugUtilsLabelEXT =
         (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT");
@@ -21,9 +24,12 @@ void VulkanDebug::init(VkInstance instance)
         (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
 }
 
-void VulkanDebug::begin_gpu_marker(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color)
+void begin_gpu_marker(VkCommandBuffer command_buffer, std::string_view label, glm::vec4 color)
 {
     if (!VulkanContext.validations_enabled)
+        return;
+
+    if (label.empty())
         return;
 
     VkDebugUtilsLabelEXT marker_info{};
@@ -38,7 +44,7 @@ void VulkanDebug::begin_gpu_marker(VkCommandBuffer command_buffer, std::string_v
     vkCmdBeginDebugUtilsLabelEXT(command_buffer, &marker_info);
 }
 
-void VulkanDebug::end_gpu_marker(VkCommandBuffer command_buffer)
+void end_gpu_marker(VkCommandBuffer command_buffer)
 {
     if (!VulkanContext.validations_enabled)
         return;
@@ -46,74 +52,25 @@ void VulkanDebug::end_gpu_marker(VkCommandBuffer command_buffer)
     vkCmdEndDebugUtilsLabelEXT(command_buffer);
 }
 
-void VulkanDebug::set_debug_name(VkImage image, std::string_view name)
+void set_debug_name(uint64_t object, VkObjectType object_type, std::string_view name)
 {
     if (!VulkanContext.validations_enabled)
         return;
 
+    if (name.empty())
+        return;
+
     VkDebugUtilsObjectNameInfoEXT info{};
     info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-    info.objectType = VK_OBJECT_TYPE_IMAGE;
-    info.objectHandle = reinterpret_cast<uint64_t>(image);
+    info.objectType = object_type;
+    info.objectHandle = object;
     info.pObjectName = name.data();
 
     vkSetDebugUtilsObjectNameEXT(VulkanContext.device->handle(), &info);
 }
 
-void VulkanDebug::set_debug_name(VkBuffer buffer, std::string_view name)
-{
-    if (!VulkanContext.validations_enabled)
-        return;
+} // namespace debug
 
-    VkDebugUtilsObjectNameInfoEXT info{};
-    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-    info.objectType = VK_OBJECT_TYPE_BUFFER;
-    info.objectHandle = reinterpret_cast<uint64_t>(buffer);
-    info.pObjectName = name.data();
-
-    vkSetDebugUtilsObjectNameEXT(VulkanContext.device->handle(), &info);
-}
-
-void VulkanDebug::set_debug_name(VkFramebuffer framebuffer, std::string_view name)
-{
-    if (!VulkanContext.validations_enabled)
-        return;
-
-    VkDebugUtilsObjectNameInfoEXT info{};
-    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-    info.objectType = VK_OBJECT_TYPE_FRAMEBUFFER;
-    info.objectHandle = reinterpret_cast<uint64_t>(framebuffer);
-    info.pObjectName = name.data();
-
-    vkSetDebugUtilsObjectNameEXT(VulkanContext.device->handle(), &info);
-}
-
-void VulkanDebug::set_debug_name(VkAccelerationStructureKHR acceleration_structure, std::string_view name)
-{
-    if (!VulkanContext.validations_enabled)
-        return;
-
-    VkDebugUtilsObjectNameInfoEXT info{};
-    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-    info.objectType = VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR;
-    info.objectHandle = reinterpret_cast<uint64_t>(acceleration_structure);
-    info.pObjectName = name.data();
-
-    vkSetDebugUtilsObjectNameEXT(VulkanContext.device->handle(), &info);
-}
-void VulkanDebug::set_debug_name(VkDeviceMemory memory, std::string_view name)
-{
-    if (!VulkanContext.validations_enabled)
-        return;
-
-    VkDebugUtilsObjectNameInfoEXT info{};
-    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-    info.objectType = VK_OBJECT_TYPE_DEVICE_MEMORY;
-    info.objectHandle = reinterpret_cast<uint64_t>(memory);
-    info.pObjectName = name.data();
-
-    vkSetDebugUtilsObjectNameEXT(VulkanContext.device->handle(), &info);
-}
 #endif
 
 } // namespace Mizu::Vulkan

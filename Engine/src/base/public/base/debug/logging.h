@@ -32,19 +32,16 @@ namespace Mizu
 
 #else
 
-namespace Mizu
-{
+#define MIZU_LOG_DISCARD(...) (void)sizeof(__VA_ARGS__)
 
 #define MIZU_LOG_SETUP
 
-#define MIZU_LOG_INFO(...)
-#define MIZU_LOG_WARNING(...)
-#define MIZU_LOG_ERROR(...)
+#define MIZU_LOG_INFO(...) MIZU_LOG_DISCARD(__VA_ARGS__)
+#define MIZU_LOG_WARNING(...) MIZU_LOG_DISCARD(__VA_ARGS__)
+#define MIZU_LOG_ERROR(...) MIZU_LOG_DISCARD(__VA_ARGS__)
 
-#define MIZU_LOG_ONCE_INFO(...)
-#define MIZU_LOG_ONCE_WARNING(...)
-#define MIZU_LOG_ONCE_ERROR(...)
-
-} // namespace Mizu
+#define MIZU_LOG_ONCE_INFO(...) MIZU_LOG_DISCARD(__VA_ARGS__)
+#define MIZU_LOG_ONCE_WARNING(...) MIZU_LOG_DISCARD(__VA_ARGS__)
+#define MIZU_LOG_ONCE_ERROR(...) MIZU_LOG_DISCARD(__VA_ARGS__)
 
 #endif

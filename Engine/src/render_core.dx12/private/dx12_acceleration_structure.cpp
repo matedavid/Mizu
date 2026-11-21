@@ -38,7 +38,7 @@ Dx12AccelerationStructure::Dx12AccelerationStructure(AccelerationStructureDescri
     : m_description(std::move(desc))
 {
     MIZU_VERIFY(
-        Dx12Context.device->get_properties().ray_tracing_hardware, "Rtx hardware is not supported on current device");
+        Dx12Context.device->get_properties().ray_tracing.supported, "Rtx hardware is not supported on current device");
 
     m_type = std::holds_alternative<TopLevelAccelerationStructureDescription>(m_description.description)
                  ? AccelerationStructureType::TopLevel
@@ -69,7 +69,8 @@ Dx12AccelerationStructure::Dx12AccelerationStructure(AccelerationStructureDescri
     if (!m_description.name.empty())
         as_buffer_desc.name = std::format("{}_ASBuffer", m_description.name);
 
-    m_as_buffer = std::make_shared<Dx12BufferResource>(as_buffer_desc);
+    m_as_buffer = std::static_pointer_cast<Dx12BufferResource>(
+        Dx12Context.device->create_buffer(as_buffer_desc, HeapDomain::DeviceLocal));
 }
 
 Dx12AccelerationStructure::~Dx12AccelerationStructure() {}

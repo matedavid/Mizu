@@ -6,6 +6,7 @@
 #include "render/render_graph/render_graph_builder.h"
 #include "render/scene/draw_list_system.h"
 #include "render/scene/scene_blackboard_data.h"
+#include "scene/draw_list_view.h"
 
 namespace Mizu
 {
@@ -49,7 +50,7 @@ void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
                             },
                     },
                 .targets = pass.get_framebuffer_info(),
-                .frustum = view_data.data.frustum,
+                .view = create_draw_list_view(view_data.data),
             });
         },
         [=](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {

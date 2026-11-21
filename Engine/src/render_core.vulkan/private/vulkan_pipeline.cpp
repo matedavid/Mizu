@@ -264,7 +264,7 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
 
     // Rasterization
     bool depth_clamp_enable = desc.rasterization.depth_clamp;
-    if (depth_clamp_enable && !VulkanContext.device->get_properties().depth_clamp_enabled)
+    if (depth_clamp_enable && !VulkanContext.device->get_properties().depth_clamp)
     {
         MIZU_LOG_ONCE_ERROR(
             "Requesting DepthClamp enabled but feature is not supported by Physical Device, setting to false");
@@ -437,7 +437,7 @@ VulkanPipeline::VulkanPipeline(const ComputePipelineDescription& desc) : m_pipel
 VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pipeline_type(PipelineType::RayTracing)
 {
     MIZU_ASSERT(
-        VulkanContext.device->get_properties().ray_tracing_hardware,
+        VulkanContext.device->get_properties().ray_tracing.supported,
         "Can't create RayTracingPipeline because ray tracing hardware is not supported");
 
     MIZU_ASSERT(desc.raygen_shader != nullptr, "Raygen shader is required in RayTracingPipeline");
@@ -662,9 +662,10 @@ VulkanPipeline::VulkanPipeline(const RayTracingPipelineDescription& desc) : m_pi
 
     BufferDescription sbt_desc{};
     sbt_desc.size = sbt_size;
-    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable | BufferUsageBits::HostVisible;
+    sbt_desc.usage = BufferUsageBits::RtxShaderBindingTable;
     sbt_desc.name = "SBT_buffer";
-    m_sbt_buffer = std::make_unique<VulkanBufferResource>(sbt_desc);
+    m_sbt_buffer = std::static_pointer_cast<VulkanBufferResource>(
+        VulkanContext.device->create_buffer(sbt_desc, HeapDomain::Upload));
 
     VkBufferDeviceAddressInfo address_info{};
     address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;

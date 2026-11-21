@@ -42,7 +42,7 @@ class VulkanPipeline : public Pipeline
     std::optional<PushConstantItem> m_push_constant_info;
 
     // RayTracingPipeline Specific
-    std::unique_ptr<VulkanBufferResource> m_sbt_buffer;
+    std::shared_ptr<VulkanBufferResource> m_sbt_buffer;
     VkStridedDeviceAddressRegionKHR m_ray_generation_region{};
     VkStridedDeviceAddressRegionKHR m_miss_region{};
     VkStridedDeviceAddressRegionKHR m_hit_region{};

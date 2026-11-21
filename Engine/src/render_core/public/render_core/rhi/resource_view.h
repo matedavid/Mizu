@@ -135,6 +135,11 @@ struct ImageResourceView
         std::shared_ptr<ImageResource> image_,
         const ImageResourceViewDescription& desc_);
 
+    MIZU_RENDER_CORE_API static ImageResourceView create(ImageResource* image_);
+    MIZU_RENDER_CORE_API static ImageResourceView create(
+        ImageResource* image_,
+        const ImageResourceViewDescription& desc_);
+
   private:
     ImageResourceView(ImageResource* image_, const ImageResourceViewDescription& desc_) : image(image_), desc(desc_)
     {

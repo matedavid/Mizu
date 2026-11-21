@@ -189,4 +189,26 @@ D3D12_RENDER_PASS_ENDING_ACCESS_TYPE get_dx12_store_operation(StoreOperation ope
     }
 }
 
+uint32_t calc_dx12_subresource_index(
+    uint32_t mip_level,
+    uint32_t array_layer,
+    uint32_t plane_slice,
+    uint32_t num_mips,
+    uint32_t num_layers)
+{
+    // See D3D12CalcSubresource, implementing  directly because including <d3dx12/d3dx12.h> does not compile
+
+    MIZU_ASSERT(num_mips > 0, "Image must have at least one mip level");
+    MIZU_ASSERT(num_layers > 0, "Image must have at least one array layer");
+
+    return mip_level + (array_layer * num_mips) + (plane_slice * num_mips * num_layers);
+}
+
+uint32_t calc_dx12_subresource_index(const ImageSubresourceLayers& layers, uint32_t num_mips, uint32_t num_layers)
+{
+    constexpr uint32_t plane_slice = 0;
+
+    return calc_dx12_subresource_index(layers.mip_level, layers.base_array_layer, plane_slice, num_mips, num_layers);
+}
+
 } // namespace Mizu::Dx12

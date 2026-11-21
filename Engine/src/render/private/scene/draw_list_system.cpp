@@ -8,21 +8,22 @@
 #include "base/debug/assert.h"
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
-#include "base/math/aabb.h"
+#include "base/math/shapes.h"
 #include "core/game_context.h"
 #include "core/runtime.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/rhi_helpers.h"
 
+#include "registries/transform_registry.h"
 #include "render.pipeline/scene_shaders.h"
 #include "render/render_graph/render_graph_builder.h"
 #include "render/runtime/renderer.h"
 #include "render/runtime/renderer_settings.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "render/systems/pipeline_cache.h"
-#include "resources/gpu_pools.h"
 #include "scene/draw_class_registry.h"
-#include "scene/scene_system.h"
+#include "scene/render_scene.h"
+#include "streaming/mesh_streaming_pool.h"
 
 namespace Mizu
 {
@@ -65,9 +66,9 @@ size_t get_raster_state_hash(const RasterState& state, const FramebufferInfo& fr
 
 } // namespace
 
-DrawListSystem::DrawListSystem(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool)
-    : m_scene_system(scene_system)
-    , m_gpu_mesh_pool(gpu_mesh_pool)
+DrawListSystem::DrawListSystem(RenderScene& render_scene, const MeshStreamingPool& mesh_streaming_pool)
+    : m_render_scene(render_scene)
+    , m_mesh_streaming_pool(mesh_streaming_pool)
 {
     m_gpu_driven_rendering_enabled = get_setting<RendererSettings>().gpu_driven_rendering_enabled;
 }
@@ -79,6 +80,7 @@ void DrawListSystem::reset()
     for (VisibilityEntry& visibility : m_visibilities)
     {
         visibility.visible.clear();
+        visibility.lods.clear();
         visibility.ranges.clear();
         visibility.draw_lists.clear();
         visibility.list_begin = 0;
@@ -119,13 +121,14 @@ DrawListHandle DrawListSystem::create_draw_list(const DrawListRequest& request)
         request.pass_builder.read(m_gpu_resources.draw_data_buffer);
     }
 
-    const uint32_t visibility_idx = get_visibility_id(VisibilityDesc::create(request.frustum, request.frustum_mask));
+    const uint32_t visibility_idx = get_visibility_id(VisibilityDesc::create(request.view, request.frustum_mask));
 
     const DrawFilter filter = request.raster_pass->filter();
 
     const DrawListKey key{
         .visibility_idx = visibility_idx,
         .view_count = request.view_count,
+        .lod_bias = request.lod_bias,
         .filter_required = filter.required,
         .filter_excluded = filter.excluded,
         .raster_state_hash = get_raster_state_hash(request.state, request.targets),
@@ -153,6 +156,7 @@ DrawListHandle DrawListSystem::create_draw_list(const DrawListRequest& request)
     list.targets = request.targets;
     list.filter = filter;
     list.view_count = request.view_count;
+    list.lod_bias = request.lod_bias;
     list.visibility_idx = visibility_idx;
 
     m_num_draw_lists += 1;
@@ -176,7 +180,7 @@ void DrawListSystem::finalize(RenderGraphBuilder& builder, FrameLinearAllocator&
     if (m_num_draw_lists == 0)
         return;
 
-    const DrawClassRegistry& registry = m_scene_system.get_draw_class_registry();
+    const DrawClassRegistry& registry = m_render_scene.get_draw_class_registry();
     const uint32_t num_draw_class_entries = registry.num_entries();
     const std::span<const DrawClassId> live_classes = registry.live_classes();
 
@@ -316,8 +320,8 @@ void DrawListSystem::dispatch_draw_list(
     if (!gpu_driven && list.elements.empty())
         return;
 
-    command.bind_vertex_buffer(*m_gpu_mesh_pool.get_vertex_buffer());
-    command.bind_index_buffer(*m_gpu_mesh_pool.get_index_buffer());
+    command.bind_vertex_buffer(*m_mesh_streaming_pool.get_vertex_buffer());
+    command.bind_index_buffer(*m_mesh_streaming_pool.get_index_buffer());
 
     const std::shared_ptr<DescriptorSet> draw_list_descriptor_set = create_draw_list_descriptor_set(list);
 
@@ -420,6 +424,17 @@ static bool filter_accepts(DrawableFlags flags, const DrawFilter& filter)
     return (bits & static_cast<uint32_t>(filter.excluded)) == 0;
 }
 
+static uint8_t select_mesh_lod(const GpuMeshLodTable& table, float screen_size)
+{
+    for (uint32_t lod = 0; lod + 1 < table.num_lods; ++lod)
+    {
+        if (screen_size >= table.lods[lod].screen_size)
+            return static_cast<uint8_t>(lod);
+    }
+
+    return static_cast<uint8_t>(table.num_lods - 1);
+}
+
 void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
 {
     MIZU_PROFILE_SCOPED;
@@ -427,19 +442,23 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
     VisibilityEntry& visibility = m_visibilities[visibility_idx];
     const VisibilityDesc& desc = visibility.desc;
 
-    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
-    const std::span<const TransformInfo> transforms = m_scene_system.get_transform_infos();
+    const std::span<const SceneDrawable> drawables = m_render_scene.get_drawables();
+    const std::span<const GpuMeshLodTable> mesh_lod_tables = m_render_scene.get_mesh_lod_tables();
+    const TransformRegistry& transform_registry = transform_registry_get();
+
+    const MeshLodView lod_view = create_mesh_lod_view(desc.view.view_matrix, desc.view.proj_matrix, desc.view.znear);
 
     visibility.visible.clear();
     visibility.visible.reserve(drawables.size());
+    visibility.lods.assign(drawables.size(), 0);
 
     for (uint32_t i = 0; i < drawables.size(); ++i)
     {
-        const SceneDrawableInfo& drawable = drawables[i];
+        const SceneDrawable& drawable = drawables[i];
 
-        if (!drawable.gpu_mesh_record.allocation.handle.is_valid())
+        if (drawable.mesh_lod_table_index == INVALID_MESH_LOD_TABLE)
         {
-            MIZU_LOG_ERROR("Drawable with invalid Gpu mesh allocation handle, skipping.");
+            MIZU_LOG_ERROR("Drawable without a mesh lod table, skipping.");
             continue;
         }
 
@@ -452,23 +471,31 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
         if (drawable.class_id == INVALID_DRAW_CLASS_ID)
             continue;
 
-        if (desc.has_frustum)
+        if (!desc.has_frustum)
         {
-            const math::AABB& local_aabb = drawable.gpu_mesh_record.metadata.bounding_box;
-            const glm::mat4& world_transform = transforms[drawable.transform_slot_index].transform;
-
-            const math::AABB world_aabb = transform_aabb(local_aabb, world_transform);
-
-            if (!desc.frustum.is_inside_frustum(world_aabb, desc.mask))
-                continue;
+            visibility.visible.push_back(i);
+            continue;
         }
 
+        const math::AABB& local_aabb = drawable.bounding_box;
+        const glm::mat4& world_transform =
+            transform_registry.get_transform_info(drawable.transform_slot_index).transform;
+
+        const math::AABB world_aabb = transform_aabb(local_aabb, world_transform);
+
+        if (!desc.frustum.is_inside_frustum(world_aabb, desc.mask))
+            continue;
+
+        const math::Sphere sphere = math::bounding_sphere_from_transformed_aabb(local_aabb, world_transform);
+        const float screen_size = compute_mesh_screen_size(sphere, lod_view);
+
+        visibility.lods[i] = select_mesh_lod(mesh_lod_tables[drawable.mesh_lod_table_index], screen_size);
         visibility.visible.push_back(i);
     }
 
     std::sort(visibility.visible.begin(), visibility.visible.end(), [&](uint32_t a, uint32_t b) {
-        const SceneDrawableInfo& lhs = drawables[a];
-        const SceneDrawableInfo& rhs = drawables[b];
+        const SceneDrawable& lhs = drawables[a];
+        const SceneDrawable& rhs = drawables[b];
 
         if (lhs.class_id != rhs.class_id)
             return lhs.class_id < rhs.class_id;
@@ -476,13 +503,10 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
         if (lhs.material_buffer_offset != rhs.material_buffer_offset)
             return lhs.material_buffer_offset < rhs.material_buffer_offset;
 
-        if (lhs.gpu_mesh_draw.first_vertex != rhs.gpu_mesh_draw.first_vertex)
-            return lhs.gpu_mesh_draw.first_vertex < rhs.gpu_mesh_draw.first_vertex;
+        if (lhs.mesh_lod_table_index != rhs.mesh_lod_table_index)
+            return lhs.mesh_lod_table_index < rhs.mesh_lod_table_index;
 
-        if (lhs.gpu_mesh_draw.first_index != rhs.gpu_mesh_draw.first_index)
-            return lhs.gpu_mesh_draw.first_index < rhs.gpu_mesh_draw.first_index;
-
-        return lhs.gpu_mesh_draw.index_count < rhs.gpu_mesh_draw.index_count;
+        return visibility.lods[a] < visibility.lods[b];
     });
 
     visibility.ranges.clear();
@@ -510,6 +534,12 @@ void DrawListSystem::cpu_visibility_job(uint32_t visibility_idx)
     }
 }
 
+static uint32_t apply_lod_bias(uint32_t auto_lod, const GpuMeshLodTable& table, uint8_t lod_bias)
+{
+    const uint32_t lod = glm::min(auto_lod + lod_bias, table.num_lods - 1);
+    return glm::max(lod, table.resident_first_lod);
+}
+
 void DrawListSystem::cpu_build_list_job(uint32_t list_idx)
 {
     MIZU_PROFILE_SCOPED;
@@ -523,7 +553,8 @@ void DrawListSystem::cpu_build_list_job(uint32_t list_idx)
         return;
 
     const VisibilityEntry& visibility = m_visibilities[list.visibility_idx];
-    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
+    const std::span<const SceneDrawable> drawables = m_render_scene.get_drawables();
+    const std::span<const GpuMeshLodTable> mesh_lod_tables = m_render_scene.get_mesh_lod_tables();
 
     list.elements.reserve(visibility.visible.size());
     list.draw_data.reserve(visibility.visible.size());
@@ -538,7 +569,8 @@ void DrawListSystem::cpu_build_list_job(uint32_t list_idx)
         bucket.element_first = static_cast<uint32_t>(list.elements.size());
 
         uint32_t last_material = std::numeric_limits<uint32_t>::max();
-        GpuMeshDrawPayload last_draw{};
+        uint32_t last_mesh_lod_table = INVALID_MESH_LOD_TABLE;
+        uint32_t last_lod = 0;
         bool has_run = false;
 
         for (const VisibilityEntry::DrawClassRange& range : visibility.ranges)
@@ -550,22 +582,28 @@ void DrawListSystem::cpu_build_list_job(uint32_t list_idx)
 
             for (uint32_t i = range.begin; i < range.end; ++i)
             {
-                const SceneDrawableInfo& drawable = drawables[visibility.visible[i]];
+                const uint32_t drawable_idx = visibility.visible[i];
+                const SceneDrawable& drawable = drawables[drawable_idx];
 
                 if (!filter_accepts(drawable.flags, list.filter))
                     continue;
 
-                const uint32_t draw_index = static_cast<uint32_t>(list.draw_data.size());
-                list.draw_data.push_back(
-                    GpuDrawData{
-                        .transform_slot = drawable.transform_slot_index,
-                        .material_offset = drawable.material_buffer_offset,
-                    });
+                const GpuMeshLodTable& mesh_lod_table = mesh_lod_tables[drawable.mesh_lod_table_index];
+                const uint32_t lod = apply_lod_bias(visibility.lods[drawable_idx], mesh_lod_table, list.lod_bias);
+                const GpuMeshLodRange& lod_range = mesh_lod_table.lods[lod];
 
-                const bool can_merge = has_run && drawable.material_buffer_offset == last_material
-                                       && drawable.gpu_mesh_draw.index_count == last_draw.index_count
-                                       && drawable.gpu_mesh_draw.first_index == last_draw.first_index
-                                       && drawable.gpu_mesh_draw.first_vertex == last_draw.first_vertex;
+                const uint32_t draw_index = static_cast<uint32_t>(list.draw_data.size());
+                list.draw_data.push_back({
+                    .transform_slot = drawable.transform_slot_index,
+                    .material_offset = drawable.material_buffer_offset,
+                });
+
+                // clang-format off
+                const bool can_merge = has_run 
+                                    && drawable.material_buffer_offset == last_material
+                                    && drawable.mesh_lod_table_index == last_mesh_lod_table 
+                                    && lod == last_lod;
+                // clang-format on
 
                 if (can_merge)
                 {
@@ -579,20 +617,20 @@ void DrawListSystem::cpu_build_list_job(uint32_t list_idx)
                     debug_name = "Mesh";
 #endif
 
-                list.elements.push_back(
-                    DrawElement{
-                        .index_count = drawable.gpu_mesh_draw.index_count,
-                        .first_index = drawable.gpu_mesh_draw.first_index,
-                        .first_vertex = drawable.gpu_mesh_draw.first_vertex,
-                        .instance_count = 1,
-                        .draw_index = draw_index,
+                list.elements.push_back({
+                    .index_count = lod_range.index_count,
+                    .first_index = lod_range.first_index,
+                    .first_vertex = mesh_lod_table.first_vertex,
+                    .instance_count = 1,
+                    .draw_index = draw_index,
 #if MIZU_DEBUG
-                        .debug_name = debug_name,
+                    .debug_name = debug_name,
 #endif
-                    });
+                });
 
                 last_material = drawable.material_buffer_offset;
-                last_draw = drawable.gpu_mesh_draw;
+                last_mesh_lod_table = drawable.mesh_lod_table_index;
+                last_lod = lod;
                 has_run = true;
             }
         }
@@ -664,25 +702,23 @@ void DrawListSystem::gpu_add_passes(RenderGraphBuilder& builder, FrameLinearAllo
 {
     MIZU_PROFILE_SCOPED;
 
-    const std::span<const SceneDrawableInfo> drawables = m_scene_system.get_drawables();
+    const std::span<const SceneDrawable> drawables = m_render_scene.get_drawables();
     if (drawables.empty())
         return;
 
     std::vector<GpuDrawableInstance> instances(drawables.size());
     for (size_t i = 0; i < drawables.size(); ++i)
     {
-        const SceneDrawableInfo& drawable = drawables[i];
+        const SceneDrawable& drawable = drawables[i];
 
         MIZU_ASSERT(drawable.class_id < (1u << 16), "Draw class id does not fit in the gpu instance record");
 
         instances[i] = GpuDrawableInstance{
-            .aabb_min = drawable.gpu_mesh_record.metadata.bounding_box.min(),
+            .aabb_min = drawable.bounding_box.min,
             .transform_slot = drawable.transform_slot_index,
-            .aabb_max = drawable.gpu_mesh_record.metadata.bounding_box.max(),
+            .aabb_max = drawable.bounding_box.max,
             .material_offset = drawable.material_buffer_offset,
-            .index_count = drawable.gpu_mesh_draw.index_count,
-            .first_index = drawable.gpu_mesh_draw.first_index,
-            .first_vertex = drawable.gpu_mesh_draw.first_vertex,
+            .mesh_lod_table_index = drawable.mesh_lod_table_index,
             .class_and_flags = drawable.class_id | (static_cast<uint32_t>(drawable.flags) << 16u),
         };
     }
@@ -690,6 +726,12 @@ void DrawListSystem::gpu_add_passes(RenderGraphBuilder& builder, FrameLinearAllo
     const FrameAllocation instances_allocation =
         frame_allocator.allocate_structured<GpuDrawableInstance>(instances.size());
     instances_allocation.upload(std::span<const GpuDrawableInstance>(instances));
+
+    const std::span<const GpuMeshLodTable> mesh_lod_tables = m_render_scene.get_mesh_lod_tables();
+
+    const FrameAllocation mesh_lod_tables_allocation =
+        frame_allocator.allocate_structured<GpuMeshLodTable>(mesh_lod_tables.size());
+    mesh_lod_tables_allocation.upload(mesh_lod_tables);
 
     BufferDescription indirect_commands_desc{};
     indirect_commands_desc.size = sizeof(DrawIndexedIndirectCommand);
@@ -715,6 +757,7 @@ void DrawListSystem::gpu_add_passes(RenderGraphBuilder& builder, FrameLinearAllo
     m_gpu_resources.valid = true;
     m_gpu_resources.num_drawables = static_cast<uint32_t>(drawables.size());
     m_gpu_resources.instances = instances_allocation;
+    m_gpu_resources.mesh_lod_tables = mesh_lod_tables_allocation;
     m_gpu_resources.indirect_commands_buffer = builder.create_buffer(indirect_commands_desc);
     m_gpu_resources.count_buffer = builder.create_buffer(count_desc);
     m_gpu_resources.draw_data_buffer = builder.create_buffer(draw_data_desc);
@@ -780,21 +823,24 @@ void DrawListSystem::gpu_add_culling_and_generate_pass(RenderGraphBuilder& build
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(4, 1, ShaderType::Compute) // g_draw_lists
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(5, 1, ShaderType::Compute) // g_bucket_map
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(6, 1, ShaderType::Compute) // g_buckets
+                MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_SRV(7, 1, ShaderType::Compute) // g_mesh_lod_tables
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(0, 1, ShaderType::Compute) // g_counts
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(1, 1, ShaderType::Compute) // g_commands
                 MIZU_DESCRIPTOR_SET_LAYOUT_STRUCTURED_BUFFER_UAV(2, 1, ShaderType::Compute) // g_draw_data
             MIZU_END_DESCRIPTOR_SET_LAYOUT()
             // clang-format on
 
+            const auto transform_info_buffer = transform_registry_get_transform_info_buffer();
+
             const std::array writes = {
                 WriteDescriptor::StructuredBufferSrv(0, m_gpu_resources.instances.view),
-                WriteDescriptor::StructuredBufferSrv(
-                    1, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
+                WriteDescriptor::StructuredBufferSrv(1, BufferResourceView::create(transform_info_buffer)),
                 WriteDescriptor::StructuredBufferSrv(2, m_gpu_resources.visibilities.view),
                 WriteDescriptor::StructuredBufferSrv(3, m_gpu_resources.visibility_lists.view),
                 WriteDescriptor::StructuredBufferSrv(4, m_gpu_resources.draw_lists.view),
                 WriteDescriptor::StructuredBufferSrv(5, m_gpu_resources.bucket_map.view),
                 WriteDescriptor::StructuredBufferSrv(6, m_gpu_resources.buckets.view),
+                WriteDescriptor::StructuredBufferSrv(7, m_gpu_resources.mesh_lod_tables.view),
                 WriteDescriptor::StructuredBufferUav(0, BufferResourceView::create(count_buffer_res)),
                 WriteDescriptor::StructuredBufferUav(1, BufferResourceView::create(indirect_commands_buffer_res)),
                 WriteDescriptor::StructuredBufferUav(2, BufferResourceView::create(draw_data_buffer_res)),
@@ -836,7 +882,7 @@ void DrawListSystem::gpu_build_tables(FrameLinearAllocator& frame_allocator)
 {
     MIZU_PROFILE_SCOPED;
 
-    const DrawClassRegistry& registry = m_scene_system.get_draw_class_registry();
+    const DrawClassRegistry& registry = m_render_scene.get_draw_class_registry();
     const uint32_t num_draw_class_entries = registry.num_entries();
 
     std::vector<uint32_t> visibility_lists{};
@@ -868,6 +914,11 @@ void DrawListSystem::gpu_build_tables(FrameLinearAllocator& frame_allocator)
             info.planes[3] = entry.desc.frustum.right.to_vec4();
             info.planes[4] = entry.desc.frustum.near.to_vec4();
             info.planes[5] = entry.desc.frustum.far.to_vec4();
+
+            const DrawListView& view = entry.desc.view;
+
+            info.has_lod_view = 1;
+            info.lod_view = create_mesh_lod_view(view.view_matrix, view.proj_matrix, view.znear);
         }
 
         visibilities[i] = info;
@@ -885,8 +936,9 @@ void DrawListSystem::gpu_build_tables(FrameLinearAllocator& frame_allocator)
         draw_lists[list_idx] = GpuDrawListInfo{
             .bucket_map_offset = list.bucket_map_offset,
             .view_count = list.view_count,
-            .filter_required = static_cast<uint32_t>(list.filter.required),
-            .filter_excluded = static_cast<uint32_t>(list.filter.excluded),
+            .lod_bias = list.lod_bias,
+            .filter_required = list.filter.required,
+            .filter_excluded = list.filter.excluded,
         };
 
         for (uint32_t class_id = 0; class_id < num_draw_class_entries; ++class_id)
@@ -962,8 +1014,10 @@ std::shared_ptr<DescriptorSet> DrawListSystem::create_draw_list_descriptor_set(c
     MIZU_END_DESCRIPTOR_SET_LAYOUT()
     // clang-format on
 
+    const auto transform_info_buffer = transform_registry_get_transform_info_buffer();
+
     const std::array writes = {
-        WriteDescriptor::StructuredBufferSrv(0, BufferResourceView::create(m_scene_system.get_transform_info_buffer())),
+        WriteDescriptor::StructuredBufferSrv(0, BufferResourceView::create(transform_info_buffer)),
         WriteDescriptor::StructuredBufferSrv(1, draw_data_view),
     };
 
@@ -980,10 +1034,10 @@ std::shared_ptr<DescriptorSet> DrawListSystem::create_draw_list_descriptor_set(c
 
 static DrawListSystem* s_draw_list_system = nullptr;
 
-void draw_list_system_init(SceneSystem& scene_system, GpuMeshPool& gpu_mesh_pool)
+void draw_list_system_init(RenderScene& render_scene, const MeshStreamingPool& mesh_streaming_pool)
 {
     MIZU_ASSERT(s_draw_list_system == nullptr, "DrawListSystem has already been initialized");
-    s_draw_list_system = new DrawListSystem{scene_system, gpu_mesh_pool};
+    s_draw_list_system = new DrawListSystem{render_scene, mesh_streaming_pool};
 }
 
 void draw_list_system_shutdown()

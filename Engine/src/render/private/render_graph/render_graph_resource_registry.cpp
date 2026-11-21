@@ -4,6 +4,7 @@
 #include "base/utils/hash.h"
 #include "core/runtime.h"
 #include "render_core/rhi/buffer_resource.h"
+#include "render_core/rhi/device.h"
 #include "render_core/rhi/image_resource.h"
 
 #include "render/runtime/renderer.h"
@@ -13,7 +14,7 @@ namespace Mizu
 
 static constexpr size_t MAX_FRAMES_NON_USED_BEFORE_PURGE = 20;
 
-static size_t hash_buffer_desc(const BufferDescription& desc, uint64_t offset)
+static size_t hash_buffer_desc(const BufferDescription& desc, const MemoryPlacement& placement)
 {
     size_t hash = 0;
 
@@ -23,12 +24,13 @@ static size_t hash_buffer_desc(const BufferDescription& desc, uint64_t offset)
     hash_combine(hash, desc.sharing_mode);
     hash_combine(hash, desc.queue_families.to_ulong());
 
-    hash_combine(hash, offset);
+    hash_combine(hash, placement.heap);
+    hash_combine(hash, placement.offset);
 
     return hash;
 }
 
-static size_t hash_image_desc(const ImageDescription& desc, uint64_t offset)
+static size_t hash_image_desc(const ImageDescription& desc, const MemoryPlacement& placement)
 {
     size_t hash = 0;
 
@@ -43,7 +45,8 @@ static size_t hash_image_desc(const ImageDescription& desc, uint64_t offset)
     hash_combine(hash, desc.num_mips);
     hash_combine(hash, desc.num_layers);
 
-    hash_combine(hash, offset);
+    hash_combine(hash, placement.heap);
+    hash_combine(hash, placement.offset);
 
     return hash;
 }
@@ -55,16 +58,19 @@ RenderGraphResourceRegistry::RenderGraphResourceRegistry(bool deferred_deletion)
 
 std::shared_ptr<BufferResource> RenderGraphResourceRegistry::create_buffer(
     const BufferDescription& desc,
+    const std::shared_ptr<GpuHeap>& heap,
     uint64_t offset)
 {
-    const size_t hash = hash_buffer_desc(desc, offset);
+    const MemoryPlacement placement{.heap = heap.get(), .offset = offset};
+    const size_t hash = hash_buffer_desc(desc, placement);
 
     auto it = m_buffer_cache.find(hash);
     if (it == m_buffer_cache.end())
     {
         BufferResourceInfo resource_info{};
+        resource_info.heap = heap;
         resource_info.frames_non_used = 0;
-        resource_info.resource = g_render_device->create_buffer(desc);
+        resource_info.resource = g_render_device->create_buffer(desc, placement);
 
         it = m_buffer_cache.insert({hash, resource_info}).first;
     }
@@ -74,16 +80,21 @@ std::shared_ptr<BufferResource> RenderGraphResourceRegistry::create_buffer(
     return it->second.resource;
 }
 
-std::shared_ptr<ImageResource> RenderGraphResourceRegistry::create_image(const ImageDescription& desc, uint64_t offset)
+std::shared_ptr<ImageResource> RenderGraphResourceRegistry::create_image(
+    const ImageDescription& desc,
+    const std::shared_ptr<GpuHeap>& heap,
+    uint64_t offset)
 {
-    const size_t hash = hash_image_desc(desc, offset);
+    const MemoryPlacement placement{.heap = heap.get(), .offset = offset};
+    const size_t hash = hash_image_desc(desc, placement);
 
     auto it = m_image_cache.find(hash);
     if (it == m_image_cache.end())
     {
         ImageResourceInfo resource_info{};
+        resource_info.heap = heap;
         resource_info.frames_non_used = 0;
-        resource_info.resource = g_render_device->create_image(desc);
+        resource_info.resource = g_render_device->create_image(desc, placement);
 
         it = m_image_cache.insert({hash, resource_info}).first;
     }
@@ -110,15 +121,17 @@ static void purge_resources(std::unordered_map<size_t, ResourceT>& cache, bool f
 
             if (deferred_deletion)
             {
-                PendingJob deletion_job = g_job_system->schedule([resource = info.resource]() mutable {
-                    MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry::deferred_deletion_job");
+                PendingJob deletion_job =
+                    g_job_system->schedule([resource = info.resource, heap = info.heap]() mutable {
+                        MIZU_PROFILE_SCOPED_NAME("RenderGraphResourceRegistry::deferred_deletion_job");
 
-                    MIZU_ASSERT(
-                        resource.use_count() == 1,
-                        "Resource should only have one use count but it has {}",
-                        resource.use_count());
-                    resource.reset();
-                });
+                        MIZU_ASSERT(
+                            resource.use_count() == 1,
+                            "Resource should only have one use count but it has {}",
+                            resource.use_count());
+                        resource.reset();
+                        heap.reset();
+                    });
 
                 it = cache.erase(it);
 

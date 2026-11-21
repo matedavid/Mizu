@@ -55,7 +55,11 @@ class BaseStateManager : public IStateManager
 
     // Rend functions
 
-    void rend_apply_updates(const FrameUpdateState& state) override;
+    void rend_begin_apply_updates() override;
+    uint64_t rend_get_next_tick_time_us() const override;
+    void rend_consume_ticks_until(uint64_t sim_time_us) override;
+    void rend_interpolate(const FrameUpdateState& state) override;
+
     const DynamicState& rend_get_dynamic_state(Handle handle) const;
 
     void register_rend_consumer(IStateManagerConsumer<SelfStateManager>* listener);
@@ -92,6 +96,9 @@ class BaseStateManager : public IStateManager
     std::atomic<uint64_t> m_last_produced_tick = 0;
     std::atomic<uint64_t> m_last_consumed_tick = 0;
 
+    uint64_t m_rend_produced_tick_limit = 0;
+    uint64_t m_rend_last_consumed_sim_time_us = 0;
+
     Tick* m_tick_in_production = nullptr;
 
     // Ring buffer of ticks
@@ -122,6 +129,8 @@ class BaseStateManager : public IStateManager
     void rend_notify_on_create(Handle handle, const StaticState& ss, const DynamicState& ds) const;
     void rend_notify_on_update(Handle handle, const DynamicState& ds) const;
     void rend_notify_on_destroy(Handle handle) const;
+
+    void rend_consume_tick(const Tick& tick);
 
     HandleTick& sim_allocate_handle_tick(Handle handle);
     void sim_reset_and_recycle_handle(Handle handle, HandleTick* handle_tick = nullptr);

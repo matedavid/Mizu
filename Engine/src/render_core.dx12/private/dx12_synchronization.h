@@ -10,32 +10,17 @@ namespace Mizu::Dx12
 class Dx12Fence : public Fence
 {
   public:
-    Dx12Fence(bool signaled);
+    Dx12Fence(uint64_t initial_value);
     ~Dx12Fence() override;
 
-    void wait_for() override;
-    void signal(ID3D12CommandQueue* queue);
+    uint64_t get_completed_value() const override;
+    void wait(uint64_t value) const override;
+    void signal(uint64_t value) override;
+
+    ID3D12Fence* handle() const { return m_handle; }
 
   private:
     ID3D12Fence* m_handle = nullptr;
-    HANDLE m_event;
-
-    uint64_t m_next_value = 1;
-    uint64_t m_last_signaled_value = 0;
-};
-
-class Dx12Semaphore : public Semaphore
-{
-  public:
-    Dx12Semaphore();
-    ~Dx12Semaphore() override;
-
-    void signal(ID3D12CommandQueue* queue);
-    void wait(ID3D12CommandQueue* queue);
-
-  private:
-    ID3D12Fence* m_handle = nullptr;
-    uint64_t m_counter = 0;
 };
 
 } // namespace Mizu::Dx12

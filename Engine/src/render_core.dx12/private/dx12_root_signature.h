@@ -14,7 +14,7 @@ namespace Mizu::Dx12
 
 struct Dx12DescriptorSetLayoutInfo
 {
-    static constexpr size_t MAX_RESOURCE_BINDINGS = 10;
+    static constexpr size_t MAX_RESOURCE_BINDINGS = 16;
     static constexpr size_t MAX_SAMPLER_BINDINGS = 4;
 
     inplace_vector<DescriptorItem, MAX_RESOURCE_BINDINGS> resource_bindings;

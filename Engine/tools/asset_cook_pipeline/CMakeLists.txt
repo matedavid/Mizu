@@ -33,8 +33,11 @@ function(mizu_configure_asset_cook_pipeline target_name)
         Engine.Shader
     )
 
-    target_link_libraries(${target_name} PRIVATE assimp)
-    target_link_libraries(${target_name} PRIVATE mizu_stb)
+    target_link_libraries(${target_name} PRIVATE 
+        assimp
+        mizu_stb
+        meshoptimizer
+    )
 
     target_link_libraries(${target_name} PRIVATE MizuEngineDefines MizuPrivateOptions)
     set_target_properties(${target_name} PROPERTIES UNITY_BUILD ${MIZU_USE_UNITY_BUILD})
@@ -104,3 +107,15 @@ set_target_properties(mizu_stb PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
 
+# meshoptimizer
+FetchContent_Declare(
+        meshoptimizer
+        GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
+        GIT_TAG v1.3
+        GIT_PROGRESS TRUE
+        GIT_SHALLOW TRUE
+)
+
+FetchContent_MakeAvailable(meshoptimizer)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE meshoptimizer)

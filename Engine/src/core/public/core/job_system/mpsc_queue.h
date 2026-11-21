@@ -38,6 +38,8 @@ class MpscQueue
                 slot.value = value;
                 slot.seq.store(pos + 1, std::memory_order_release);
 
+                m_size.fetch_add(1, std::memory_order_acq_rel);
+
                 return true;
             }
             else if (diff < 0)
@@ -73,8 +75,12 @@ class MpscQueue
         slot.seq.store(pos + Capacity, std::memory_order_release);
         m_head.store(pos + 1, std::memory_order_relaxed);
 
+        m_size.fetch_sub(1, std::memory_order_acq_rel);
+
         return true;
     }
+
+    size_t size() const { return m_size.load(std::memory_order_acquire); }
 
   private:
     struct Slot
@@ -87,6 +93,7 @@ class MpscQueue
 
     std::vector<Slot> m_queue;
     std::atomic<size_t> m_head, m_tail;
+    std::atomic<size_t> m_size;
 };
 
 } // namespace Mizu

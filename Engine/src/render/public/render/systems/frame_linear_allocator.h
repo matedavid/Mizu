@@ -61,7 +61,7 @@ class MIZU_RENDER_API FrameLinearAllocator
         static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
 
         const uint64_t alignment =
-            std::max(alignof(T), g_render_device->get_properties().min_constant_buffer_offset_alignment);
+            std::max(alignof(T), g_render_device->get_properties().alignments.min_constant_buffer_offset);
         return allocate(sizeof(T), alignment, 0);
     }
 
@@ -71,13 +71,13 @@ class MIZU_RENDER_API FrameLinearAllocator
         static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
 
         const uint64_t alignment =
-            std::lcm(sizeof(T), g_render_device->get_properties().min_raw_buffer_offset_alignment);
+            std::lcm(sizeof(T), g_render_device->get_properties().alignments.min_raw_buffer_offset);
         return allocate(sizeof(T) * count, alignment, sizeof(T));
     }
 
     FrameAllocation allocate_byte_address(uint64_t size)
     {
-        return allocate(size, g_render_device->get_properties().min_raw_buffer_offset_alignment, 0u);
+        return allocate(size, g_render_device->get_properties().alignments.min_raw_buffer_offset, 0u);
     }
 
     FrameAllocation allocate(uint64_t size, uint64_t alignment, uint32_t stride);

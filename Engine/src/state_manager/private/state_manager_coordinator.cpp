@@ -1,6 +1,8 @@
 #include "state_manager/state_manager_coordinator.h"
 
+#include <algorithm>
 #include <queue>
+#include <ranges>
 
 #include "base/debug/logging.h"
 #include "base/utils/hash.h"
@@ -137,8 +139,24 @@ void StateManagerCoordinator::sim_end_tick() const
 
 void StateManagerCoordinator::rend_apply_updates(const FrameUpdateState& state) const
 {
+    for (IStateManager* manager : m_state_managers | std::views::reverse)
+        manager->rend_begin_apply_updates();
+
+    while (true)
+    {
+        uint64_t next_tick_time_us = NO_PENDING_TICK_TIME;
+        for (const IStateManager* manager : m_state_managers)
+            next_tick_time_us = std::min(next_tick_time_us, manager->rend_get_next_tick_time_us());
+
+        if (next_tick_time_us > state.render_time_us)
+            break;
+
+        for (IStateManager* manager : m_state_managers)
+            manager->rend_consume_ticks_until(next_tick_time_us);
+    }
+
     for (IStateManager* manager : m_state_managers)
-        manager->rend_apply_updates(state);
+        manager->rend_interpolate(state);
 }
 
 void StateManagerCoordinator::build()

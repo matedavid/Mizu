@@ -11,6 +11,7 @@ namespace Mizu::Vulkan
 {
 
 // Forward declarations
+class VulkanFence;
 class VulkanImageResource;
 
 class VulkanSwapchain : public Swapchain
@@ -19,8 +20,8 @@ class VulkanSwapchain : public Swapchain
     VulkanSwapchain(SwapchainDescription desc);
     ~VulkanSwapchain() override;
 
-    void acquire_next_image(std::shared_ptr<Semaphore> signal_semaphore, std::shared_ptr<Fence> signal_fence) override;
-    void present(std::span<std::shared_ptr<Semaphore>> wait_semaphores) override;
+    SyncPoint acquire_next_image() override;
+    void present(const SyncPoint& rendering_done) override;
     std::shared_ptr<ImageResource> get_image(uint32_t idx) const override;
     uint32_t get_num_images() const override { return static_cast<uint32_t>(m_images.size()); }
     uint32_t get_current_image_idx() const override { return m_current_image_idx; }
@@ -46,10 +47,25 @@ class VulkanSwapchain : public Swapchain
 
     std::vector<std::shared_ptr<VulkanImageResource>> m_images;
 
+    struct AcquireSemaphore
+    {
+        VkSemaphore semaphore{VK_NULL_HANDLE};
+        uint64_t image_ready_value = 0;
+    };
+    std::vector<AcquireSemaphore> m_acquire_semaphores;
+    uint32_t m_acquire_semaphore_idx = 0;
+
+    std::vector<VkSemaphore> m_present_semaphores;
+
+    std::unique_ptr<VulkanFence> m_image_ready_fence;
+    uint64_t m_image_ready_value = 0;
+
     void retrieve_surface();
     void create_swapchain();
     uint32_t select_image_count() const;
     void retrieve_swapchain_images();
+    void create_semaphores();
+    void destroy_semaphores();
 
     void recreate();
     void cleanup();

@@ -16,11 +16,11 @@ void create_buffer_srv(
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
     MIZU_ASSERT(
-        desc.offset % Dx12Context.device->get_properties().min_raw_buffer_offset_alignment == 0,
+        desc.offset % Dx12Context.device->get_properties().alignments.min_raw_buffer_offset == 0,
         "Buffer '{}' offset {} is not aligned to min_raw_buffer_offset_alignment ({})",
         resource.get_name(),
         desc.offset,
-        Dx12Context.device->get_properties().min_raw_buffer_offset_alignment);
+        Dx12Context.device->get_properties().alignments.min_raw_buffer_offset);
 
     const bool is_structured_buffer = desc.stride != 0;
 
@@ -59,11 +59,11 @@ void create_buffer_uav(
     D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
     MIZU_ASSERT(
-        desc.offset % Dx12Context.device->get_properties().min_raw_buffer_offset_alignment == 0,
+        desc.offset % Dx12Context.device->get_properties().alignments.min_raw_buffer_offset == 0,
         "Buffer '{}' offset {} is not aligned to min_raw_buffer_offset_alignment ({})",
         resource.get_name(),
         desc.offset,
-        Dx12Context.device->get_properties().min_raw_buffer_offset_alignment);
+        Dx12Context.device->get_properties().alignments.min_raw_buffer_offset);
 
     const bool is_structured_buffer = desc.stride != 0;
 
@@ -141,7 +141,7 @@ void create_image_srv(
     }
 
     D3D12_TEX2D_SRV texture_srv{};
-    texture_srv.MostDetailedMip = desc.layer_base;
+    texture_srv.MostDetailedMip = desc.mip_base;
     texture_srv.MipLevels = desc.mip_count;
     texture_srv.PlaneSlice = desc.layer_base;
     texture_srv.ResourceMinLODClamp = 0.0f;

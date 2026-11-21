@@ -15,6 +15,9 @@
 namespace Mizu::Dx12
 {
 
+namespace debug
+{
+
 static constexpr size_t WIDECHAR_NAME_DEFULT_SIZE = 128;
 
 static void to_widechar_buffer(std::string_view text, wchar_t* buffer, size_t buffer_size)
@@ -32,9 +35,12 @@ static void to_widechar_buffer(std::string_view text, wchar_t* buffer, size_t bu
     }
 }
 
-void Dx12Debug::begin_gpu_marker(ID3D12GraphicsCommandList* command_list, std::string_view label)
+void begin_gpu_marker(ID3D12GraphicsCommandList* command_list, std::string_view label)
 {
     if (!Dx12Context.validations_enabled)
+        return;
+
+    if (label.empty())
         return;
 
     wchar_t buffer[WIDECHAR_NAME_DEFULT_SIZE];
@@ -43,7 +49,7 @@ void Dx12Debug::begin_gpu_marker(ID3D12GraphicsCommandList* command_list, std::s
     PIXBeginEvent(command_list, PIX_COLOR_INDEX(0), buffer);
 }
 
-void Dx12Debug::end_gpu_marker(ID3D12GraphicsCommandList* command_list)
+void end_gpu_marker(ID3D12GraphicsCommandList* command_list)
 {
     if (!Dx12Context.validations_enabled)
         return;
@@ -51,9 +57,12 @@ void Dx12Debug::end_gpu_marker(ID3D12GraphicsCommandList* command_list)
     PIXEndEvent(command_list);
 }
 
-void Dx12Debug::set_resource_name(ID3D12Resource* resource, std::string_view name)
+void set_resource_name(ID3D12Resource* resource, std::string_view name)
 {
     if (!Dx12Context.validations_enabled)
+        return;
+
+    if (name.empty())
         return;
 
     wchar_t buffer[WIDECHAR_NAME_DEFULT_SIZE];
@@ -61,6 +70,22 @@ void Dx12Debug::set_resource_name(ID3D12Resource* resource, std::string_view nam
 
     DX12_CHECK(resource->SetName(buffer));
 }
+
+void set_resource_name(ID3D12Heap* heap, std::string_view name)
+{
+    if (!Dx12Context.validations_enabled)
+        return;
+
+    if (name.empty())
+        return;
+
+    wchar_t buffer[WIDECHAR_NAME_DEFULT_SIZE];
+    to_widechar_buffer(name, buffer, WIDECHAR_NAME_DEFULT_SIZE);
+
+    DX12_CHECK(heap->SetName(buffer));
+}
+
+} // namespace debug
 
 } // namespace Mizu::Dx12
 

@@ -2,8 +2,13 @@
 
 #include <format>
 #include <mutex>
+#include <span>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "asset/asset_handle.h"
+#include "base/reflection/enum_traits.h"
 
 namespace Mizu
 {
@@ -38,7 +43,15 @@ class AssetCookReporter
         report_error_internal(std::format(message, std::forward<Args>(args)...));
     }
 
-    void print_reports() const;
+    void report_completion(AssetType type);
+
+    std::span<const std::string> get_infos() const { return m_infos; }
+    std::span<const std::string> get_warnings() const { return m_warnings; }
+    std::span<const std::string> get_errors() const { return m_errors; }
+
+    bool has_errors() const { return !m_errors.empty(); }
+
+    std::vector<std::pair<AssetType, uint32_t>> get_asset_completions() const;
 
   private:
     void report_info_internal(std::string info);
@@ -61,6 +74,8 @@ class AssetCookReporter
     std::mutex m_info_mutex{};
     std::mutex m_warning_mutex{};
     std::mutex m_error_mutex{};
+
+    meta::enum_array<AssetType, uint32_t> m_asset_completions{};
 };
 
 } // namespace Mizu

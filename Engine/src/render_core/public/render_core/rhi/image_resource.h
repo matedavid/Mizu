@@ -10,9 +10,9 @@
 #include "base/utils/enum_utils.h"
 
 #include "mizu_render_core_module.h"
-#include "render_core/definitions/device_memory.h"
 #include "render_core/definitions/resource.h"
 #include "render_core/rhi/command_buffer.h"
+#include "render_core/rhi/memory.h"
 #include "render_core/rhi/resource_view.h"
 
 namespace Mizu
@@ -104,8 +104,6 @@ struct ImageDescription
     uint32_t num_mips = 1;
     uint32_t num_layers = 1;
 
-    bool is_virtual = false;
-
     std::string name = "";
 };
 
@@ -116,8 +114,10 @@ class ImageResource
 
     virtual MemoryRequirements get_memory_requirements() const = 0;
     virtual ImageMemoryRequirements get_image_memory_requirements() const = 0;
+    virtual SparseImageMemoryRequirements get_sparse_memory_requirements() const = 0;
 
     virtual const ImageDescription& get_description() const = 0;
+    virtual bool is_sparse() const = 0;
 
     uint32_t get_width() const { return get_description().width; }
     uint32_t get_height() const { return get_description().height; }
@@ -138,7 +138,12 @@ MIZU_RENDER_CORE_API bool is_srgb_format(ImageFormat format);
 MIZU_RENDER_CORE_API uint32_t get_image_format_num_components(ImageFormat format);
 MIZU_RENDER_CORE_API uint32_t get_image_format_size(ImageFormat format);
 
-MIZU_RENDER_CORE_API uint32_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);
+MIZU_RENDER_CORE_API uint8_t compute_num_mips(uint32_t width, uint32_t height, uint32_t depth);
 MIZU_RENDER_CORE_API glm::uvec2 compute_mip_size(uint32_t original_width, uint32_t original_height, uint32_t mip_level);
+
+MIZU_RENDER_CORE_API glm::uvec3 get_sparse_mip_tile_count(
+    const ImageDescription& desc,
+    const SparseImageMemoryRequirements& reqs,
+    uint32_t mip_level);
 
 } // namespace Mizu

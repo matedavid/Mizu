@@ -86,7 +86,7 @@ bool ShaderDeclarationRequestSource::init(const CookContext&)
     return true;
 }
 
-uint32_t ShaderDeclarationRequestSource::enumerate_n(
+EnumerateResult ShaderDeclarationRequestSource::enumerate_n(
     uint32_t number,
     const CookContext&,
     std::vector<ImportRequest>& outputs)
@@ -130,7 +130,10 @@ uint32_t ShaderDeclarationRequestSource::enumerate_n(
         num_enumerated += 1;
     }
 
-    return num_enumerated;
+    return EnumerateResult{
+        .count = num_enumerated,
+        .exhausted = m_shader_cursor >= m_shader_metadata.size(),
+    };
 }
 
 //
@@ -316,14 +319,13 @@ void ShaderDeclarationCooker::cook(
     metadata.bytecode_offset = 0;
     metadata.reflection_offset = metadata.bytecode_size;
 
-    const uint64_t total_size = TOTAL_SHADER_METADATA_SIZE + metadata.bytecode_size + metadata.reflection_size;
+    const uint64_t total_size =
+        shader_serialized_metadata_size(metadata) + metadata.bytecode_size + metadata.reflection_size;
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
     MIZU_ASSERT(data.size() == total_size, "Failed to allocated data for ShaderDeclaration");
 
-    shader_serialize_metadata(metadata, data);
-
-    const size_t data_offset = TOTAL_SHADER_METADATA_SIZE;
+    const size_t data_offset = shader_serialize_metadata(metadata, data);
 
     const size_t bytecode_offset = data_offset + metadata.bytecode_offset;
     const size_t reflection_offset = data_offset + metadata.reflection_offset;

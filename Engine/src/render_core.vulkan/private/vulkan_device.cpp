@@ -15,6 +15,7 @@
 #include "vulkan_command_buffer.h"
 #include "vulkan_context.h"
 #include "vulkan_descriptors.h"
+#include "vulkan_gpu_heap.h"
 #include "vulkan_image_resource.h"
 #include "vulkan_pipeline.h"
 #include "vulkan_queue.h"
@@ -25,6 +26,8 @@
 
 namespace Mizu::Vulkan
 {
+
+static constexpr uint32_t NUM_BINDLESS_DESCRIPTORS = 400'000;
 
 [[maybe_unused]] static bool is_instance_extension_available(const char* extension)
 {
@@ -70,31 +73,6 @@ static VkPhysicalDeviceProperties get_physical_device_properties(VkPhysicalDevic
     vkGetPhysicalDeviceProperties(device, &properties);
 
     return properties;
-}
-
-static VkPhysicalDeviceFeatures get_physical_device_features(VkPhysicalDevice device)
-{
-    VkPhysicalDeviceFeatures features;
-    vkGetPhysicalDeviceFeatures(device, &features);
-
-    return features;
-}
-
-static bool is_physical_device_extension_available(VkPhysicalDevice device, const char* extension)
-{
-    uint32_t count;
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
-
-    std::vector<VkExtensionProperties> device_extension_properties{count};
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, device_extension_properties.data());
-
-    for (const VkExtensionProperties& properties : device_extension_properties)
-    {
-        if (strcmp(properties.extensionName, extension) == 0)
-            return true;
-    }
-
-    return false;
 }
 
 static std::vector<VkQueueFamilyProperties> get_queue_family_properties(VkPhysicalDevice device)
@@ -151,15 +129,23 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
     }
 #endif
 
-    select_physical_device();
-    create_device(instance_extensions);
+    DeviceRequirements requirements{};
+    for (const char* extension : instance_extensions)
+    {
+        if (strcmp(extension, VK_KHR_SURFACE_EXTENSION_NAME) == 0)
+        {
+            requirements.swapchain = true;
+        }
+    }
+
+    select_physical_device(requirements);
+    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &m_memory_properties);
 
     VulkanContext.device = this;
+    create_device(requirements);
 
     VulkanContext.descriptor_set_layout_cache = std::make_unique<VulkanDescriptorSetLayoutCache>();
     VulkanContext.pipeline_layout_cache = std::make_unique<VulkanPipelineLayoutCache>();
-
-    VulkanContext.default_device_allocator = std::make_unique<VulkanBaseDeviceMemoryAllocator>();
 
     inplace_vector<VkDescriptorPoolSize, 10> transient_persistent_pool_sizes = {
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500},
@@ -169,14 +155,17 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
         VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLER, .descriptorCount = 50},
     };
 
-    if (m_properties.ray_tracing_hardware)
+    if (m_properties.ray_tracing.supported)
     {
         transient_persistent_pool_sizes.push_back(
             VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, .descriptorCount = 50});
     }
 
     std::array bindless_pool_sizes = {
-        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 500'000},
+        VkDescriptorPoolSize{
+            .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .descriptorCount = m_properties.max_bindless_descriptors,
+        },
     };
 
     VulkanDescriptorManagerDescription descriptor_manager_desc{};
@@ -186,7 +175,7 @@ VulkanDevice::VulkanDevice(const DeviceCreationDescription& desc)
     descriptor_manager_desc.num_transient_pools = desc.frames_in_flight;
     VulkanContext.descriptor_manager = std::make_unique<VulkanDescriptorManager>(descriptor_manager_desc);
 
-    if (m_properties.ray_tracing_hardware)
+    if (m_properties.ray_tracing.supported)
     {
         initialize_rtx(m_device, m_physical_device);
     }
@@ -196,10 +185,12 @@ VulkanDevice::~VulkanDevice()
 {
     // NOTE: Order of destruction matters
 
+    wait_idle();
+    destroy_default_allocator();
+
     VulkanContext.pipeline_layout_cache.reset();
     VulkanContext.descriptor_set_layout_cache.reset();
     VulkanContext.descriptor_manager.reset();
-    VulkanContext.default_device_allocator.reset();
 
     // Doing this strange stuff to prevent the same command pool from being destroyed twice, if two
     // "command pool types" use the same queue.
@@ -215,6 +206,11 @@ VulkanDevice::~VulkanDevice()
     {
         vkDestroyCommandPool(m_device, cp, nullptr);
     }
+
+    m_graphics_queue = nullptr;
+    m_compute_queue = nullptr;
+    m_transfer_queue = nullptr;
+    m_queues.clear();
 
     vkDestroyDevice(m_device, nullptr);
     vkDestroyInstance(m_instance, nullptr);
@@ -287,20 +283,69 @@ void VulkanDevice::free_command_buffers(std::span<VkCommandBuffer> command_buffe
         m_thread_to_command_info_map.erase(it);
     }
 }
-std::optional<uint32_t> VulkanDevice::find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const
-{
-    VkPhysicalDeviceMemoryProperties memory_properties;
-    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &memory_properties);
 
-    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i)
-    {
-        if (filter & (1 << i) && (memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
+std::optional<uint32_t> VulkanDevice::find_memory_type_index(HeapDomain domain, uint32_t memory_type_bits) const
+{
+    // These memory types can only back special resources, not general usage heaps
+    // - LAZILY_ALLOCATED: can only be bound to images with VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, the
+    //   implementation may commit the memory lazily (or never, e.g. tile memory on mobile GPUs).
+    // - PROTECTED: can only be bound to protected resources and requires the protectedMemory feature.
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkMemoryPropertyFlagBits.html
+
+    constexpr VkMemoryPropertyFlags excluded =
+        VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT | VK_MEMORY_PROPERTY_PROTECTED_BIT;
+
+    const auto find_best = [&](VkMemoryPropertyFlags required, VkMemoryPropertyFlags avoided) {
+        std::optional<uint32_t> best;
+        int32_t best_score = std::numeric_limits<int32_t>::max();
+
+        for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; ++i)
         {
-            return i;
+            const VkMemoryPropertyFlags flags = m_memory_properties.memoryTypes[i].propertyFlags;
+
+            if (!(memory_type_bits & (1u << i)))
+                continue;
+
+            if ((flags & required) != required)
+                continue;
+
+            if (flags & excluded)
+                continue;
+
+            const int32_t score = (flags & avoided) ? 1 : 0;
+            if (score < best_score)
+            {
+                best = i;
+                best_score = score;
+            }
         }
+
+        return best;
+    };
+
+    switch (domain)
+    {
+    case HeapDomain::DeviceLocal:
+        return find_best(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    case HeapDomain::Upload:
+        return find_best(
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    case HeapDomain::Readback: {
+        const std::optional<uint32_t> cached = find_best(
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+                | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        if (cached.has_value())
+            return cached;
+
+        return find_best(
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    }
     }
 
-    return {};
+    return std::nullopt;
 }
 
 bool VulkanDevice::is_queue_available(CommandBufferType type) const
@@ -316,17 +361,24 @@ bool VulkanDevice::is_queue_available(CommandBufferType type) const
     }
 }
 
-std::shared_ptr<VulkanQueue> VulkanDevice::get_queue(CommandBufferType type) const
+VulkanQueue& VulkanDevice::get_native_queue(CommandBufferType type) const
 {
     switch (type)
     {
     case CommandBufferType::Graphics:
-        return get_graphics_queue();
+        return *m_graphics_queue;
     case CommandBufferType::Compute:
-        return get_compute_queue();
+        return *m_compute_queue;
     case CommandBufferType::Transfer:
-        return get_transfer_queue();
+        return *m_transfer_queue;
     }
+
+    MIZU_UNREACHABLE("Invalid CommandBufferType");
+}
+
+Queue& VulkanDevice::get_queue(CommandBufferType type) const
+{
+    return get_native_queue(type);
 }
 
 void VulkanDevice::create_instance(const DeviceCreationDescription& desc, std::span<const char*> extensions)
@@ -335,10 +387,10 @@ void VulkanDevice::create_instance(const DeviceCreationDescription& desc, std::s
     application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     application_info.pApplicationName = desc.application_name.data();
     application_info.applicationVersion =
-        VK_MAKE_VERSION(desc.application_version.major, desc.application_version.minor, desc.application_version.patch),
+        VK_MAKE_VERSION(desc.application_version.major, desc.application_version.minor, desc.application_version.patch);
     application_info.pEngineName = desc.engine_name.data();
     application_info.engineVersion =
-        VK_MAKE_VERSION(desc.engine_version.major, desc.engine_version.minor, desc.engine_version.patch),
+        VK_MAKE_VERSION(desc.engine_version.major, desc.engine_version.minor, desc.engine_version.patch);
 
 #if defined(VK_API_VERSION_1_4)
     application_info.apiVersion = VK_API_VERSION_1_4;
@@ -372,7 +424,330 @@ void VulkanDevice::create_instance(const DeviceCreationDescription& desc, std::s
     VK_CHECK(vkCreateInstance(&create_info, nullptr, &m_instance));
 }
 
-void VulkanDevice::select_physical_device()
+template <typename T>
+struct VulkanFeatureStructureType;
+
+#define MIZU_VULKAN_FEATURE_STRUCTURE(type, structure_type)      \
+    template <>                                                  \
+    struct VulkanFeatureStructureType<type>                      \
+    {                                                            \
+        static constexpr VkStructureType VALUE = structure_type; \
+    }
+
+// clang-format off
+// Create mapping from struct => sType
+MIZU_VULKAN_FEATURE_STRUCTURE(VkPhysicalDeviceFeatures2, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
+MIZU_VULKAN_FEATURE_STRUCTURE(VkPhysicalDeviceVulkan11Features, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES);
+MIZU_VULKAN_FEATURE_STRUCTURE(VkPhysicalDeviceVulkan12Features, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
+MIZU_VULKAN_FEATURE_STRUCTURE(VkPhysicalDeviceVulkan13Features, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
+MIZU_VULKAN_FEATURE_STRUCTURE(VkPhysicalDeviceAccelerationStructureFeaturesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR);
+MIZU_VULKAN_FEATURE_STRUCTURE(VkPhysicalDeviceRayTracingPipelineFeaturesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR);
+MIZU_VULKAN_FEATURE_STRUCTURE(VkPhysicalDeviceRayQueryFeaturesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR);
+// clang-format on
+
+#undef MIZU_VULKAN_FEATURE_STRUCTURE
+
+class VulkanFeatureChain
+{
+  public:
+    VulkanFeatureChain()
+    {
+        // This guarantees vkGetPhysicalDeviceFeatures2 is always the first struct in the chain, which is a requirement
+        // in VkDeviceCreateInfo.pNext
+
+        add<VkPhysicalDeviceFeatures2>();
+    }
+
+    VulkanFeatureChain(const VulkanFeatureChain&) = delete;
+    VulkanFeatureChain& operator=(const VulkanFeatureChain&) = delete;
+
+    template <typename T>
+    T& get()
+    {
+        constexpr VkStructureType type = VulkanFeatureStructureType<T>::VALUE;
+
+        for (const std::shared_ptr<void>& structure : m_structures)
+        {
+            if (static_cast<VkBaseOutStructure*>(structure.get())->sType == type)
+                return *static_cast<T*>(structure.get());
+        }
+
+        return add<T>();
+    }
+
+    VkPhysicalDeviceFeatures2& head() { return get<VkPhysicalDeviceFeatures2>(); }
+
+  private:
+    template <typename T>
+    T& add()
+    {
+        const std::shared_ptr<T> structure = std::make_shared<T>();
+        structure->sType = VulkanFeatureStructureType<T>::VALUE;
+
+        if (!m_structures.empty())
+        {
+            VkBaseOutStructure* last = static_cast<VkBaseOutStructure*>(m_structures.back().get());
+            last->pNext = reinterpret_cast<VkBaseOutStructure*>(structure.get());
+        }
+
+        m_structures.push_back(structure);
+
+        return *structure;
+    }
+
+    std::vector<std::shared_ptr<void>> m_structures;
+};
+
+struct VulkanFeature
+{
+    VkBool32& (*get)(VulkanFeatureChain&);
+    const char* name;
+};
+
+static void add_feature_structures(VulkanFeatureChain& chain, std::span<const VulkanFeature> features)
+{
+    for (const VulkanFeature& feature : features)
+    {
+        feature.get(chain);
+    }
+}
+
+static void enable_features(VulkanFeatureChain& chain, std::span<const VulkanFeature> features)
+{
+    for (const VulkanFeature& feature : features)
+    {
+        feature.get(chain) = VK_TRUE;
+    }
+}
+
+#define MIZU_VULKAN_FEATURE(type, member)                                                        \
+    VulkanFeature                                                                                \
+    {                                                                                            \
+        [](VulkanFeatureChain& chain) -> VkBool32& { return chain.get<type>().member; }, #member \
+    }
+
+static const VulkanFeature REQUIRED_FEATURES[] = {
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.multiDrawIndirect),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt16),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt64),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderSampledImageArrayDynamicIndexing),
+
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan11Features, shaderDrawParameters),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan11Features, storageBuffer16BitAccess),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan11Features, uniformAndStorageBuffer16BitAccess),
+
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, shaderFloat16),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, drawIndirectCount),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, timelineSemaphore),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorIndexing),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, runtimeDescriptorArray),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, shaderSampledImageArrayNonUniformIndexing),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingVariableDescriptorCount),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingPartiallyBound),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingUpdateUnusedWhilePending),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingSampledImageUpdateAfterBind),
+
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan13Features, synchronization2),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan13Features, dynamicRendering),
+};
+
+static const VulkanFeature OPTIONAL_FEATURES[] = {
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.depthClamp),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.depthBiasClamp),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.depthBounds),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.fillModeNonSolid),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.logicOp),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.independentBlend),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.drawIndirectFirstInstance),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.fullDrawIndexUint32),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.imageCubeArray),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.samplerAnisotropy),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.fragmentStoresAndAtomics),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.vertexPipelineStoresAndAtomics),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderStorageImageExtendedFormats),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderStorageImageReadWithoutFormat),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderStorageImageWriteWithoutFormat),
+
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan13Features, shaderDemoteToHelperInvocation),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan13Features, maintenance4),
+};
+
+static const VulkanFeature SPARSE_BUFFER_FEATURES[] = {
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.sparseBinding),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.sparseResidencyBuffer),
+};
+
+static const VulkanFeature SPARSE_IMAGE_FEATURES[] = {
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.sparseBinding),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.sparseResidencyImage2D),
+};
+
+static const VulkanFeature RAY_TRACING_FEATURES[] = {
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan12Features, bufferDeviceAddress),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceAccelerationStructureFeaturesKHR, accelerationStructure),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceRayQueryFeaturesKHR, rayQuery),
+};
+
+#undef MIZU_VULKAN_FEATURE
+
+static constexpr const char* SWAPCHAIN_EXTENSIONS[] = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME,
+};
+
+static constexpr const char* RAY_TRACING_EXTENSIONS[] = {
+    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    VK_KHR_RAY_QUERY_EXTENSION_NAME,
+};
+
+struct VulkanPhysicalDeviceInfo
+{
+    VkPhysicalDeviceProperties properties{};
+    VulkanFeatureChain features{};
+    std::vector<VkExtensionProperties> extensions;
+    std::vector<VkQueueFamilyProperties> queue_families;
+    bool has_ray_tracing_extensions = false;
+
+    bool has_extension(const char* extension) const
+    {
+        for (const VkExtensionProperties& properties_ext : extensions)
+        {
+            if (strcmp(properties_ext.extensionName, extension) == 0)
+                return true;
+        }
+
+        return false;
+    }
+
+    bool has_extensions(std::span<const char* const> requested) const
+    {
+        for (const char* extension : requested)
+        {
+            if (!has_extension(extension))
+                return false;
+        }
+
+        return true;
+    }
+};
+
+static void query_physical_device_info(VkPhysicalDevice device, VulkanPhysicalDeviceInfo& info)
+{
+    info.properties = get_physical_device_properties(device);
+    info.queue_families = get_queue_family_properties(device);
+
+    uint32_t extension_count = 0;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
+
+    info.extensions.resize(extension_count);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, info.extensions.data());
+
+    info.has_ray_tracing_extensions = info.has_extensions(RAY_TRACING_EXTENSIONS);
+
+    if (info.properties.apiVersion < VK_API_VERSION_1_3)
+        return;
+
+    add_feature_structures(info.features, REQUIRED_FEATURES);
+    add_feature_structures(info.features, OPTIONAL_FEATURES);
+
+    if (info.has_ray_tracing_extensions)
+    {
+        add_feature_structures(info.features, RAY_TRACING_FEATURES);
+    }
+
+    vkGetPhysicalDeviceFeatures2(device, &info.features.head());
+}
+
+const char* VulkanDevice::find_missing_requirement(
+    VulkanPhysicalDeviceInfo& info,
+    const DeviceRequirements& requirements)
+{
+    if (info.properties.apiVersion < VK_API_VERSION_1_3)
+        return "Vulkan 1.3";
+
+    if (requirements.swapchain)
+    {
+        for (const char* extension : SWAPCHAIN_EXTENSIONS)
+        {
+            if (!info.has_extension(extension))
+                return extension;
+        }
+    }
+
+    for (const VulkanFeature& feature : REQUIRED_FEATURES)
+    {
+        if (feature.get(info.features) != VK_TRUE)
+            return feature.name;
+    }
+
+    return nullptr;
+}
+
+static bool are_features_supported(VulkanFeatureChain& supported, std::span<const VulkanFeature> features)
+{
+    for (const VulkanFeature& feature : features)
+    {
+        if (feature.get(supported) != VK_TRUE)
+            return false;
+    }
+
+    return true;
+}
+
+bool VulkanDevice::select_queue_families(std::span<const VkQueueFamilyProperties> families, QueueFamilies& selection)
+{
+    constexpr uint32_t INVALID = std::numeric_limits<uint32_t>::max();
+
+    uint32_t graphics = INVALID;
+    uint32_t any_compute = INVALID;
+    uint32_t dedicated_compute = INVALID;
+    uint32_t dedicated_transfer = INVALID;
+
+    for (uint32_t idx = 0; idx < families.size(); ++idx)
+    {
+        const bool has_graphics = families[idx].queueFlags & VK_QUEUE_GRAPHICS_BIT;
+        const bool has_compute = families[idx].queueFlags & VK_QUEUE_COMPUTE_BIT;
+        const bool has_transfer = families[idx].queueFlags & VK_QUEUE_TRANSFER_BIT;
+
+        if (has_graphics && graphics == INVALID)
+            graphics = idx;
+
+        if (has_compute && any_compute == INVALID)
+            any_compute = idx;
+
+        if (has_compute && !has_graphics && dedicated_compute == INVALID)
+            dedicated_compute = idx;
+
+        if (has_transfer && !has_graphics && !has_compute && dedicated_transfer == INVALID)
+            dedicated_transfer = idx;
+    }
+
+    if (graphics == INVALID || any_compute == INVALID)
+        return false;
+
+    const bool graphics_has_compute = families[graphics].queueFlags & VK_QUEUE_COMPUTE_BIT;
+
+    selection.graphics = graphics;
+    selection.compute = graphics_has_compute ? graphics : any_compute;
+    selection.transfer = graphics;
+
+    if (dedicated_compute != INVALID)
+        selection.compute = dedicated_compute;
+
+    if (dedicated_transfer != INVALID)
+        selection.transfer = dedicated_transfer;
+
+    const bool transfer_has_sparse = families[selection.transfer].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT;
+    selection.sparse = transfer_has_sparse ? selection.transfer : graphics;
+
+    return true;
+}
+
+void VulkanDevice::select_physical_device(const DeviceRequirements& requirements)
 {
     uint32_t physical_devices_count;
     VK_CHECK(vkEnumeratePhysicalDevices(m_instance, &physical_devices_count, nullptr));
@@ -380,184 +755,73 @@ void VulkanDevice::select_physical_device()
     std::vector<VkPhysicalDevice> physical_devices{physical_devices_count};
     VK_CHECK(vkEnumeratePhysicalDevices(m_instance, &physical_devices_count, physical_devices.data()));
 
-    int32_t biggest_score = std::numeric_limits<int32_t>::min();
-    VkPhysicalDevice best_device = VK_NULL_HANDLE;
-    QueueFamilies best_queue_families{};
+    constexpr int32_t DISCRETE_GPU_SCORE = 40;
+    constexpr int32_t DEDICATED_QUEUE_SCORE = 10;
 
-    // Notes on Physical Device selection:
-    // - Prefer discrete GPUs
-    // - Prefer if specific queue types have their own queue (e.g. graphics queue different from compute queue)
-
-    constexpr uint32_t DISCRETE_GPU_SCORE = 40;
-    constexpr uint32_t SPECIFIC_QUEUE_TYPE_SCORE = 10;
+    int32_t best_score = -1;
 
     for (const VkPhysicalDevice& device : physical_devices)
     {
+        VulkanPhysicalDeviceInfo info{};
+        query_physical_device_info(device, info);
+
+        const char* missing_requirement = find_missing_requirement(info, requirements);
+        if (missing_requirement != nullptr)
+        {
+            MIZU_LOG_WARNING(
+                "Skipping physical device '{}', missing requirement: {}",
+                info.properties.deviceName,
+                missing_requirement);
+            continue;
+        }
+
+        QueueFamilies families{};
+        if (!select_queue_families(info.queue_families, families))
+        {
+            MIZU_LOG_WARNING(
+                "Skipping physical device '{}', missing graphics or compute queue", info.properties.deviceName);
+            continue;
+        }
+
         int32_t score = 0;
 
-        QueueFamilies queue_families{};
-
-        bool specific_graphics_queue = false;
-        bool specific_compute_queue = false;
-        bool specific_transfer_queue = false;
-
-        const VkPhysicalDeviceProperties& properties = get_physical_device_properties(device);
-        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        if (info.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             score += DISCRETE_GPU_SCORE;
 
-        const std::vector<VkQueueFamilyProperties>& queue_properties = get_queue_family_properties(device);
-        for (uint32_t idx = 0; idx < queue_properties.size(); ++idx)
+        if (families.compute != families.graphics)
+            score += DEDICATED_QUEUE_SCORE;
+
+        if (families.transfer != families.graphics)
+            score += DEDICATED_QUEUE_SCORE;
+
+        if (score <= best_score)
+            continue;
+
+        best_score = score;
+
+        m_physical_device = device;
+        m_queue_families = families;
+
+        const bool sparse_queue = info.queue_families[families.sparse].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT;
+
+        m_optional_features = OptionalFeatures{};
+
+        if (info.has_ray_tracing_extensions)
         {
-            const bool has_graphics = queue_properties[idx].queueFlags & VK_QUEUE_GRAPHICS_BIT;
-            const bool has_compute = queue_properties[idx].queueFlags & VK_QUEUE_COMPUTE_BIT;
-            const bool has_transfer = queue_properties[idx].queueFlags & VK_QUEUE_TRANSFER_BIT;
-
-            // Has queue with only graphics operation
-            if (has_graphics && !has_compute && !specific_graphics_queue)
-            {
-                score += SPECIFIC_QUEUE_TYPE_SCORE;
-
-                queue_families.graphics = idx;
-                specific_graphics_queue = true;
-            }
-            else if (has_graphics && !specific_graphics_queue)
-            {
-                queue_families.graphics = idx;
-            }
-
-            // Has queue with only compute operation
-            if (has_compute && !has_graphics && !specific_compute_queue)
-            {
-                score += SPECIFIC_QUEUE_TYPE_SCORE;
-
-                queue_families.compute = idx;
-                specific_compute_queue = true;
-            }
-            else if (has_compute && !specific_compute_queue)
-            {
-                queue_families.compute = idx;
-            }
-
-            // Has queue with only transfer operation
-            if (has_transfer && !has_graphics && !has_compute && !specific_transfer_queue)
-            {
-                score += SPECIFIC_QUEUE_TYPE_SCORE;
-
-                queue_families.transfer = idx;
-                specific_transfer_queue = true;
-            }
-            else if (has_transfer && !specific_transfer_queue)
-            {
-                queue_families.transfer = idx;
-            }
+            m_optional_features.ray_tracing = are_features_supported(info.features, RAY_TRACING_FEATURES);
         }
 
-        if (score > biggest_score)
+        if (sparse_queue)
         {
-            best_device = device;
-            biggest_score = score;
-            best_queue_families = queue_families;
+            m_optional_features.sparse_buffers = are_features_supported(info.features, SPARSE_BUFFER_FEATURES);
+            m_optional_features.sparse_images = are_features_supported(info.features, SPARSE_IMAGE_FEATURES);
         }
     }
 
-    m_physical_device = best_device;
-    m_queue_families = best_queue_families;
-
-    // Retrieve physical device properties
-    const VkPhysicalDeviceProperties& properties = get_physical_device_properties(m_physical_device);
-    const VkPhysicalDeviceFeatures& features = get_physical_device_features(m_physical_device);
-
-    m_properties = DeviceProperties{
-        .name = properties.deviceName,
-        .depth_clamp_enabled = features.depthClamp == VK_TRUE,
-        .async_compute = m_queue_families.compute != m_queue_families.graphics,
-        .async_transfer = m_queue_families.transfer != m_queue_families.graphics,
-        .ray_tracing_hardware =
-            is_physical_device_extension_available(m_physical_device, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)
-            && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
-            && is_physical_device_extension_available(m_physical_device, VK_KHR_RAY_QUERY_EXTENSION_NAME),
-        .min_constant_buffer_offset_alignment = properties.limits.minUniformBufferOffsetAlignment,
-        .min_raw_buffer_offset_alignment = properties.limits.minStorageBufferOffsetAlignment,
-        .min_texture_row_pitch_alignment = 1,
-        .min_texture_data_placement_alignment = properties.limits.optimalBufferCopyOffsetAlignment,
-        .acceleration_structure_instance_size = sizeof(VkAccelerationStructureInstanceKHR),
-    };
+    MIZU_VERIFY(m_physical_device != VK_NULL_HANDLE, "Failed to find a suitable Vulkan physical device");
 }
 
-class VulkanDeviceFeaturesManager
-{
-  public:
-    VulkanDeviceFeaturesManager(VkPhysicalDevice physical_device) : m_physical_device(physical_device) {}
-
-    void add_extension(const char* extension_name)
-    {
-        MIZU_ASSERT(
-            is_physical_device_extension_available(m_physical_device, extension_name),
-            "Extension with name '{}' is not available",
-            extension_name);
-
-        m_device_extensions.push_back(extension_name);
-    }
-
-    std::span<const char* const> get_device_extensions() const
-    {
-        return std::span(m_device_extensions.data(), m_device_extensions.size());
-    }
-
-    template <typename T>
-    T& add(T value = {})
-    {
-        m_feature_structures.emplace_back(std::make_shared<Container<T>>(value));
-
-        const auto& container = std::static_pointer_cast<Container<T>>(m_feature_structures.back());
-        return container->m_value;
-    }
-
-    void* build_features()
-    {
-        if (m_feature_structures.empty())
-            return nullptr;
-
-        if (m_feature_structures.size() == 1)
-            return m_feature_structures[0]->get_address();
-
-        for (size_t i = m_feature_structures.size() - 1; i > 0; --i)
-        {
-            auto& current = m_feature_structures[i];
-            auto& next = m_feature_structures[i - 1];
-            next->set_pnext(current->get_address());
-        }
-
-        return m_feature_structures[0]->get_address();
-    }
-
-  private:
-    struct IContainer
-    {
-        virtual ~IContainer() = default;
-
-        virtual void set_pnext(void* pnext) = 0;
-        virtual void* get_address() const = 0;
-    };
-
-    template <typename T>
-    struct Container : public IContainer
-    {
-        Container(T value = {}) : m_value(value) {}
-        ~Container() override = default;
-
-        void set_pnext(void* pnext) override { m_value.pNext = pnext; }
-        void* get_address() const override { return (void*)&m_value; }
-
-        T m_value;
-    };
-
-    [[maybe_unused]] VkPhysicalDevice m_physical_device;
-    std::vector<std::shared_ptr<IContainer>> m_feature_structures;
-    std::vector<const char*> m_device_extensions;
-};
-
-void VulkanDevice::create_device(std::span<const char*> instance_extensions)
+void VulkanDevice::create_device(const DeviceRequirements& requirements)
 {
     VkDeviceQueueCreateInfo queue_create_info_base{};
     queue_create_info_base.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -583,83 +847,51 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
         queue_create_infos.push_back(queue_create_info);
     }
 
-    VulkanDeviceFeaturesManager device_features{m_physical_device};
+    inplace_vector<const char*, 8> device_extensions;
 
-    bool has_surface_extension = false;
-    for (const char* extension : instance_extensions)
+    if (requirements.swapchain)
     {
-        if (strcmp(extension, VK_KHR_SURFACE_EXTENSION_NAME) == 0)
-        {
-            has_surface_extension = true;
-            break;
-        }
+        for (const char* extension : SWAPCHAIN_EXTENSIONS)
+            device_extensions.push_back(extension);
     }
 
-    if (has_surface_extension)
+    if (m_optional_features.ray_tracing)
     {
-        device_features.add_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-        device_features.add_extension(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+        for (const char* extension : RAY_TRACING_EXTENSIONS)
+            device_extensions.push_back(extension);
     }
 
-    device_features.add_extension(VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME);
+    VulkanFeatureChain supported{};
+    add_feature_structures(supported, OPTIONAL_FEATURES);
+    vkGetPhysicalDeviceFeatures2(m_physical_device, &supported.head());
 
-    device_features.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+    VulkanFeatureChain enabled{};
+    enable_features(enabled, REQUIRED_FEATURES);
 
-    device_features.add_extension(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
-
-    auto& vulkan_12_features = device_features.add<VkPhysicalDeviceVulkan12Features>();
-    vulkan_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-
-    auto& vulkan_13_features = device_features.add<VkPhysicalDeviceVulkan13Features>();
-    vulkan_13_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-    vulkan_13_features.synchronization2 = VK_TRUE;
-    vulkan_13_features.dynamicRendering = VK_TRUE;
-
-    auto& storage_16bit_features = device_features.add<VkPhysicalDevice16BitStorageFeatures>();
-    storage_16bit_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
-    storage_16bit_features.storageBuffer16BitAccess = VK_TRUE;
-
-    if (m_properties.ray_tracing_hardware)
+    for (const VulkanFeature& feature : OPTIONAL_FEATURES)
     {
-        device_features.add_extension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-        device_features.add_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-        device_features.add_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-        device_features.add_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-        device_features.add_extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-
-        auto& acceleration_structure_features = device_features.add<VkPhysicalDeviceAccelerationStructureFeaturesKHR>();
-        acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-        acceleration_structure_features.accelerationStructure = VK_TRUE;
-
-        auto& ray_tracing_pipeline_features = device_features.add<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>();
-        ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-        ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
+        feature.get(enabled) = feature.get(supported);
     }
 
-    std::span<const char* const> device_extensions = device_features.get_device_extensions();
-    void* create_info_pnext = device_features.build_features();
+    if (m_optional_features.ray_tracing)
+    {
+        enable_features(enabled, RAY_TRACING_FEATURES);
+    }
 
-    VkPhysicalDeviceFeatures2 physical_device_features2{};
-    physical_device_features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    physical_device_features2.pNext = create_info_pnext;
+    if (m_optional_features.sparse_buffers)
+    {
+        enable_features(enabled, SPARSE_BUFFER_FEATURES);
+    }
 
-    vkGetPhysicalDeviceFeatures2(m_physical_device, &physical_device_features2);
-
-    MIZU_VERIFY(vulkan_12_features.shaderFloat16, "Device does not support shaderFloat16");
-    MIZU_VERIFY(vulkan_12_features.shaderInt8, "Device does not support shaderInt8");
-    MIZU_VERIFY(vulkan_12_features.descriptorIndexing, "Device does not support descriptorIndexing");
-    MIZU_VERIFY(vulkan_12_features.drawIndirectCount, "Device does not support drawIndirectCount");
-
-    MIZU_VERIFY(vulkan_13_features.synchronization2, "Device does not support synchronization2");
-    MIZU_VERIFY(vulkan_13_features.dynamicRendering, "Device does not support dynamicRendering");
-
-    MIZU_VERIFY(storage_16bit_features.storageBuffer16BitAccess, "Device does not support storageBuffer16BitAccess");
-    MIZU_VERIFY(physical_device_features2.features.multiDrawIndirect, "Device does not support multiDrawIndirect");
+    if (m_optional_features.sparse_images)
+    {
+        enable_features(enabled, SPARSE_IMAGE_FEATURES);
+    }
 
     // Create device
     VkDeviceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    create_info.pNext = &physical_device_features2;
+    create_info.pNext = &enabled.head();
     create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
     create_info.pQueueCreateInfos = queue_create_infos.data();
     create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
@@ -668,16 +900,45 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
 
     VK_CHECK(vkCreateDevice(m_physical_device, &create_info, nullptr, &m_device));
 
+    const VkPhysicalDeviceProperties properties = get_physical_device_properties(m_physical_device);
+
+    m_properties = DeviceProperties{
+        .name = properties.deviceName,
+        .depth_clamp = enabled.head().features.depthClamp == VK_TRUE,
+        .async_compute = m_queue_families.compute != m_queue_families.graphics,
+        .async_transfer = m_queue_families.transfer != m_queue_families.graphics,
+        .max_bindless_descriptors = NUM_BINDLESS_DESCRIPTORS,
+        .alignments =
+            DeviceAlignments{
+                .min_constant_buffer_offset = properties.limits.minUniformBufferOffsetAlignment,
+                .min_raw_buffer_offset = properties.limits.minStorageBufferOffsetAlignment,
+                .min_texture_row_pitch = 1,
+                .min_texture_data_placement = properties.limits.optimalBufferCopyOffsetAlignment,
+            },
+        .ray_tracing =
+            RayTracingProperties{
+                .supported = m_optional_features.ray_tracing,
+                .acceleration_structure_instance_size = sizeof(VkAccelerationStructureInstanceKHR),
+            },
+        .sparse =
+            SparseResourcesProperties{
+                .buffers = m_optional_features.sparse_buffers,
+                .images = m_optional_features.sparse_images,
+                .non_resident_strict = properties.sparseProperties.residencyNonResidentStrict == VK_TRUE,
+                .address_space_size = properties.limits.sparseAddressSpaceSize,
+            },
+    };
+
     // Retrieve queues
-    std::unordered_map<uint32_t, std::shared_ptr<VulkanQueue>> queue_family_to_queue;
-    auto get_queue_or_insert = [&](uint32_t queue_family_idx) -> std::shared_ptr<VulkanQueue> {
+    std::unordered_map<uint32_t, VulkanQueue*> queue_family_to_queue;
+    auto get_queue_or_insert = [&](uint32_t queue_family_idx, CommandBufferType type) -> VulkanQueue* {
         const auto it = queue_family_to_queue.find(queue_family_idx);
         if (it == queue_family_to_queue.end())
         {
             VkQueue queue;
             vkGetDeviceQueue(m_device, queue_family_idx, 0, &queue);
 
-            auto q = std::make_shared<VulkanQueue>(queue, queue_family_idx);
+            VulkanQueue* q = m_queues.emplace_back(std::make_unique<VulkanQueue>(queue, queue_family_idx, type)).get();
             queue_family_to_queue.insert({queue_family_idx, q});
             return q;
         }
@@ -685,9 +946,14 @@ void VulkanDevice::create_device(std::span<const char*> instance_extensions)
         return it->second;
     };
 
-    m_graphics_queue = get_queue_or_insert(m_queue_families.graphics);
-    m_compute_queue = get_queue_or_insert(m_queue_families.compute);
-    m_transfer_queue = get_queue_or_insert(m_queue_families.transfer);
+    m_graphics_queue = get_queue_or_insert(m_queue_families.graphics, CommandBufferType::Graphics);
+    m_compute_queue = get_queue_or_insert(m_queue_families.compute, CommandBufferType::Compute);
+    m_transfer_queue = get_queue_or_insert(m_queue_families.transfer, CommandBufferType::Transfer);
+
+    const auto sparse_queue_it = queue_family_to_queue.find(m_queue_families.sparse);
+    MIZU_ASSERT(
+        sparse_queue_it != queue_family_to_queue.end(), "Sparse queue family {} has no queue", m_queue_families.sparse);
+    m_sparse_queue = sparse_queue_it->second;
 
     // Create command pools
     const uint32_t num_threads = std::thread::hardware_concurrency();
@@ -789,21 +1055,39 @@ void VulkanDevice::prepare_frame(uint32_t frame_in_flight_idx)
 
 void VulkanDevice::wait_idle() const
 {
-    std::lock_guard lock(m_device_mutex);
-    VK_CHECK(vkDeviceWaitIdle(m_device));
+    // Goes through the queues instead of vkDeviceWaitIdle so each queue's external synchronization is respected
+    for (const std::unique_ptr<VulkanQueue>& queue : m_queues)
+    {
+        queue->wait_idle();
+    }
 }
 
 //
 // Creation functions
 //
 
-std::shared_ptr<BufferResource> VulkanDevice::create_buffer(const BufferDescription& desc) const
+std::shared_ptr<BufferResource> VulkanDevice::create_buffer(
+    const BufferDescription& desc,
+    const MemoryPlacement& placement) const
 {
-    return std::make_shared<VulkanBufferResource>(desc);
+    return std::make_shared<VulkanBufferResource>(desc, placement);
 }
-std::shared_ptr<ImageResource> VulkanDevice::create_image(const ImageDescription& desc) const
+
+std::shared_ptr<ImageResource> VulkanDevice::create_image(
+    const ImageDescription& desc,
+    const MemoryPlacement& placement) const
 {
-    return std::make_shared<VulkanImageResource>(desc);
+    return std::make_shared<VulkanImageResource>(desc, placement);
+}
+
+std::shared_ptr<BufferResource> VulkanDevice::create_sparse_buffer(const BufferDescription& desc) const
+{
+    return std::make_shared<VulkanBufferResource>(desc, VulkanBufferResource::Sparse);
+}
+
+std::shared_ptr<ImageResource> VulkanDevice::create_sparse_image(const ImageDescription& desc) const
+{
+    return std::make_shared<VulkanImageResource>(desc, VulkanImageResource::Sparse);
 }
 
 std::shared_ptr<AccelerationStructure> VulkanDevice::create_acceleration_structure(
@@ -868,14 +1152,9 @@ std::shared_ptr<DescriptorSet> VulkanDevice::allocate_descriptor_set(
     }
 }
 
-std::shared_ptr<Semaphore> VulkanDevice::create_semaphore() const
+std::shared_ptr<Fence> VulkanDevice::create_fence(uint64_t initial_value) const
 {
-    return std::make_shared<VulkanSemaphore>();
-}
-
-std::shared_ptr<Fence> VulkanDevice::create_fence(bool signaled) const
-{
-    return std::make_shared<VulkanFence>(signaled);
+    return std::make_shared<VulkanFence>(initial_value);
 }
 
 std::shared_ptr<Swapchain> VulkanDevice::create_swapchain(const SwapchainDescription& desc) const
@@ -883,13 +1162,13 @@ std::shared_ptr<Swapchain> VulkanDevice::create_swapchain(const SwapchainDescrip
     return std::make_shared<VulkanSwapchain>(desc);
 }
 
-std::shared_ptr<TransientMemoryPool> VulkanDevice::create_transient_memory_pool(std::string_view name) const
+std::shared_ptr<GpuHeap> VulkanDevice::create_gpu_heap(const GpuHeapDescription& desc) const
 {
-    return std::make_shared<VulkanTransientMemoryPool>(name);
+    return std::make_shared<VulkanGpuHeap>(desc);
 }
 
 //
-// Other
+// Memory
 //
 
 MemoryRequirements VulkanDevice::get_buffer_memory_requirements(const BufferDescription& desc) const
@@ -900,6 +1179,11 @@ MemoryRequirements VulkanDevice::get_buffer_memory_requirements(const BufferDesc
 MemoryRequirements VulkanDevice::get_image_memory_requirements(const ImageDescription& desc) const
 {
     return get_vulkan_image_memory_requirements(desc);
+}
+
+std::optional<MemoryTypeId> VulkanDevice::find_memory_type(const MemoryRequirements& reqs, HeapDomain domain) const
+{
+    return find_memory_type_index(domain, reqs.memory_type_bits);
 }
 
 } // namespace Mizu::Vulkan

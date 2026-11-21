@@ -54,7 +54,8 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
     : m_description(std::move(desc))
 {
     MIZU_VERIFY(
-        VulkanContext.device->get_properties().ray_tracing_hardware, "Rtx hardware is not supported on current device");
+        VulkanContext.device->get_properties().ray_tracing.supported,
+        "Rtx hardware is not supported on current device");
 
     m_type = std::holds_alternative<TopLevelAccelerationStructureDescription>(m_description.description)
                  ? AccelerationStructureType::TopLevel
@@ -108,7 +109,8 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
     if (!m_description.name.empty())
         as_buffer_desc.name = std::format("{}_ASBuffer", m_description.name);
 
-    m_as_buffer = std::make_shared<VulkanBufferResource>(as_buffer_desc);
+    m_as_buffer = std::static_pointer_cast<VulkanBufferResource>(
+        VulkanContext.device->create_buffer(as_buffer_desc, HeapDomain::DeviceLocal));
 
     VkAccelerationStructureCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
@@ -119,10 +121,7 @@ VulkanAccelerationStructure::VulkanAccelerationStructure(AccelerationStructureDe
 
     VK_CHECK(vkCreateAccelerationStructureKHR(VulkanContext.device->handle(), &create_info, nullptr, &m_handle));
 
-    if (!m_description.name.empty())
-    {
-        VK_DEBUG_SET_OBJECT_NAME(m_handle, m_description.name);
-    }
+    VK_DEBUG_SET_OBJECT_NAME(m_handle, VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR, m_description.name);
 }
 
 VulkanAccelerationStructure::~VulkanAccelerationStructure()

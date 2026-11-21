@@ -10,6 +10,7 @@
 #include "render_core/rhi/device.h"
 
 #include "dx12_core.h"
+#include "dx12_queue.h"
 
 namespace Mizu::Dx12
 {
@@ -24,16 +25,22 @@ class Dx12Device : public Device
     const DeviceProperties& get_properties() const override { return m_properties; }
 
     bool is_queue_available(CommandBufferType type) const;
-    ID3D12CommandQueue* get_queue(CommandBufferType type) const;
-
-    ID3D12CommandQueue* get_graphics_queue() const { return m_graphics_queue; }
-    ID3D12CommandQueue* get_compute_queue() const { return m_compute_queue; }
-    ID3D12CommandQueue* get_transfer_queue() const { return m_transfer_queue; }
+    Dx12Queue& get_native_queue(CommandBufferType type) const;
 
     ID3D12GraphicsCommandList7* allocate_command_list(CommandBufferType type, uint32_t frame_in_flight_idx);
     void free_command_list(ID3D12GraphicsCommandList7* command_list, CommandBufferType type);
 
     ID3D12CommandAllocator* get_thread_command_allocator(CommandBufferType type, uint32_t frame_in_flight_idx);
+
+    D3D12_FEATURE_DATA_D3D12_OPTIONS get_feature_data_options() const { return m_feature_data_options; }
+
+    HRESULT check_feature_support(D3D12_FEATURE feature, void* data, UINT data_size) const;
+
+    template <typename T>
+    HRESULT check_feature_support(D3D12_FEATURE feature, T& data) const
+    {
+        return check_feature_support(feature, &data, sizeof(T));
+    }
 
     ID3D12Device10* handle() const { return m_device; }
 
@@ -42,10 +49,26 @@ class Dx12Device : public Device
     void prepare_frame(uint32_t frame_in_flight_idx) override;
     void wait_idle() const override;
 
+    Queue& get_queue(CommandBufferType type) const override;
+    Queue& get_sparse_queue() const override
+    {
+        // Tiled resources support is reported per device, not per queue
+        return *m_transfer_queue;
+    }
+
     // Creation functions
 
-    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc) const override;
-    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc) const override;
+    using Device::create_buffer;
+    using Device::create_image;
+
+    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc, const MemoryPlacement& placement)
+        const override;
+    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, const MemoryPlacement& placement)
+        const override;
+
+    std::shared_ptr<BufferResource> create_sparse_buffer(const BufferDescription& desc) const override;
+    std::shared_ptr<ImageResource> create_sparse_image(const ImageDescription& desc) const override;
+
     std::shared_ptr<AccelerationStructure> create_acceleration_structure(
         const AccelerationStructureDescription& desc) const override;
 
@@ -65,28 +88,33 @@ class Dx12Device : public Device
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const override;
 
-    std::shared_ptr<Semaphore> create_semaphore() const override;
-    std::shared_ptr<Fence> create_fence(bool signaled) const override;
+    std::shared_ptr<Fence> create_fence(uint64_t initial_value) const override;
 
     std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const override;
 
-    std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const override;
+    std::shared_ptr<GpuHeap> create_gpu_heap(const GpuHeapDescription& desc) const override;
 
-    // Other
+    // Memory
 
     MemoryRequirements get_buffer_memory_requirements(const BufferDescription& desc) const override;
     MemoryRequirements get_image_memory_requirements(const ImageDescription& desc) const override;
+
+    std::optional<MemoryTypeId> find_memory_type(const MemoryRequirements& reqs, HeapDomain domain) const override;
 
   private:
     IDXCoreAdapterFactory* m_factory = nullptr;
     ID3D12Device10* m_device = nullptr;
     IDXGIAdapter1* m_adapter = nullptr;
 
-    DeviceProperties m_properties{};
+    uint32_t m_loaded_sdk_version = 0;
 
-    ID3D12CommandQueue* m_graphics_queue = nullptr;
-    ID3D12CommandQueue* m_compute_queue = nullptr;
-    ID3D12CommandQueue* m_transfer_queue = nullptr;
+    DeviceProperties m_properties{};
+    D3D12_FEATURE_DATA_D3D12_OPTIONS m_feature_data_options{};
+
+    std::vector<std::unique_ptr<Dx12Queue>> m_queues;
+    Dx12Queue* m_graphics_queue = nullptr;
+    Dx12Queue* m_compute_queue = nullptr;
+    Dx12Queue* m_transfer_queue = nullptr;
 
     struct ThreadCommandInfo
     {

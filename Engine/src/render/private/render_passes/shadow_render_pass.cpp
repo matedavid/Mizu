@@ -136,12 +136,19 @@ CascadedShadowData create_cascaded_shadow_data(
     const uint32_t num_shadow_casting_lights = view_shadows.num_shadow_casting_directional_lights;
 
     const FrameAllocation cascade_splits_allocation =
-        frame_allocator.allocate_structured<float>(view_shadows.cascade_splits.size());
+        frame_allocator.allocate_structured<float>(std::max<size_t>(view_shadows.cascade_splits.size(), 1));
     cascade_splits_allocation.upload(view_shadows.cascade_splits);
 
-    const FrameAllocation cascade_matrices_allocation =
-        frame_allocator.allocate_structured<glm::mat4>(view_shadows.cascade_light_space_matrices.size());
+    const FrameAllocation cascade_matrices_allocation = frame_allocator.allocate_structured<glm::mat4>(
+        std::max<size_t>(view_shadows.cascade_light_space_matrices.size(), 1));
     cascade_matrices_allocation.upload(view_shadows.cascade_light_space_matrices);
+
+    const FrameAllocation cascaded_shadow_info_allocation =
+        frame_allocator.allocate_constant<GpuCascadedShadowMappingInfo>();
+    cascaded_shadow_info_allocation.upload<GpuCascadedShadowMappingInfo>({
+        .num_cascades = view_shadows.num_cascades,
+        .num_lights = num_shadow_casting_lights,
+    });
 
     const uint32_t width = std::max(settings.resolution * settings.num_cascades, 1u);
     const uint32_t height = std::max(settings.resolution * num_shadow_casting_lights, 1u);
@@ -153,6 +160,7 @@ CascadedShadowData create_cascaded_shadow_data(
         .cascaded_shadow_atlas = shadow_atlas,
         .cascade_splits_allocation = cascade_splits_allocation,
         .cascade_light_space_matrices_allocation = cascade_matrices_allocation,
+        .cascaded_shadow_info_allocation = cascaded_shadow_info_allocation,
         .num_shadow_casting_directional_lights = num_shadow_casting_lights,
     };
 }

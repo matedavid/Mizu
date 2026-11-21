@@ -30,7 +30,7 @@ std::shared_ptr<BufferResource> create_vertex_buffer(std::span<const T> data, st
     BufferDescription desc = create_vertex_buffer_desc<T>(data.size(), std::move(name));
     desc.usage |= BufferUsageBits::TransferDst;
 
-    if (g_render_device->get_properties().ray_tracing_hardware)
+    if (g_render_device->get_properties().ray_tracing.supported)
     {
         desc.usage |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
     }
@@ -44,7 +44,7 @@ inline std::shared_ptr<BufferResource> create_index_buffer(std::span<const uint3
     BufferDescription desc = create_index_buffer_desc(data.size() * sizeof(uint32_t), std::move(name));
     desc.usage |= BufferUsageBits::TransferDst;
 
-    if (g_render_device->get_properties().ray_tracing_hardware)
+    if (g_render_device->get_properties().ray_tracing.supported)
     {
         desc.usage |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
     }
@@ -60,7 +60,7 @@ std::shared_ptr<BufferResource> create_constant_buffer(const T& data, std::strin
 
     std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(&data), sizeof(T));
 
-    const auto buffer = g_render_device->create_buffer(desc);
+    const auto buffer = g_render_device->create_buffer(desc, HeapDomain::Upload);
     buffer->set_data(data_bytes.data(), desc.size, 0);
 
     return buffer;

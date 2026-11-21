@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -10,7 +11,10 @@
 #include "render_core/rhi/buffer_resource.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/descriptors.h"
+#include "render_core/rhi/gpu_heap.h"
 #include "render_core/rhi/image_resource.h"
+#include "render_core/rhi/memory.h"
+#include "render_core/rhi/queue.h"
 
 namespace Mizu
 {
@@ -18,12 +22,11 @@ namespace Mizu
 // Forward declarations
 class AccelerationStructure;
 class Fence;
+class GpuAllocator;
 class Pipeline;
 class SamplerState;
-class Semaphore;
 class Shader;
 class Swapchain;
-class TransientMemoryPool;
 struct AccelerationStructureDescription;
 struct BufferDescription;
 struct ComputePipelineDescription;
@@ -81,27 +84,48 @@ struct DeviceCreationDescription
     Version engine_version{};
 };
 
+struct DeviceAlignments
+{
+    uint64_t min_constant_buffer_offset = 1;
+    uint64_t min_raw_buffer_offset = 1;
+    uint64_t min_texture_row_pitch = 1;
+    uint64_t min_texture_data_placement = 1;
+};
+
+struct RayTracingProperties
+{
+    bool supported = false;
+    uint64_t acceleration_structure_instance_size = 0;
+};
+
+struct SparseResourcesProperties
+{
+    bool buffers = false;
+    bool images = false;
+    bool non_resident_strict = false;
+    uint64_t address_space_size = 0;
+};
+
 struct DeviceProperties
 {
     std::string name;
 
-    bool depth_clamp_enabled;
-    bool async_compute;
-    bool async_transfer;
-    bool ray_tracing_hardware;
+    bool depth_clamp = false;
+    bool async_compute = false;
+    bool async_transfer = false;
 
-    uint64_t min_constant_buffer_offset_alignment;
-    uint64_t min_raw_buffer_offset_alignment;
-    uint64_t min_texture_row_pitch_alignment;
-    uint64_t min_texture_data_placement_alignment;
+    uint32_t max_bindless_descriptors = 0;
 
-    uint64_t acceleration_structure_instance_size;
+    DeviceAlignments alignments{};
+    RayTracingProperties ray_tracing{};
+    SparseResourcesProperties sparse{};
 };
 
 class MIZU_RENDER_CORE_API Device
 {
   public:
-    virtual ~Device() = default;
+    Device();
+    virtual ~Device();
 
     static Device* create(const DeviceCreationDescription& desc);
     static void free();
@@ -114,10 +138,27 @@ class MIZU_RENDER_CORE_API Device
     virtual void prepare_frame(uint32_t frame_in_flight_idx) = 0;
     virtual void wait_idle() const = 0;
 
+    virtual Queue& get_queue(CommandBufferType type) const = 0;
+    virtual Queue& get_sparse_queue() const = 0;
+
     // Creation functions
 
-    virtual std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc) const = 0;
-    virtual std::shared_ptr<ImageResource> create_image(const ImageDescription& desc) const = 0;
+    virtual std::shared_ptr<BufferResource> create_buffer(
+        const BufferDescription& desc,
+        const MemoryPlacement& placement) const = 0;
+    virtual std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, const MemoryPlacement& placement)
+        const = 0;
+
+    virtual std::shared_ptr<BufferResource> create_sparse_buffer(const BufferDescription& desc) const = 0;
+    virtual std::shared_ptr<ImageResource> create_sparse_image(const ImageDescription& desc) const = 0;
+
+    std::shared_ptr<BufferResource> create_buffer(
+        const BufferDescription& desc,
+        HeapDomain domain = HeapDomain::DeviceLocal) const;
+    std::shared_ptr<ImageResource> create_image(
+        const ImageDescription& desc,
+        HeapDomain domain = HeapDomain::DeviceLocal) const;
+
     virtual std::shared_ptr<AccelerationStructure> create_acceleration_structure(
         const AccelerationStructureDescription& desc) const = 0;
 
@@ -142,17 +183,25 @@ class MIZU_RENDER_CORE_API Device
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const = 0;
 
-    virtual std::shared_ptr<Semaphore> create_semaphore() const = 0;
-    virtual std::shared_ptr<Fence> create_fence(bool signaled = true) const = 0;
+    virtual std::shared_ptr<Fence> create_fence(uint64_t initial_value = 0) const = 0;
 
     virtual std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const = 0;
 
-    virtual std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const = 0;
+    virtual std::shared_ptr<GpuHeap> create_gpu_heap(const GpuHeapDescription& desc) const = 0;
 
-    // Other
+    // Memory
 
     virtual MemoryRequirements get_buffer_memory_requirements(const BufferDescription& desc) const = 0;
     virtual MemoryRequirements get_image_memory_requirements(const ImageDescription& desc) const = 0;
+
+    virtual std::optional<MemoryTypeId> find_memory_type(const MemoryRequirements& reqs, HeapDomain domain) const = 0;
+
+    GpuAllocator& get_default_allocator() const;
+
+  protected:
+    void destroy_default_allocator();
+
+    std::unique_ptr<GpuAllocator> m_default_allocator;
 };
 
 } // namespace Mizu

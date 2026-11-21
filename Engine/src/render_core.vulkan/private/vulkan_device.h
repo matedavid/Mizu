@@ -13,6 +13,8 @@
 namespace Mizu::Vulkan
 {
 
+struct VulkanPhysicalDeviceInfo;
+
 class VulkanDevice : public Device
 {
   public:
@@ -28,14 +30,13 @@ class VulkanDevice : public Device
     void free_command_buffer(VkCommandBuffer command_buffer, CommandBufferType type);
     void free_command_buffers(std::span<VkCommandBuffer> command_buffers, CommandBufferType type);
 
-    std::optional<uint32_t> find_memory_type(uint32_t filter, VkMemoryPropertyFlags properties) const;
+    std::optional<uint32_t> find_memory_type_index(HeapDomain domain, uint32_t memory_type_bits) const;
+    const VkPhysicalDeviceMemoryProperties& get_memory_properties() const { return m_memory_properties; }
+
+    bool is_buffer_device_address_enabled() const { return m_optional_features.ray_tracing; }
 
     bool is_queue_available(CommandBufferType type) const;
-    std::shared_ptr<VulkanQueue> get_queue(CommandBufferType type) const;
-
-    std::shared_ptr<VulkanQueue> get_graphics_queue() const { return m_graphics_queue; }
-    std::shared_ptr<VulkanQueue> get_compute_queue() const { return m_compute_queue; }
-    std::shared_ptr<VulkanQueue> get_transfer_queue() const { return m_transfer_queue; }
+    VulkanQueue& get_native_queue(CommandBufferType type) const;
 
     VkDevice handle() const { return m_device; }
     VkPhysicalDevice get_physical_device() const { return m_physical_device; }
@@ -46,10 +47,22 @@ class VulkanDevice : public Device
     void prepare_frame(uint32_t frame_in_flight_idx) override;
     void wait_idle() const override;
 
+    Queue& get_queue(CommandBufferType type) const override;
+    Queue& get_sparse_queue() const override { return *m_sparse_queue; }
+
     // Creation functions
 
-    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc) const override;
-    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc) const override;
+    using Device::create_buffer;
+    using Device::create_image;
+
+    std::shared_ptr<BufferResource> create_buffer(const BufferDescription& desc, const MemoryPlacement& placement)
+        const override;
+    std::shared_ptr<ImageResource> create_image(const ImageDescription& desc, const MemoryPlacement& placement)
+        const override;
+
+    std::shared_ptr<BufferResource> create_sparse_buffer(const BufferDescription& desc) const override;
+    std::shared_ptr<ImageResource> create_sparse_image(const ImageDescription& desc) const override;
+
     std::shared_ptr<AccelerationStructure> create_acceleration_structure(
         const AccelerationStructureDescription& desc) const override;
 
@@ -69,37 +82,55 @@ class VulkanDevice : public Device
         DescriptorSetAllocationType type,
         uint32_t variable_count = 0) const override;
 
-    std::shared_ptr<Semaphore> create_semaphore() const override;
-    std::shared_ptr<Fence> create_fence(bool signaled) const override;
+    std::shared_ptr<Fence> create_fence(uint64_t initial_value) const override;
 
     std::shared_ptr<Swapchain> create_swapchain(const SwapchainDescription& desc) const override;
 
-    std::shared_ptr<TransientMemoryPool> create_transient_memory_pool(std::string_view name = "") const override;
+    std::shared_ptr<GpuHeap> create_gpu_heap(const GpuHeapDescription& desc) const override;
 
-    // Other
+    // Memory
 
     MemoryRequirements get_buffer_memory_requirements(const BufferDescription& desc) const override;
     MemoryRequirements get_image_memory_requirements(const ImageDescription& desc) const override;
+
+    std::optional<MemoryTypeId> find_memory_type(const MemoryRequirements& reqs, HeapDomain domain) const override;
 
   private:
     VkInstance m_instance{VK_NULL_HANDLE};
     VkDevice m_device{VK_NULL_HANDLE};
     VkPhysicalDevice m_physical_device{VK_NULL_HANDLE};
 
-    mutable std::mutex m_device_mutex;
     DeviceProperties m_properties{};
+
+    VkPhysicalDeviceMemoryProperties m_memory_properties{};
+
+    struct OptionalFeatures
+    {
+        bool ray_tracing = false;
+        bool sparse_buffers = false;
+        bool sparse_images = false;
+    };
+    OptionalFeatures m_optional_features{};
+
+    struct DeviceRequirements
+    {
+        bool swapchain = false;
+    };
 
     struct QueueFamilies
     {
         uint32_t graphics;
         uint32_t compute;
         uint32_t transfer;
+        uint32_t sparse;
     };
     QueueFamilies m_queue_families{};
 
-    std::shared_ptr<VulkanQueue> m_graphics_queue = nullptr;
-    std::shared_ptr<VulkanQueue> m_compute_queue = nullptr;
-    std::shared_ptr<VulkanQueue> m_transfer_queue = nullptr;
+    std::vector<std::unique_ptr<VulkanQueue>> m_queues;
+    VulkanQueue* m_graphics_queue = nullptr;
+    VulkanQueue* m_compute_queue = nullptr;
+    VulkanQueue* m_transfer_queue = nullptr;
+    VulkanQueue* m_sparse_queue = nullptr;
 
     struct ThreadCommandInfo
     {
@@ -137,8 +168,10 @@ class VulkanDevice : public Device
     std::mutex m_assign_thread_info_mutex;
 
     void create_instance(const DeviceCreationDescription& desc, std::span<const char*> extensions);
-    void select_physical_device();
-    void create_device(std::span<const char*> instance_extensions);
+    static const char* find_missing_requirement(VulkanPhysicalDeviceInfo& info, const DeviceRequirements& requirements);
+    static bool select_queue_families(std::span<const VkQueueFamilyProperties> families, QueueFamilies& selection);
+    void select_physical_device(const DeviceRequirements& requirements);
+    void create_device(const DeviceRequirements& requirements);
 
     ThreadCommandInfo create_thread_command_info();
     ThreadCommandInfo::Type& get_thread_command_info(std::thread::id id, CommandBufferType type);

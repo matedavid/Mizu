@@ -28,6 +28,7 @@ MIZU_STATE_MANAGER_CREATE_HANDLE(StaticMeshHandle);
 
 struct StaticMeshConfig : BaseStateManagerConfig
 {
+    static constexpr uint64_t MaxNumHandles = 1024;
     static constexpr std::string_view Identifier = "StaticMeshStateManager";
 };
 

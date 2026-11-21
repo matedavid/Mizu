@@ -24,10 +24,7 @@ class PublishTransformsShaderCS : public ShaderDeclaration
 class DrawListCullAndGenerateCS : public ShaderDeclaration
 {
   public:
-    IMPLEMENT_SHADER_DECLARATION(
-        "engine:scene/compile_draw_lists.slang",
-        ShaderType::Compute,
-        "cs_cull_and_generate");
+    IMPLEMENT_SHADER_DECLARATION("engine:scene/compile_draw_lists.slang", ShaderType::Compute, "cs_cull_and_generate");
 
     static constexpr uint32_t GROUP_SIZE = 64;
 

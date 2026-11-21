@@ -283,39 +283,92 @@ DynamicState& BaseStateManager<StaticState, DynamicState, Handle, Config>::sim_e
 //
 
 template <typename StaticState, typename DynamicState, typename Handle, typename Config>
-void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_apply_updates(const FrameUpdateState& state)
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_begin_apply_updates()
 {
-    const uint64_t last_produced_tick_idx = m_last_produced_tick.load(std::memory_order_acquire);
+    m_rend_produced_tick_limit = m_last_produced_tick.load(std::memory_order_acquire);
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+uint64_t BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_get_next_tick_time_us() const
+{
     const uint64_t last_consumed_tick_idx = m_last_consumed_tick.load(std::memory_order_relaxed);
+    if (last_consumed_tick_idx >= m_rend_produced_tick_limit)
+        return NO_PENDING_TICK_TIME;
 
-    if (last_produced_tick_idx == last_consumed_tick_idx)
+    return m_ticks[(last_consumed_tick_idx + 1) % MaxTicksAhead].sim_time_us;
+}
+
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_consume_ticks_until(uint64_t sim_time_us)
+{
+    uint64_t last_consumed_tick_idx = m_last_consumed_tick.load(std::memory_order_relaxed);
+
+    while (last_consumed_tick_idx < m_rend_produced_tick_limit)
     {
-        // No new tick produced, nothing to consume
-        return;
+        const uint64_t tick_to_consume_idx = last_consumed_tick_idx + 1;
+        const Tick& tick_to_consume = m_ticks[tick_to_consume_idx % MaxTicksAhead];
+
+        if (tick_to_consume.sim_time_us > sim_time_us)
+            break;
+
+        rend_consume_tick(tick_to_consume);
+
+        m_rend_last_consumed_sim_time_us = tick_to_consume.sim_time_us;
+
+        m_last_consumed_tick.store(tick_to_consume_idx, std::memory_order_release);
+        m_tick_consumed_cv.notify_one();
+
+        last_consumed_tick_idx = tick_to_consume_idx;
     }
+}
 
-    const Tick& last_consumed_tick = m_ticks[last_consumed_tick_idx % MaxTicksAhead];
-
-    const uint64_t tick_to_consume_idx = last_consumed_tick_idx + 1;
-    const Tick& tick_to_consume = m_ticks[tick_to_consume_idx % MaxTicksAhead];
-
-    const uint64_t t0 = last_consumed_tick.sim_time_us;
-    const uint64_t t1 = tick_to_consume.sim_time_us;
-
-    double alpha = 1.0;
-    if (t1 > t0)
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_interpolate(
+    [[maybe_unused]] const FrameUpdateState& state)
+{
+    if constexpr (Config::Interpolate)
     {
-        const double numerator = static_cast<double>(state.render_time_us - t0);
-        const double denominator = static_cast<double>(t1 - t0);
+        const uint64_t last_consumed_tick_idx = m_last_consumed_tick.load(std::memory_order_relaxed);
+        if (last_consumed_tick_idx >= m_rend_produced_tick_limit)
+            return;
 
-        alpha = std::clamp(numerator / denominator, 0.0, 1.0);
+        const Tick& next_tick = m_ticks[(last_consumed_tick_idx + 1) % MaxTicksAhead];
+
+        const uint64_t t0 = m_rend_last_consumed_sim_time_us;
+        const uint64_t t1 = next_tick.sim_time_us;
+
+        if (state.render_time_us <= t0)
+            return;
+
+        if (t1 <= state.render_time_us)
+            return;
+
+        const double alpha = static_cast<double>(state.render_time_us - t0) / static_cast<double>(t1 - t0);
+
+        for (uint64_t i = 0; i < next_tick.num_updated_handles; ++i)
+        {
+            const uint64_t handle_tick_idx = (next_tick.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
+            const HandleTick& handle_tick = m_handle_ticks[handle_tick_idx];
+
+            if (handle_tick.event_kind != StateManagerEventKind::Update)
+                continue;
+
+            HandleStateInfo& handle_state_info = m_handle_state_info[handle_tick.handle.get_internal_id()];
+
+            const DynamicState interpolated_ds = handle_state_info.consumed_ds.interpolate(handle_tick.ds, alpha);
+            rend_notify_on_update(handle_tick.handle, interpolated_ds);
+
+            handle_state_info.applied_ds = interpolated_ds;
+        }
     }
+}
 
-    const bool fully_consumed = alpha >= 1.0;
-
-    for (uint64_t i = 0; i < tick_to_consume.num_updated_handles; ++i)
+template <typename StaticState, typename DynamicState, typename Handle, typename Config>
+void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_consume_tick(const Tick& tick)
+{
+    for (uint64_t i = 0; i < tick.num_updated_handles; ++i)
     {
-        const uint64_t handle_tick_idx = (tick_to_consume.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
+        const uint64_t handle_tick_idx = (tick.tick_idx % MaxTicksAhead) * Config::MaxNumHandles + i;
         const HandleTick& handle_tick = m_handle_ticks[handle_tick_idx];
 
         HandleStateInfo& handle_state_info = m_handle_state_info[handle_tick.handle.get_internal_id()];
@@ -323,51 +376,22 @@ void BaseStateManager<StaticState, DynamicState, Handle, Config>::rend_apply_upd
         switch (handle_tick.event_kind)
         {
         case StateManagerEventKind::Create: {
-            if (fully_consumed)
-            {
-                const StaticState& ss = m_handle_static_states[handle_tick.handle.get_internal_id()];
-
-                rend_notify_on_create(handle_tick.handle, ss, handle_tick.ds);
-            }
-
+            const StaticState& ss = m_handle_static_states[handle_tick.handle.get_internal_id()];
+            rend_notify_on_create(handle_tick.handle, ss, handle_tick.ds);
             break;
         }
         case StateManagerEventKind::Update: {
-            if (fully_consumed)
-            {
-                rend_notify_on_update(handle_tick.handle, handle_tick.ds);
-            }
-            else if constexpr (Config::Interpolate)
-            {
-                const DynamicState interpolated_ds = handle_state_info.consumed_ds.interpolate(handle_tick.ds, alpha);
-                rend_notify_on_update(handle_tick.handle, interpolated_ds);
-
-                handle_state_info.applied_ds = interpolated_ds;
-            }
-
+            rend_notify_on_update(handle_tick.handle, handle_tick.ds);
             break;
         }
         case StateManagerEventKind::Destroy: {
-            if (fully_consumed)
-            {
-                rend_notify_on_destroy(handle_tick.handle);
-            }
-
+            rend_notify_on_destroy(handle_tick.handle);
             break;
         }
         }
 
-        if (fully_consumed)
-        {
-            handle_state_info.consumed_ds = handle_tick.ds;
-            handle_state_info.applied_ds = handle_tick.ds;
-        }
-    }
-
-    if (fully_consumed)
-    {
-        m_last_consumed_tick.store(tick_to_consume_idx, std::memory_order_release);
-        m_tick_consumed_cv.notify_one();
+        handle_state_info.consumed_ds = handle_tick.ds;
+        handle_state_info.applied_ds = handle_tick.ds;
     }
 }
 

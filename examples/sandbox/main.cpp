@@ -1,10 +1,25 @@
-#include <Mizu/Extensions/CameraControllers.h>
-#include <Mizu/Mizu.h>
-
+#include <algorithm>
 #include <format>
+#include <glm/glm.hpp>
+#include <memory>
+#include <vector>
 
+#include "asset/asset_registry.h"
+#include "base/debug/logging.h"
 #include "base/debug/profiling.h"
+#include "camera_controllers/editor_camera_controller.h"
+#include "core/game_context.h"
+#include "core/input.h"
+#include "core/settings_manager/settings_manager.h"
+#include "core/window.h"
+#include "render/runtime/renderer_settings.h"
+#include "render/scene/scene_renderer_settings.h"
+#include "render/state_manager/light_state_manager.h"
+#include "render/state_manager/render_view_state_manager.h"
+#include "render/state_manager/transform_state_manager.h"
 #include "runtime/game_main.h"
+#include "runtime/main_loop.h"
+#include "world/prefab/prefab_manager.h"
 
 #ifndef MIZU_EXAMPLE_PATH
 #define MIZU_EXAMPLE_PATH "./"

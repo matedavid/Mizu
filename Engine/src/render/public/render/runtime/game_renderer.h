@@ -3,8 +3,10 @@
 #include <memory>
 #include <vector>
 
+#include "base/reflection/enum_traits.h"
 #include "core/job_system/job_system.h"
 #include "render_core/rhi/device.h"
+#include "render_core/rhi/synchronization.h"
 
 #include "mizu_render_module.h"
 #include "render/render_graph/render_graph.h"
@@ -17,26 +19,19 @@ namespace Mizu
 {
 
 // Forward declarations
-class AssetLoadSystem;
+class AssetLoadScheduler;
 class CommandBuffer;
-class CpuLoadingPool;
-class Fence;
 class FrameLinearAllocator;
-class GpuMeshPool;
-class GpuTexturePool;
-class MaterialResidencySystem;
-class MeshResidencySystem;
+class GpuPageAllocator;
+class MaterialSystem;
 class RenderGraphBlackboard;
-class ResourceEventStream;
-class SceneSystem;
-class Semaphore;
+class RenderGraphTransientMemory;
+class RenderScene;
+class SparseBindScheduler;
+class StagingPool;
 class StreamingPlanner;
 class SwapchainManager;
-class TextureResidencySystem;
-class TransientMemoryPool;
 class Window;
-
-class GpuMeshPool;
 
 struct GameRendererDescription
 {
@@ -60,8 +55,7 @@ inline constexpr size_t RENDER_MODULE_LABEL_COUNT = static_cast<size_t>(RenderMo
 struct RenderModuleSystems
 {
     FrameLinearAllocator* frame_allocator = nullptr;
-    TextureResidencySystem* texture_residency_system = nullptr;
-    MaterialResidencySystem* material_residency_system = nullptr;
+    MaterialSystem* material_system = nullptr;
 };
 
 struct RenderModuleUpdateContext
@@ -145,31 +139,29 @@ class MIZU_RENDER_API GameRenderer
     std::unique_ptr<SwapchainManager> m_swapchain_manager{};
 
     // Rhi per frame-in-flight resources
-    std::vector<std::shared_ptr<Fence>> m_fences{};
+    std::vector<meta::enum_array<CommandBufferType, SyncPoint>> m_frame_completion{};
+    SyncPoint m_rendering_done{};
     std::vector<RenderFrameTiming> m_frame_timings{};
 
     // Rendering
     RenderGraphBuilder m_render_graph_builder{};
     std::vector<RenderGraph> m_render_graphs{};
-    std::shared_ptr<TransientMemoryPool> m_render_graph_transient_memory_pool{};
+    std::unique_ptr<RenderGraphTransientMemory> m_render_graph_transient_memory{};
     std::unique_ptr<RenderGraphResourceRegistry> m_render_graph_resource_registry{};
     std::unique_ptr<FrameLinearAllocator> m_frame_linear_allocator{};
 
-    std::unique_ptr<SceneSystem> m_scene_system{};
+    std::unique_ptr<RenderScene> m_render_scene{};
 
     // Asset Systems
+    std::unique_ptr<GpuPageAllocator> m_gpu_page_allocator{};
+    std::unique_ptr<SparseBindScheduler> m_sparse_bind_scheduler{};
+
+    std::unique_ptr<StagingPool> m_staging_pool{};
+
+    std::unique_ptr<AssetLoadScheduler> m_asset_load_scheduler{};
+
     std::unique_ptr<StreamingPlanner> m_streaming_planner{};
-    std::unique_ptr<ResourceEventStream> m_resource_event_stream{};
-
-    std::unique_ptr<CpuLoadingPool> m_cpu_loading_pool{};
-    std::unique_ptr<GpuMeshPool> m_gpu_mesh_pool{};
-    std::unique_ptr<GpuTexturePool> m_gpu_texture_pool{};
-
-    std::unique_ptr<AssetLoadSystem> m_asset_load_system;
-
-    std::unique_ptr<MeshResidencySystem> m_mesh_residency_system{};
-    std::unique_ptr<TextureResidencySystem> m_texture_residency_system{};
-    std::unique_ptr<MaterialResidencySystem> m_material_residency_system{};
+    std::unique_ptr<MaterialSystem> m_material_system{};
 
     void prepare_frame_job();
     void update_systems_job();

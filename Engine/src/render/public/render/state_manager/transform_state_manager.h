@@ -68,7 +68,7 @@ MIZU_STATE_MANAGER_CREATE_HANDLE(TransformHandle);
 
 struct TransformConfig : BaseStateManagerConfig
 {
-    static constexpr uint64_t MaxNumHandles = 1000;
+    static constexpr uint64_t MaxNumHandles = 1024;
     static constexpr bool Interpolate = true;
 
     static constexpr std::string_view Identifier = "TransformStateManager";

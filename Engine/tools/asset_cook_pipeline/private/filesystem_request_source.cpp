@@ -24,7 +24,7 @@ bool FilesystemRequestSource::init(const CookContext& context)
     return true;
 }
 
-uint32_t FilesystemRequestSource::enumerate_n(
+EnumerateResult FilesystemRequestSource::enumerate_n(
     uint32_t number,
     const CookContext& context,
     std::vector<ImportRequest>& outputs)
@@ -42,7 +42,10 @@ uint32_t FilesystemRequestSource::enumerate_n(
         }
     }
 
-    return num_enumerated;
+    return EnumerateResult{
+        .count = num_enumerated,
+        .exhausted = m_mount_enumerator_cursor >= m_mount_enumerators.size(),
+    };
 }
 
 FilesystemRequestSource::AssetMountEnumerator::AssetMountEnumerator(const AssetMount& mount) : m_mount(mount)
@@ -69,9 +72,11 @@ uint32_t FilesystemRequestSource::AssetMountEnumerator::enumerate_n(
             const std::filesystem::path relative_path = std::filesystem::relative(entry.path(), m_mount.path);
             virtual_path = create_virtual_path(relative_path, m_mount);
         }
-        catch (const std::exception& e)
+        catch (const std::exception&)
         {
-            context.reporter.error("Failed to enumerate path, exception: {}", e.what());
+            // TODO: Temporarily don't report error because can't really control error reasons with gltf-samples scenes.
+            (void)context;
+            // context.reporter.error("Failed to enumerate path, exception: {}", e.what());
             continue;
         }
 

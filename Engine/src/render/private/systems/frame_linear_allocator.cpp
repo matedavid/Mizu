@@ -26,7 +26,7 @@ void FrameAllocation::upload(std::span<const uint8_t> data) const
 
 uint8_t* FrameAllocation::get_mapped_data() const
 {
-    uint8_t* mapped = view.buffer->get_mapped_data();
+    uint8_t* mapped = view.buffer->get_mapped_memory();
     MIZU_ASSERT(mapped != nullptr, "Frame allocation buffer is not host-visible");
     return mapped + view.desc.offset;
 }
@@ -51,13 +51,12 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
         queue_families.set(CommandBufferType::Transfer);
 
     // clang-format off
-    BufferUsageBits usage_bits = BufferUsageBits::HostVisible
-                               | BufferUsageBits::ConstantBuffer
+    BufferUsageBits usage_bits = BufferUsageBits::ConstantBuffer
                                | BufferUsageBits::ShaderResource
                                | BufferUsageBits::TransferSrc;
     // clang-format on
 
-    if (g_render_device->get_properties().ray_tracing_hardware)
+    if (g_render_device->get_properties().ray_tracing.supported)
         usage_bits |= BufferUsageBits::RtxAccelerationStructureInputReadOnly;
 
     BufferDescription buffer_desc{};
@@ -67,7 +66,7 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
     buffer_desc.queue_families = queue_families;
     buffer_desc.name = name;
 
-    m_buffer = g_render_device->create_buffer(buffer_desc);
+    m_buffer = g_render_device->create_buffer(buffer_desc, HeapDomain::Upload);
 }
 
 void FrameLinearAllocator::prepare_frame(uint32_t frame_in_flight_idx)

@@ -7,7 +7,9 @@
 #include <string>
 
 #include "base/containers/inplace_vector.h"
-#include "base/math/aabb.h"
+#include "base/debug/assert.h"
+#include "base/math/math.h"
+#include "base/math/shapes.h"
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/shader.h"
@@ -19,21 +21,36 @@
 namespace Mizu
 {
 
+constexpr uint32_t MAX_NUM_MESH_LODS = 10;
+static_assert(MAX_NUM_MESH_LODS <= UINT8_MAX);
+// Safe alignment so that any vertex component (up to float4) can be read in place regardless of verted_stride.
+constexpr uint64_t MESH_FILE_SEGMENT_ALIGNMENT = 16;
+
+struct MeshAssetLod
+{
+    uint32_t vertex_count = 0;
+    uint32_t index_count = 0;
+    float screen_size = 0.0f;
+};
+
 struct MeshAssetMetadata
 {
-    uint64_t vertex_count = 0;
-    uint64_t index_count = 0;
+    // Payload layout is:
+    // [ V(n-1) I(n-1) | V(n-2) I(n-2) | ... | V0 I0 ]
+    inplace_vector<MeshAssetLod, MAX_NUM_MESH_LODS> lods{};
 
+    uint8_t streamable_lods = 0;
     IndexBufferFormat index_format = IndexBufferFormat::UInt32;
-
-    uint64_t vertex_data_offset = 0;
-    uint64_t index_data_offset = 0;
+    uint32_t vertex_stride = 0;
 
     math::AABB bounding_box{};
+    float texel_factor = 0.0f;
 
-    uint64_t get_vertex_data_size_bytes() const { return vertex_count * sizeof(MeshAssetVertex); }
+    uint8_t get_num_lods() const { return static_cast<uint8_t>(lods.size()); }
 
-    uint64_t get_index_element_size_bytes() const
+    uint64_t get_vertex_stride_bytes() const { return vertex_stride; }
+
+    uint64_t get_index_stride_bytes() const
     {
         switch (index_format)
         {
@@ -42,31 +59,140 @@ struct MeshAssetMetadata
         case IndexBufferFormat::UInt32:
             return sizeof(uint32_t);
         }
+
+        MIZU_UNREACHABLE("Invalid IndexBufferFormat");
+        return 0;
     }
 
-    uint64_t get_index_data_size_bytes() const { return index_count * get_index_element_size_bytes(); }
-
-    uint64_t get_total_size_bytes() const
+    uint32_t get_draw_vertex_count(uint8_t lod) const
     {
-        if (index_count > 0)
-            return index_data_offset + get_index_data_size_bytes();
-
-        return vertex_data_offset + get_vertex_data_size_bytes();
+        assert_valid_lod(lod);
+        return sum_vertex_count(lod);
     }
 
-    uint64_t get_vertex_alignment_bytes() const { return alignof(MeshAssetVertex); }
-    uint64_t get_index_alignment_bytes() const { return get_index_element_size_bytes(); }
-
-    uint64_t get_total_alignment_bytes() const
+    uint32_t get_draw_first_index(uint8_t lod) const
     {
-        const uint64_t vertex_alignment = alignof(MeshAssetVertex);
-        const uint64_t index_alignment = get_index_element_size_bytes();
-        return std::max(vertex_alignment, index_alignment);
+        assert_valid_lod(lod);
+        return sum_index_count(lod + 1);
+    }
+
+    uint32_t get_draw_index_count(uint8_t lod) const
+    {
+        assert_valid_lod(lod);
+        return lods[lod].index_count;
+    }
+
+    uint64_t get_vertex_data_size_bytes(uint8_t finest_lod) const
+    {
+        assert_valid_lod(finest_lod);
+        return static_cast<uint64_t>(sum_vertex_count(finest_lod)) * get_vertex_stride_bytes();
+    }
+
+    uint64_t get_index_data_size_bytes(uint8_t finest_lod) const
+    {
+        assert_valid_lod(finest_lod);
+        return static_cast<uint64_t>(sum_index_count(finest_lod)) * get_index_stride_bytes();
+    }
+
+    uint64_t get_lod_vertex_offset_bytes(uint8_t lod) const
+    {
+        assert_valid_lod(lod);
+        return static_cast<uint64_t>(sum_vertex_count(lod + 1)) * get_vertex_stride_bytes();
+    }
+
+    uint64_t get_lod_vertex_size_bytes(uint8_t lod) const
+    {
+        assert_valid_lod(lod);
+        return static_cast<uint64_t>(lods[lod].vertex_count) * get_vertex_stride_bytes();
+    }
+
+    uint64_t get_lod_index_offset_bytes(uint8_t lod) const
+    {
+        assert_valid_lod(lod);
+        return static_cast<uint64_t>(sum_index_count(lod + 1)) * get_index_stride_bytes();
+    }
+
+    uint64_t get_lod_index_size_bytes(uint8_t lod) const
+    {
+        assert_valid_lod(lod);
+        return static_cast<uint64_t>(lods[lod].index_count) * get_index_stride_bytes();
+    }
+
+    uint64_t get_lod_vertex_file_offset(uint8_t lod) const
+    {
+        assert_valid_lod(lod);
+        return sum_file_size_bytes(lod + 1);
+    }
+
+    uint64_t get_lod_index_file_offset(uint8_t lod) const
+    {
+        return get_lod_vertex_file_offset(lod) + get_vertex_segment_size_bytes(lod);
+    }
+
+    uint64_t get_lod_range_file_offset(uint8_t first_lod, uint8_t count) const
+    {
+        assert_valid_lod_range(first_lod, count);
+        return sum_file_size_bytes(first_lod + count);
+    }
+
+    uint64_t get_lod_range_file_size_bytes(uint8_t first_lod, uint8_t count) const
+    {
+        assert_valid_lod_range(first_lod, count);
+        return sum_file_size_bytes(first_lod) - sum_file_size_bytes(first_lod + count);
+    }
+
+    uint64_t get_total_size_bytes() const { return sum_file_size_bytes(0); }
+
+  private:
+    void assert_valid_lod(uint8_t lod) const
+    {
+        MIZU_ASSERT(lod < get_num_lods(), "Invalid lod {} for asset with {} lods", lod, get_num_lods());
+    }
+
+    void assert_valid_lod_range(uint8_t first_lod, uint8_t count) const
+    {
+        MIZU_ASSERT(
+            count > 0 && first_lod + count <= get_num_lods(),
+            "Invalid lod range [{}, {}) for asset with {} lods",
+            first_lod,
+            first_lod + count,
+            get_num_lods());
+    }
+
+    uint32_t sum_vertex_count(uint8_t first_lod) const
+    {
+        uint32_t count = 0;
+        for (uint8_t lod = first_lod; lod < get_num_lods(); ++lod)
+            count += lods[lod].vertex_count;
+        return count;
+    }
+
+    uint32_t sum_index_count(uint8_t first_lod) const
+    {
+        uint32_t count = 0;
+        for (uint8_t lod = first_lod; lod < get_num_lods(); ++lod)
+            count += lods[lod].index_count;
+        return count;
+    }
+
+    uint64_t get_vertex_segment_size_bytes(uint8_t lod) const
+    {
+        return math::align_up(get_lod_vertex_size_bytes(lod), MESH_FILE_SEGMENT_ALIGNMENT);
+    }
+
+    uint64_t get_index_segment_size_bytes(uint8_t lod) const
+    {
+        return math::align_up(get_lod_index_size_bytes(lod), MESH_FILE_SEGMENT_ALIGNMENT);
+    }
+
+    uint64_t sum_file_size_bytes(uint8_t first_lod) const
+    {
+        uint64_t size = 0;
+        for (uint8_t lod = first_lod; lod < get_num_lods(); ++lod)
+            size += get_vertex_segment_size_bytes(lod) + get_index_segment_size_bytes(lod);
+        return size;
     }
 };
-
-constexpr uint64_t MESH_METADATA_SIZE = sizeof(uint64_t) * 4 + sizeof(uint32_t) + sizeof(float) * 6;
-static_assert(sizeof(MeshAssetMetadata) >= MESH_METADATA_SIZE, "MeshAssetMetadata size mismatch");
 
 struct TextureAssetMetadata
 {
@@ -74,10 +200,12 @@ struct TextureAssetMetadata
     uint32_t height = 0;
     uint32_t depth = 0;
 
-    uint32_t num_mips = 1;
+    uint8_t num_mips = 1;
     ImageFormat format = ImageFormat::R8G8B8A8_SRGB;
 
-    uint64_t get_mip_size_bytes(uint32_t mip) const
+    uint8_t streamable_mips = 0;
+
+    uint64_t get_mip_size_bytes(uint8_t mip) const
     {
         MIZU_ASSERT(
             mip < num_mips, "Trying to request mip size in bytes for mip {} on metadata with {} mips", mip, num_mips);
@@ -89,13 +217,24 @@ struct TextureAssetMetadata
         return static_cast<uint64_t>(mip_size.x) * mip_size.y * depth * get_image_format_size(format);
     }
 
-    uint64_t get_mip_offset(uint32_t mip) const
+    uint64_t get_mip_offset(uint8_t mip) const
     {
         uint64_t offset = 0;
-        for (uint32_t i = 0; i < mip; ++i)
+        for (uint8_t i = 0; i < mip; ++i)
             offset += get_mip_size_bytes(i);
 
         return offset;
+    }
+
+    uint64_t get_mip_range_size_bytes(uint8_t first, uint8_t count) const
+    {
+        if (width == 0 || height == 0 || depth == 0 || num_mips == 0)
+            return 0;
+
+        const uint64_t start = get_mip_offset(first);
+        const uint64_t end = get_mip_offset(first + count);
+
+        return end - start;
     }
 
     uint64_t get_total_size_bytes() const
@@ -107,10 +246,7 @@ struct TextureAssetMetadata
     }
 };
 
-constexpr uint64_t TEXTURE_METADATA_SIZE = sizeof(uint32_t) * 4 + sizeof(ImageFormat);
-static_assert(sizeof(TextureAssetMetadata) >= TEXTURE_METADATA_SIZE, "TextureAssetMetadata size mismatch");
-
-constexpr uint64_t MAX_TEXTURES_PER_MATERIAL = 16;
+constexpr uint32_t MAX_TEXTURES_PER_MATERIAL = 16;
 
 struct MaterialAssetMetadata
 {
@@ -118,10 +254,6 @@ struct MaterialAssetMetadata
     uint32_t num_textures = 0;
     inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL> texture_handles{};
 };
-
-constexpr uint64_t MATERIAL_METADATA_SIZE = sizeof(ShaderAssetHandle) + sizeof(uint32_t)
-                                            + sizeof(inplace_vector<TextureAssetHandle, MAX_TEXTURES_PER_MATERIAL>);
-static_assert(sizeof(MaterialAssetMetadata) >= MATERIAL_METADATA_SIZE, "MaterialAssetMetadata size mismatch");
 
 struct PrefabMeshInfo
 {
@@ -135,9 +267,6 @@ struct PrefabAssetMetadata
 
     uint64_t get_total_size_bytes() const { return num_meshes * sizeof(PrefabMeshInfo); }
 };
-
-constexpr uint64_t PREFAB_METADATA_SIZE = sizeof(uint32_t);
-static_assert(sizeof(PrefabAssetMetadata) >= PREFAB_METADATA_SIZE, "PrefabAssetMetadata size mismatch");
 
 struct ShaderAssetMetadata
 {
@@ -153,13 +282,13 @@ struct ShaderAssetMetadata
     uint64_t bytecode_offset = 0;
     uint64_t reflection_offset = 0;
 
-    inline uint64_t get_total_size_bytes() const
+    uint64_t get_total_size_bytes() const
     {
         // Layout is always [ bytecode | reflection ]
         return reflection_offset + reflection_size;
     }
 
-    inline void set_entry_point(std::string_view entry_point_)
+    void set_entry_point(std::string_view entry_point_)
     {
         if (entry_point_.size() > MAX_ENTRY_POINT_LENGTH)
         {
@@ -176,38 +305,41 @@ struct ShaderAssetMetadata
         entry_point_length = static_cast<uint32_t>(length);
     }
 
-    inline std::string get_entry_point() const { return std::string{}.assign(entry_point, entry_point_length); }
+    std::string get_entry_point() const { return std::string{}.assign(entry_point, entry_point_length); }
 };
 
-constexpr uint64_t SHADER_METADATA_SIZE = sizeof(ShaderType) + sizeof(uint32_t)
-                                          + sizeof(char[ShaderAssetMetadata::MAX_ENTRY_POINT_LENGTH])
-                                          + sizeof(uint64_t) * 4;
-static_assert(sizeof(ShaderAssetMetadata) >= SHADER_METADATA_SIZE, "ShaderAssetMetadata size mismatch");
+enum class MetadataType : uint32_t
+{
+    Mesh,
+    Texture,
+    Material,
+    Prefab,
+    Shader,
+};
 
-// Shared Info:
-// - shared   metadata version (uint32_t)
-// - specific metadata version (uint32_t)
-constexpr uint64_t METADATA_SHARED_INFO_SIZE = sizeof(uint32_t) * 2;
+struct AssetFileHeader
+{
+    uint32_t format_version = 0;
+    MetadataType metadata_type{};
+    uint32_t metadata_version = 0;
+    uint32_t metadata_size = 0;
+};
 
-constexpr uint64_t TOTAL_MESH_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MESH_METADATA_SIZE;
-constexpr uint64_t TOTAL_TEXTURE_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + TEXTURE_METADATA_SIZE;
-constexpr uint64_t TOTAL_MATERIAL_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + MATERIAL_METADATA_SIZE;
-constexpr uint64_t TOTAL_PREFAB_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + PREFAB_METADATA_SIZE;
-constexpr uint64_t TOTAL_SHADER_METADATA_SIZE = METADATA_SHARED_INFO_SIZE + SHADER_METADATA_SIZE;
+constexpr uint64_t ASSET_FILE_HEADER_SIZE = sizeof(uint32_t) * 4;
 
-MIZU_ASSET_API void mesh_serialize_metadata(const MeshAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<MeshAssetMetadata> mesh_deserialize_metadata(std::span<const uint8_t> data);
+MIZU_ASSET_API std::optional<AssetFileHeader> asset_parse_file_header(std::span<const uint8_t> data);
 
-MIZU_ASSET_API void texture_serialize_metadata(const TextureAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<TextureAssetMetadata> texture_deserialize_metadata(std::span<const uint8_t> data);
+#define DEFINE_METADATA_FUNCTIONS(Type, name)                                                                \
+    MIZU_ASSET_API uint64_t name##_serialized_metadata_size(const Type& metadata);                           \
+    MIZU_ASSET_API uint64_t name##_serialize_metadata(const Type& metadata, std::span<uint8_t> destination); \
+    MIZU_ASSET_API std::optional<Type> name##_deserialize_metadata(std::span<const uint8_t> data);
 
-MIZU_ASSET_API void material_serialize_metadata(const MaterialAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<MaterialAssetMetadata> material_deserialize_metadata(std::span<const uint8_t> data);
+DEFINE_METADATA_FUNCTIONS(MeshAssetMetadata, mesh)
+DEFINE_METADATA_FUNCTIONS(TextureAssetMetadata, texture)
+DEFINE_METADATA_FUNCTIONS(MaterialAssetMetadata, material)
+DEFINE_METADATA_FUNCTIONS(PrefabAssetMetadata, prefab)
+DEFINE_METADATA_FUNCTIONS(ShaderAssetMetadata, shader)
 
-MIZU_ASSET_API void prefab_serialize_metadata(const PrefabAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<PrefabAssetMetadata> prefab_deserialize_metadata(std::span<const uint8_t> data);
-
-MIZU_ASSET_API void shader_serialize_metadata(const ShaderAssetMetadata& metadata, std::span<uint8_t> destination);
-MIZU_ASSET_API std::optional<ShaderAssetMetadata> shader_deserialize_metadata(std::span<const uint8_t> data);
+#undef DEFINE_METADATA_FUNCTIONS
 
 } // namespace Mizu

@@ -4,12 +4,13 @@
 #include "base/debug/logging.h"
 #include "base/math/math.h"
 
+#include "dx12_acceleration_structure.h"
 #include "dx12_buffer_resource.h"
 #include "dx12_context.h"
+#include "dx12_debug.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_resource_view.h"
-#include "dx12_synchronization.h"
 #include "dx12_types.h"
 
 namespace Mizu::Dx12
@@ -55,30 +56,6 @@ void Dx12CommandBuffer::end()
 #endif
 
     DX12_CHECK(m_command_list->Close());
-}
-
-void Dx12CommandBuffer::submit(const CommandBufferSubmitInfo& info) const
-{
-    for (const WaitSemaphore& wait : info.wait_semaphores)
-    {
-        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*wait.semaphore);
-        native_semaphore.wait(get_queue());
-    }
-
-    ID3D12CommandList* command_lists[] = {m_command_list};
-    get_queue()->ExecuteCommandLists(_countof(command_lists), command_lists);
-
-    if (info.signal_fence != nullptr)
-    {
-        Dx12Fence& native_fence = static_cast<Dx12Fence&>(*info.signal_fence);
-        native_fence.signal(get_queue());
-    }
-
-    for (const SignalSemaphore& signal : info.signal_semaphores)
-    {
-        Dx12Semaphore& native_semaphore = static_cast<Dx12Semaphore&>(*signal.semaphore);
-        native_semaphore.signal(get_queue());
-    }
 }
 
 void Dx12CommandBuffer::bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set)
@@ -1031,13 +1008,19 @@ void Dx12CommandBuffer::copy_image_to_image(
     const D3D12_TEXTURE_COPY_LOCATION src_location{
         .pResource = native_source.handle(),
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = 0,
+        .SubresourceIndex = calc_dx12_subresource_index(
+            info.source_subresource_layers,
+            native_source.get_description().num_mips,
+            native_source.get_description().num_layers),
     };
 
     const D3D12_TEXTURE_COPY_LOCATION dst_location{
         .pResource = native_dest.handle(),
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = 0,
+        .SubresourceIndex = calc_dx12_subresource_index(
+            info.dest_subresource_layers,
+            native_dest.get_description().num_mips,
+            native_dest.get_description().num_layers),
     };
 
     const D3D12_BOX src_box{
@@ -1066,8 +1049,8 @@ void Dx12CommandBuffer::copy_buffer_to_image(
 
     const uint32_t format_size = get_image_format_size(native_image.get_format());
     const uint32_t num_mips = native_image.get_description().num_mips;
-    const uint32_t subresource_index =
-        info.image_subresource_layers.mip_level + info.image_subresource_layers.base_array_layer * num_mips;
+    const uint32_t num_layers = native_image.get_description().num_layers;
+    const uint32_t subresource_index = calc_dx12_subresource_index(info.image_subresource_layers, num_mips, num_layers);
 
     // If the caller specified a row length honor it.
     // Otherwise fall back to a tightly packed pitch.
@@ -1133,7 +1116,8 @@ void Dx12CommandBuffer::copy_image_to_buffer(
     const D3D12_TEXTURE_COPY_LOCATION src_location{
         .pResource = native_image.handle(),
         .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = 0,
+        .SubresourceIndex = calc_dx12_subresource_index(
+            info.image_subresource_layers, native_image.get_num_mips(), native_image.get_num_layers()),
     };
 
     const D3D12_TEXTURE_COPY_LOCATION dst_location{
@@ -1313,11 +1297,6 @@ void Dx12CommandBuffer::begin_gpu_marker(std::string_view label) const
 void Dx12CommandBuffer::end_gpu_marker() const
 {
     DX12_DEBUG_END_GPU_MARKER(m_command_list);
-}
-
-ID3D12CommandQueue* Dx12CommandBuffer::get_queue() const
-{
-    return Dx12Context.device->get_queue(m_type);
 }
 
 } // namespace Mizu::Dx12

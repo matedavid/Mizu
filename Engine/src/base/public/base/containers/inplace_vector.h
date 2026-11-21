@@ -167,6 +167,16 @@ class inplace_vector
         return m_data[m_size++];
     }
 
+    constexpr void resize(size_t size)
+    {
+        MIZU_ASSERT(size <= Capacity, "Exceeding capacity ({} > {})", size, Capacity);
+
+        for (size_t i = m_size; i < size; ++i)
+            m_data[i] = T{};
+
+        m_size = size;
+    }
+
     T* data() { return m_data.data(); }
     const T* data() const { return m_data.data(); }
 

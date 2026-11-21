@@ -12,65 +12,36 @@ namespace Mizu::Dx12
 // Dx12Fence
 //
 
-Dx12Fence::Dx12Fence([[maybe_unused]] bool signaled)
+Dx12Fence::Dx12Fence(uint64_t initial_value)
 {
-    DX12_CHECK(Dx12Context.device->handle()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_handle)));
-
-    m_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    MIZU_ASSERT(m_event != nullptr, "Failed to create event");
-
-    m_next_value = 1;
-    m_last_signaled_value = 0;
+    DX12_CHECK(
+        Dx12Context.device->handle()->CreateFence(initial_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_handle)));
 }
 
 Dx12Fence::~Dx12Fence()
 {
-    CloseHandle(m_event);
     m_handle->Release();
 }
 
-void Dx12Fence::wait_for()
+uint64_t Dx12Fence::get_completed_value() const
+{
+    return m_handle->GetCompletedValue();
+}
+
+void Dx12Fence::wait(uint64_t value) const
 {
     MIZU_PROFILE_SCOPED;
 
-    const uint64_t completed = m_handle->GetCompletedValue();
-    if (completed < m_last_signaled_value)
-    {
-        DX12_CHECK(m_handle->SetEventOnCompletion(m_last_signaled_value, m_event));
-        WaitForSingleObject(m_event, INFINITE);
-    }
+    if (m_handle->GetCompletedValue() >= value)
+        return;
+
+    // A null event makes the call block until the value is reached, which avoids sharing an event between threads
+    DX12_CHECK(m_handle->SetEventOnCompletion(value, nullptr));
 }
 
-void Dx12Fence::signal(ID3D12CommandQueue* queue)
+void Dx12Fence::signal(uint64_t value)
 {
-    const uint64_t value = m_next_value++;
-    DX12_CHECK(queue->Signal(m_handle, value));
-    m_last_signaled_value = value;
-}
-
-//
-// Dx12Semaphore
-//
-
-Dx12Semaphore::Dx12Semaphore() : m_counter(0)
-{
-    DX12_CHECK(Dx12Context.device->handle()->CreateFence(m_counter, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_handle)));
-}
-
-Dx12Semaphore::~Dx12Semaphore()
-{
-    m_handle->Release();
-}
-
-void Dx12Semaphore::signal(ID3D12CommandQueue* queue)
-{
-    m_counter += 1;
-    DX12_CHECK(queue->Signal(m_handle, m_counter));
-}
-
-void Dx12Semaphore::wait(ID3D12CommandQueue* queue)
-{
-    DX12_CHECK(queue->Wait(m_handle, m_counter));
+    DX12_CHECK(m_handle->Signal(value));
 }
 
 } // namespace Mizu::Dx12

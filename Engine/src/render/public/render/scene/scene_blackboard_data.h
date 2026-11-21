@@ -11,8 +11,7 @@ namespace Mizu
 {
 
 class FrameLinearAllocator;
-class MaterialResidencySystem;
-class TextureResidencySystem;
+class MaterialSystem;
 struct RenderViewRegistryEntry;
 
 struct FrameData
@@ -25,8 +24,7 @@ struct FrameData
 struct RenderSystemsData
 {
     FrameLinearAllocator& frame_allocator;
-    TextureResidencySystem& texture_residency_system;
-    MaterialResidencySystem& material_residency_system;
+    MaterialSystem& material_system;
 };
 
 struct RenderViewData

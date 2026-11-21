@@ -1,0 +1,603 @@
+#include "streaming/texture_streaming_manager.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <format>
+#include <glm/glm.hpp>
+
+#include "asset/asset_loader.h"
+#include "base/debug/assert.h"
+#include "base/debug/logging.h"
+#include "base/debug/profiling.h"
+#include "base/math/geometric.h"
+#include "base/math/math.h"
+#include "base/math/shapes.h"
+
+#include "registries/render_view_registry.h"
+#include "registries/transform_registry.h"
+#include "render/streaming/streaming_settings.h"
+#include "render/systems/frame_linear_allocator.h"
+#include "resources/asset_load_scheduler.h"
+#include "streaming/streaming_utils.h"
+#include "streaming/texture_streaming_pool.h"
+
+namespace Mizu
+{
+
+static constexpr uint32_t TEXTURE_FRAMES_TO_UPDATE = 3u;
+
+TextureStreamingManager::TextureStreamingManager(
+    TextureStreamingManagerDescription desc,
+    IAssetLoader& asset_loader,
+    AssetLoadScheduler& load_scheduler,
+    StagingPool& staging_pool,
+    GpuPageAllocator& page_allocator,
+    SparseBindScheduler& sparse_bind_scheduler)
+    : m_asset_loader(asset_loader)
+    , m_load_scheduler(load_scheduler)
+    , m_staging_pool(staging_pool)
+    , m_texture_pool(desc.pool, page_allocator, sparse_bind_scheduler)
+{
+}
+
+void TextureStreamingManager::update(const StreamingContext& context)
+{
+    MIZU_PROFILE_SCOPED;
+
+    m_texture_updates.clear();
+
+    if (context.settings.mode == StreamingMode::Frozen)
+    {
+        return;
+    }
+
+    if (m_update_cursor >= TEXTURE_FRAMES_TO_UPDATE)
+    {
+        m_update_cursor = 0;
+    }
+
+    if (m_update_cursor == 0)
+    {
+        m_iterations_per_update =
+            math::ceil_div(static_cast<uint32_t>(m_streamable_textures.size()), TEXTURE_FRAMES_TO_UPDATE);
+    }
+
+    for (TextureAssetHandle handle : m_dirty_handles)
+    {
+        refresh(handle, context);
+    }
+
+    m_dirty_handles.clear();
+
+    for (uint32_t i = 0; i < m_iterations_per_update; ++i)
+    {
+        const uint32_t streamable_idx = m_update_cursor * m_iterations_per_update + i;
+        if (streamable_idx >= m_streamable_textures.size())
+            break;
+
+        const TextureAssetHandle handle = m_streamable_textures[streamable_idx];
+        refresh(handle, context);
+    }
+
+    m_update_cursor += 1;
+}
+
+void TextureStreamingManager::gather(std::vector<StreamingRequest>& requests)
+{
+    for (const StreamingRequest& pending : m_pending_requests)
+    {
+        requests.push_back(pending);
+    }
+
+    m_pending_requests.clear();
+}
+
+void TextureStreamingManager::execute(const StreamingContext& context, std::span<StreamingAward> awards)
+{
+    MIZU_PROFILE_SCOPED;
+
+    for (const StreamingAward& award : awards)
+    {
+        MIZU_ASSERT(
+            award.request.asset_key.type == AssetType::Texture,
+            "Trying to execute award for invalid asset type. Got = {}, Expected = {}",
+            meta::enum_name(award.request.asset_key.type),
+            meta::enum_name(AssetType::Texture));
+
+        const StreamingRequest& request = award.request;
+
+        const TextureAssetHandle handle = to_asset_handle<TextureAssetHandle>(request.asset_key);
+
+        TextureEntry* entry = find_entry(handle);
+        if (entry == nullptr)
+        {
+            MIZU_UNREACHABLE("Failed to find texture entry for handle: {}", handle.get_id());
+            continue;
+        }
+        const TextureAssetMetadata& metadata = entry->metadata;
+
+        TextureResidencyPayload* payload = m_residency.get_payload(handle);
+        if (payload == nullptr)
+        {
+            MIZU_UNREACHABLE("Failed to get payload");
+            continue;
+        }
+
+        if (request.desired_level == 0)
+        {
+            // Eviction case, remove the texture
+
+            if (!m_residency.transition_status(handle, ResidencyStatus::GpuResident, ResidencyStatus::Unloaded))
+            {
+                MIZU_UNREACHABLE("Failed to transition resource when evicting");
+                continue;
+            }
+
+            payload->resident_level = 0;
+            entry->residency_request_since_frame.reset();
+
+            m_texture_pool.update_residency_state(handle, metadata, metadata.num_mips);
+
+            m_texture_updates.push_back({
+                .handle = handle,
+                .view = std::nullopt,
+            });
+
+            if (m_residency.get_references(handle) == 0)
+            {
+                unregister_texture(handle);
+            }
+
+            continue;
+        }
+
+        const uint8_t first_mip = metadata.num_mips - request.desired_level;
+        const int8_t mip_delta = request.desired_level - request.resident_level;
+
+        if (context.settings.logging_enabled)
+        {
+            MIZU_LOG_INFO(
+                "Streaming handle={}, first_mip={}, mip_delta={}, desired_level={}, resident_level={}",
+                request.asset_key.id,
+                first_mip,
+                mip_delta,
+                request.desired_level,
+                request.resident_level);
+        }
+
+        const ResidencyStatus expected_status =
+            payload->resident_level == 0 ? ResidencyStatus::Unloaded : ResidencyStatus::GpuResident;
+        if (!m_residency.transition_status(handle, expected_status, ResidencyStatus::Loading))
+        {
+            if (award.staging_block.is_valid())
+            {
+                m_staging_pool.free(award.staging_block);
+            }
+
+            MIZU_UNREACHABLE("Failed to transition texture when requesting a load");
+            continue;
+        }
+
+        PendingTextureResidencyUpdate residency_update =
+            m_texture_pool.begin_residency_update(handle, metadata, first_mip);
+        if (!residency_update)
+        {
+            m_residency.transition_status(handle, ResidencyStatus::Loading, expected_status);
+
+            if (award.staging_block.is_valid())
+            {
+                m_staging_pool.free(award.staging_block);
+            }
+
+            continue;
+        }
+
+        if (mip_delta >= 0)
+        {
+            const bool requested = m_load_scheduler.request_texture_load(
+                handle,
+                first_mip,
+                static_cast<uint8_t>(mip_delta),
+                award.staging_block.as_span(),
+                [this, metadata, request, block = award.staging_block](TextureAssetHandle handle) {
+                    m_gpu_upload_queue.push({
+                        .handle = handle,
+                        .metadata = metadata,
+                        .request = request,
+                        .staging_block = block,
+                    });
+                });
+
+            if (!requested)
+            {
+                residency_update.abort();
+                m_residency.transition_status(handle, ResidencyStatus::Loading, expected_status);
+                m_staging_pool.free(award.staging_block);
+
+                MIZU_LOG_WARNING("Texture load queue is full, handle: {}", handle.get_id());
+                continue;
+            }
+        }
+
+        residency_update.commit();
+
+        if (mip_delta < 0)
+        {
+            // Streaming out case, no need to request texture load, just add the gpu upload
+
+            m_gpu_upload_queue.push({
+                .handle = handle,
+                .metadata = metadata,
+                .request = request,
+                .staging_block = StagingBlock{},
+            });
+        }
+
+        entry->residency_request_since_frame.reset();
+    }
+}
+
+void TextureStreamingManager::post_execute()
+{
+    m_texture_pool.update();
+}
+
+void TextureStreamingManager::record_gpu_uploads(CommandBuffer& command, FrameLinearAllocator& frame_allocator)
+{
+    size_t num_uploads = m_gpu_upload_queue.size();
+
+    GpuUploadRecord record{};
+    while (num_uploads > 0 && m_gpu_upload_queue.pop(record))
+    {
+        num_uploads -= 1;
+
+        command.begin_gpu_marker("TextureStreamingManager::TextureUpload");
+
+        const uint8_t num_mips = record.metadata.num_mips;
+        const uint8_t old_first_mip = num_mips - record.request.resident_level;
+        const uint8_t new_first_mip = num_mips - record.request.desired_level;
+
+        const TextureUploadData upload{
+            .old_first_mip = old_first_mip,
+            .new_first_mip = new_first_mip,
+            .data = record.staging_block.is_valid() ? std::span<const uint8_t>(record.staging_block.as_span())
+                                                    : std::span<const uint8_t>{},
+        };
+
+        m_texture_pool.record_gpu_upload(record.handle, record.metadata, upload, command, frame_allocator);
+
+        if (record.staging_block.is_valid())
+        {
+            m_staging_pool.free(record.staging_block);
+        }
+
+        TextureResidencyPayload* payload = m_residency.get_payload(record.handle);
+        payload->resident_level = record.request.desired_level;
+
+        if (!m_residency.transition_status(record.handle, ResidencyStatus::Loading, ResidencyStatus::GpuResident))
+        {
+            MIZU_UNREACHABLE("Failed to transition handle state when finalizing an upload");
+            continue;
+        }
+
+        m_texture_updates.push_back({
+            .handle = record.handle,
+            .view = m_texture_pool.get_resource_view(record.handle),
+        });
+
+        command.end_gpu_marker();
+    }
+}
+
+void TextureStreamingManager::add_usage(const TextureStreamingUsage& usage)
+{
+    if (m_usage_to_texture.contains(usage.streaming_handle))
+    {
+        MIZU_UNREACHABLE(
+            "Trying to add usage with streaming handle ({}) that already exists", usage.streaming_handle.id);
+        return;
+    }
+
+    TextureEntry* entry = register_texture(usage.texture_handle);
+    if (entry == nullptr)
+        return;
+
+    if (!m_residency.increment_reference_count(usage.texture_handle))
+    {
+        MIZU_UNREACHABLE("Failed to increment reference count");
+        return;
+    }
+
+    if (entry->usages.empty() && entry->is_streamable())
+    {
+        m_streamable_textures.push_back(usage.texture_handle);
+    }
+
+    entry->usages.push_back(usage);
+    m_usage_to_texture.emplace(usage.streaming_handle, usage.texture_handle);
+
+    m_dirty_handles.push_back(usage.texture_handle);
+}
+
+void TextureStreamingManager::remove_usage(TextureStreamingHandle streaming_handle)
+{
+    const auto it = m_usage_to_texture.find(streaming_handle);
+    if (it == m_usage_to_texture.end())
+    {
+        MIZU_UNREACHABLE("Trying to remove usage with owner handle ({}) that does not exist", streaming_handle.id);
+        return;
+    }
+
+    const TextureAssetHandle texture_handle = it->second;
+
+    if (!m_residency.decrement_reference_count(texture_handle))
+    {
+        MIZU_UNREACHABLE("Failed to decrement reference count");
+        return;
+    }
+
+    m_usage_to_texture.erase(it);
+
+    TextureEntry* entry = find_entry(texture_handle);
+    MIZU_ASSERT(entry != nullptr, "Failed to find texture entry");
+
+    std::vector<TextureStreamingUsage>& usages = entry->usages;
+
+    const auto usage_it = std::ranges::find_if(
+        usages, [&](const TextureStreamingUsage& u) { return u.streaming_handle == streaming_handle; });
+    MIZU_ASSERT(usage_it != usages.end(), "Failed to find usage in texture entry");
+
+    // Order doesn't matter, swap and pop
+    if (usage_it != std::prev(usages.end()))
+    {
+        *usage_it = usages.back();
+    }
+    usages.pop_back();
+
+    // The entry (and its cached metadata) stays alive so the pending eviction can still be processed
+    if (usages.empty() && entry->is_streamable())
+    {
+        std::erase(m_streamable_textures, texture_handle);
+    }
+
+    m_dirty_handles.push_back(texture_handle);
+}
+
+bool TextureStreamingManager::is_drawable(TextureAssetHandle handle) const
+{
+    const TextureResidencyPayload* payload = m_residency.get_payload(handle);
+    return payload != nullptr && payload->resident_level > 0;
+}
+
+void TextureStreamingManager::refresh(TextureAssetHandle handle, const StreamingContext& context)
+{
+    MIZU_PROFILE_SCOPED;
+
+    const ResidencyStatus status = m_residency.get_status(handle);
+
+    if (status == ResidencyStatus::Loading)
+    {
+        // If currently streaming, ignore and defer to a next frame to prevent race conditions
+        return;
+    }
+
+    // Check if there is already a pending request for this texture handle
+    // TODO: Could investigate in the future if there is a better approach, like joining duplicated handles into a
+    // single, max, request
+    if (has_pending_request_for_handle(handle))
+    {
+        return;
+    }
+
+    const uint32_t references = m_residency.get_references(handle);
+    const TextureResidencyPayload* payload = m_residency.get_payload(handle);
+    MIZU_ASSERT(payload != nullptr, "Failed to get payload for texture handle: {}", handle.get_id());
+
+    if (references == 0 && payload->resident_level == 0)
+    {
+        unregister_texture(handle);
+        return;
+    }
+
+    TextureEntry* entry = find_entry(handle);
+    if (entry == nullptr)
+    {
+        MIZU_UNREACHABLE("Failed to find texture entry for handle: {}", handle.get_id());
+        return;
+    }
+
+    const std::optional<EvaluateResult> result = evaluate(handle, *entry, context, *payload, references);
+    if (!result.has_value())
+    {
+        entry->residency_request_since_frame.reset();
+        return;
+    }
+
+    if (result->desired_level == payload->resident_level)
+    {
+        entry->residency_request_since_frame.reset();
+        return;
+    }
+
+    if (!entry->residency_request_since_frame.has_value())
+    {
+        entry->residency_request_since_frame = context.frame.frame_num;
+    }
+
+    const int8_t delta = static_cast<int8_t>(result->desired_level) - static_cast<int8_t>(payload->resident_level);
+    m_pending_requests.push_back({
+        .asset_key = to_asset_key(handle),
+        .resident_level = payload->resident_level,
+        .desired_level = result->desired_level,
+        .level_delta = delta,
+        .score = result->score + streaming_age_score(entry->residency_request_since_frame, context.frame.frame_num),
+        .staging_size_bytes = result->staging_size_bytes,
+    });
+}
+
+auto TextureStreamingManager::evaluate(
+    TextureAssetHandle handle,
+    const TextureEntry& entry,
+    const StreamingContext& context,
+    const TextureResidencyPayload& payload,
+    uint32_t references) -> std::optional<EvaluateResult>
+{
+    constexpr float EVICTION_SCORE = 5.0f;
+    constexpr float FIRST_LOAD_SCORE = 10.0f;
+
+    const TextureAssetMetadata& metadata = entry.metadata;
+
+    // If it has no references, means that it has no further usages. Request eviction.
+    if (references == 0)
+    {
+        return EvaluateResult{
+            .desired_level = 0,
+            .score = EVICTION_SCORE,
+            .staging_size_bytes = 0,
+        };
+    }
+
+    const bool streamable = entry.is_streamable();
+    const uint8_t max_level = metadata.num_mips;
+
+    // If it's not streamable, and the resident level is 0, it means it's the first load of the asset, and because
+    // we don't have to take into account which quality to load, just request the load.
+    if (!streamable && payload.resident_level == 0)
+    {
+        return EvaluateResult{
+            .desired_level = max_level,
+            .score = FIRST_LOAD_SCORE,
+            .staging_size_bytes = metadata.get_mip_range_size_bytes(0, metadata.num_mips),
+        };
+    }
+
+    if (!streamable)
+        return std::nullopt;
+
+    const uint32_t texture_dim = glm::max(metadata.width, metadata.height);
+
+    const uint8_t coarsest_first_mip = m_texture_pool.get_coarsest_first_mip(handle);
+
+    const uint8_t streamable_mip_limit = glm::min<uint8_t>(metadata.streamable_mips, metadata.num_mips - 1);
+    const uint8_t mip_tail_start = glm::min(streamable_mip_limit, coarsest_first_mip);
+    // TODO: Kept as a variable in case in the future we add the ability to "skip mips"
+    const uint8_t finest_top_mip = 0;
+
+    const TransformRegistry& transform_registry = transform_registry_get();
+
+    const bool full_residency = context.settings.mode == StreamingMode::FullResidency;
+
+    uint8_t desired_level = full_residency ? metadata.num_mips - finest_top_mip : 0;
+    float score = 0.0f;
+
+    for (const TextureStreamingUsage& usage : entry.usages)
+    {
+        if (desired_level == max_level)
+        {
+            // We're already registering the max quality level, no need to evaluate other usages
+            break;
+        }
+
+        const TransformInfo& transform_info = transform_registry.get_transform_info(usage.transform_handle);
+
+        const float scale = math::max_axis_scale(transform_info.transform);
+        const math::Sphere sphere = bounding_sphere_from_transformed_aabb(usage.aabb, transform_info.transform);
+
+        for (const RenderViewRegistryEntry& view : context.frame.views)
+        {
+            const float center_depth = -(view.view_matrix * glm::vec4(sphere.center, 1.0f)).z;
+            // TODO: This is to ignore if it's behind the camera, keeping commented to prevent popping when doing a 180º
+            // if (center_depth + sphere.radius <= view.camera.znear)
+            //     continue;
+
+            const float depth = glm::max(center_depth - sphere.radius, view.camera.znear);
+
+            const float pixels_per_uv =
+                usage.texel_factor * scale
+                * pixels_per_world_unit(view.viewport, view.camera.fov, depth, context.frame.viewport_size);
+            const float texels_per_pixel = static_cast<float>(texture_dim) / std::max(pixels_per_uv, 0.0001f);
+
+            constexpr float MIP_BIAS = 0.5f;
+            const float lod = std::log2(texels_per_pixel) - MIP_BIAS;
+            if (std::isnan(lod))
+                continue;
+
+            const float clamped =
+                glm::clamp(lod, static_cast<float>(finest_top_mip), static_cast<float>(mip_tail_start));
+            const uint8_t top_mip = static_cast<uint8_t>(std::floor(clamped));
+
+            const uint8_t desired = metadata.num_mips - top_mip;
+            const float coverage = projected_area_fraction(sphere, view, context.frame.viewport_size);
+
+            desired_level = glm::max(desired_level, desired);
+            score = glm::max(score, coverage);
+        }
+    }
+
+    if (payload.resident_level == 0)
+        score += FIRST_LOAD_SCORE;
+
+    uint64_t staging_size_bytes = 0;
+
+    const uint8_t first_mip = metadata.num_mips - desired_level;
+    const int8_t mip_delta = desired_level - payload.resident_level;
+    if (mip_delta > 0)
+    {
+        staging_size_bytes = metadata.get_mip_range_size_bytes(first_mip, static_cast<uint8_t>(mip_delta));
+    }
+
+    return EvaluateResult{
+        .desired_level = desired_level,
+        .score = score,
+        .staging_size_bytes = staging_size_bytes,
+    };
+}
+
+auto TextureStreamingManager::find_entry(TextureAssetHandle handle) -> TextureEntry*
+{
+    const auto it = m_textures.find(handle);
+    return it != m_textures.end() ? &it->second : nullptr;
+}
+
+auto TextureStreamingManager::register_texture(TextureAssetHandle handle) -> TextureEntry*
+{
+    if (TextureEntry* entry = find_entry(handle))
+        return entry;
+
+    const std::optional<TextureAssetRecord> record = m_asset_loader.get_texture_record(handle);
+    if (!record.has_value())
+    {
+        MIZU_UNREACHABLE("Failed to get record for TextureAssetHandle: {}", handle.get_id());
+        return nullptr;
+    }
+
+    m_texture_pool.register_texture(handle, record->metadata);
+
+    return &m_textures.emplace(handle, TextureEntry{.metadata = record->metadata}).first->second;
+}
+
+void TextureStreamingManager::unregister_texture(TextureAssetHandle handle)
+{
+    const auto it = m_textures.find(handle);
+    if (it == m_textures.end())
+        return;
+
+    m_texture_pool.unregister_texture(handle);
+    m_textures.erase(it);
+}
+
+bool TextureStreamingManager::has_pending_request_for_handle(TextureAssetHandle handle) const
+{
+    for (const StreamingRequest& req : m_pending_requests)
+    {
+        const TextureAssetHandle req_handle = to_asset_handle<TextureAssetHandle>(req.asset_key);
+        if (req_handle == handle)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+} // namespace Mizu

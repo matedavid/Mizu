@@ -3,30 +3,14 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <unordered_map>
-#include <vector>
 
 #include "asset/asset_handle.h"
-#include "core/job_system/mpsc_queue.h"
-#include "render_core/rhi/descriptors.h"
-
-#include "resources/asset_load_system.h"
-#include "resources/resource_event_stream.h"
-#include "resources/streaming_planner.h"
 
 namespace Mizu
 {
-
-class AssetLoadSystem;
-class BufferResource;
-class GpuMeshPool;
-class GpuTexturePool;
-struct GpuMeshAllocationHandle;
-struct GpuTextureAllocationHandle;
 
 enum class ResidencyStatus
 {
@@ -36,22 +20,96 @@ enum class ResidencyStatus
     Evicting,
 };
 
-template <typename AssetHandleType, typename RecordPayload>
+template <AssetHandleType AssetHandleT, typename RecordPayload>
 class ResidencySystemBase
 {
-    static_assert(is_asset_handle_v<AssetHandleType>, "AssetHandleType must be a valid AssetHandle type");
-
   public:
-    virtual ~ResidencySystemBase() = default;
+    bool increment_reference_count(AssetHandleT handle)
+    {
+        Record* record = get_or_create_record(handle);
+        if (record == nullptr)
+            return false;
 
-    virtual ResidencyStatus get_status(const AssetHandleType& handle) const;
+        record->references.fetch_add(1, std::memory_order_acq_rel);
+
+        return true;
+    }
+
+    bool decrement_reference_count(AssetHandleT handle)
+    {
+        Record* record = get_record(handle);
+        if (record == nullptr)
+            return false;
+
+        // Can't decrement a record with 0 references
+        if (record->references.load(std::memory_order_acquire) == 0)
+            return false;
+
+        record->references.fetch_sub(1, std::memory_order_acq_rel);
+
+        return true;
+    }
+
+    bool transition_status(AssetHandleT handle, ResidencyStatus expected, ResidencyStatus desired)
+    {
+        Record* record = get_record(handle);
+        if (record == nullptr)
+            return false;
+
+        ResidencyStatus current = expected;
+        while (!record->status.compare_exchange_weak(current, desired, std::memory_order_acq_rel))
+        {
+            if (current != expected)
+                return false;
+
+            current = expected;
+        }
+
+        return true;
+    }
+
+    ResidencyStatus get_status(AssetHandleT handle) const
+    {
+        const Record* record = get_record(handle);
+        if (record == nullptr)
+            return ResidencyStatus::Unloaded;
+
+        return record->status.load(std::memory_order_acquire);
+    }
+
+    uint32_t get_references(AssetHandleT handle) const
+    {
+        const Record* record = get_record(handle);
+        if (record == nullptr)
+            return 0;
+
+        return record->references.load(std::memory_order_acquire);
+    }
+
+    RecordPayload* get_payload(AssetHandleT handle)
+    {
+        Record* record = get_record(handle);
+        if (record == nullptr)
+            return nullptr;
+
+        return &record->payload;
+    }
+
+    const RecordPayload* get_payload(AssetHandleT handle) const
+    {
+        const Record* record = get_record(handle);
+        if (record == nullptr)
+            return nullptr;
+
+        return &record->payload;
+    }
 
   protected:
     struct Record
     {
-        AssetHandleType handle{};
+        AssetHandleT handle{};
         std::atomic<ResidencyStatus> status{ResidencyStatus::Unloaded};
-        std::atomic<size_t> references{0};
+        std::atomic<uint32_t> references{0};
         std::atomic<uint64_t> eviction_requested_frame{0};
 
         RecordPayload payload{};
@@ -67,151 +125,79 @@ class ResidencySystemBase
 
     std::array<Shard, NUM_SHARDS> m_shards{};
 
-    bool increment_reference_count(const AssetHandleType& handle);
-    bool decrement_reference_count(const AssetHandleType& handle);
+    Record* get_record(AssetHandleT handle)
+    {
+        Shard& shard = get_shard(handle);
 
-    bool transition_status(const AssetHandleType& handle, ResidencyStatus expected, ResidencyStatus desired);
+        std::lock_guard lock{shard.mutex};
 
-    Record* get_record(const AssetHandleType& handle);
-    const Record* get_record(const AssetHandleType& handle) const;
+        auto it = shard.records.find(handle.get_id());
+        if (it == shard.records.end())
+            return nullptr;
 
-    Record* get_or_create_record(const AssetHandleType& handle);
-    void remove_record(const AssetHandleType& handle);
+        return &it->second;
+    }
 
-    Shard& get_shard(const AssetHandleType& handle);
-    const Shard& get_shard(const AssetHandleType& handle) const;
-};
+    const Record* get_record(AssetHandleT handle) const
+    {
+        const Shard& shard = get_shard(handle);
 
-struct MeshResidencySystemPayload
-{
-    std::optional<GpuMeshResidentRecord> resident_record;
-};
+        std::lock_guard lock{shard.mutex};
 
-class MeshResidencySystem : public ResidencySystemBase<MeshAssetHandle, MeshResidencySystemPayload>
-{
-  public:
-    MeshResidencySystem(
-        AssetLoadSystem& load_system,
-        StreamingMeshRequestQueue& request_queue,
-        GpuMeshPool& gpu_mesh_pool);
+        const auto it = shard.records.find(handle.get_id());
+        if (it == shard.records.end())
+            return nullptr;
 
-    void update(ResourceEventStream& stream, uint64_t frame_num);
+        return &it->second;
+    }
 
-    std::optional<GpuMeshResidentRecord> get_gpu_resident_record(const MeshAssetHandle& handle) const;
+    Record* get_or_create_record(AssetHandleT handle)
+    {
+        Shard& shard = get_shard(handle);
 
-  private:
-    AssetLoadSystem& m_load_system;
-    StreamingMeshRequestQueue& m_request_queue;
-    GpuMeshPool& m_gpu_mesh_pool;
-    MpscQueue<MeshResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
+        std::lock_guard lock{shard.mutex};
 
-    std::vector<MeshAssetHandle> m_pending_evictions;
+        const auto it = shard.records.find(handle.get_id());
+        if (it != shard.records.end())
+            return &it->second;
 
-    void consume_requests(uint64_t frame_num);
-    void track_evictions(uint64_t frame_num);
-    void flush_pending_events(ResourceEventStream& stream);
+        auto [insert_it, inserted] = shard.records.try_emplace(handle.get_id());
+        if (!inserted)
+            return nullptr;
 
-    void request_load(const MeshStreamingRequest& request);
-    void request_eviction(const MeshStreamingRequest& request, uint64_t frame_num);
+        Record& record = insert_it->second;
+        record.handle = handle;
+        record.status.store(ResidencyStatus::Unloaded, std::memory_order_release);
+        record.references.store(0, std::memory_order_release);
+        record.eviction_requested_frame.store(0, std::memory_order_release);
 
-    void cpu_load_finished(const MeshAssetHandle& handle, const CpuAllocationHandle& allocation_handle);
-    void gpu_load_finished(const MeshAssetHandle& handle, const GpuMeshResidentRecord& resident_record);
-};
+        return &record;
+    }
 
-struct TextureResidencySystemPayload
-{
-    std::optional<GpuTextureResidentRecord> resident_record;
-    uint32_t bindless_descriptor_slot = std::numeric_limits<uint32_t>::max();
-};
+    void remove_record(AssetHandleT handle)
+    {
+        Shard& shard = get_shard(handle);
 
-class TextureResidencySystem : public ResidencySystemBase<TextureAssetHandle, TextureResidencySystemPayload>
-{
-  public:
-    TextureResidencySystem(
-        AssetLoadSystem& load_system,
-        StreamingTextureRequestQueue& request_queue,
-        GpuTexturePool& gpu_texture_pool);
+        std::lock_guard lock{shard.mutex};
 
-    void update(ResourceEventStream& stream, uint64_t frame_num);
+        const auto it = shard.records.find(handle.get_id());
+        if (it == shard.records.end())
+            return;
 
-    void request_dependency_load(const TextureAssetHandle& handle);
-    void request_dependency_evict(const TextureAssetHandle& handle, uint64_t frame_num);
+        shard.records.erase(it);
+    }
 
-    std::optional<uint32_t> get_bindless_descriptor_slot(const TextureAssetHandle& handle) const;
+    Shard& get_shard(AssetHandleT handle)
+    {
+        const size_t shard_idx = handle.get_id() % NUM_SHARDS;
+        return m_shards[shard_idx];
+    }
 
-    std::shared_ptr<DescriptorSet> get_bindless_descriptor_set() const { return m_bindless_texture_descriptor_set; }
-
-  private:
-    AssetLoadSystem& m_load_system;
-    StreamingTextureRequestQueue& m_request_queue;
-    GpuTexturePool& m_gpu_texture_pool;
-    MpscQueue<TextureResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
-
-    std::vector<TextureAssetHandle> m_pending_evictions;
-
-    std::shared_ptr<DescriptorSet> m_bindless_texture_descriptor_set;
-    std::vector<uint32_t> m_free_bindless_slots;
-    std::shared_ptr<ImageResource> m_default_texture;
-
-    void consume_requests(uint64_t frame_num);
-    void track_evictions(uint64_t frame_num);
-    void flush_pending_events(ResourceEventStream& stream);
-
-    void request_load(const TextureStreamingRequest& request);
-    void request_eviction(const TextureStreamingRequest& request, uint64_t frame_num);
-
-    void cpu_load_finished(const TextureAssetHandle& handle, const CpuAllocationHandle& allocation_handle);
-    void gpu_load_finished(const TextureAssetHandle& handle, const GpuTextureResidentRecord& resident_record);
-
-    std::optional<uint32_t> allocate_bindless_descriptor_slot();
-    void free_bindless_descriptor_slot(uint32_t slot);
-};
-
-struct MaterialRenderInfo
-{
-    uint32_t material_buffer_offset = std::numeric_limits<uint32_t>::max();
-    ShaderAssetHandle shader_handle{};
-};
-
-class MaterialResidencySystem : public ResidencySystemBase<MaterialAssetHandle, MaterialRenderInfo>
-{
-  public:
-    MaterialResidencySystem(
-        AssetLoadSystem& load_system,
-        StreamingMaterialRequestQueue& request_queue,
-        TextureResidencySystem& texture_residency_system);
-
-    void update(ResourceEventStream& stream, uint64_t frame_num);
-
-    std::optional<MaterialRenderInfo> get_material_render_info(const MaterialAssetHandle& handle) const;
-
-    std::shared_ptr<BufferResource> get_material_buffer() const { return m_material_buffer; }
-
-  private:
-    AssetLoadSystem& m_load_system;
-    StreamingMaterialRequestQueue& m_request_queue;
-    TextureResidencySystem& m_texture_residency_system;
-    MpscQueue<MaterialResidencyEvent, MAX_STREAMING_REQUESTS> m_pending_events;
-
-    std::vector<MaterialAssetRecord> m_pending_records;
-    std::vector<MaterialAssetHandle> m_pending_evictions;
-
-    std::shared_ptr<BufferResource> m_material_buffer;
-    std::vector<uint32_t> m_free_material_buffer_slots;
-
-    void consume_requests(uint64_t frame_num);
-    void refresh_pending_materials();
-    void track_evictions(uint64_t frame_num);
-    void flush_pending_events(ResourceEventStream& stream);
-
-    void request_load(const MaterialStreamingRequest& request);
-    void request_eviction(const MaterialStreamingRequest& request, uint64_t frame_num);
-
-    bool material_dependencies_loaded(const MaterialAssetRecord& record) const;
-    void material_load_finished(const MaterialAssetRecord& record);
-
-    std::optional<uint32_t> allocate_material_buffer_slot();
-    void free_material_buffer_slot(uint32_t slot);
+    const Shard& get_shard(AssetHandleT handle) const
+    {
+        const size_t shard_idx = handle.get_id() % NUM_SHARDS;
+        return m_shards[shard_idx];
+    }
 };
 
 } // namespace Mizu

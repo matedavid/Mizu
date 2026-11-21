@@ -437,6 +437,7 @@ class MIZU_CORE_API JobSystem
     CompletionRecord& allocate_completion_record();
     WaitNode& allocate_wait_node();
     FiberSlot& allocate_fiber_slot(StackSize stack_size);
+    void wait_for_free_fiber_slot();
 
     void free_job_record(JobRecord& job_record);
     void free_completion_record(const CompletionRecord& completion_record);

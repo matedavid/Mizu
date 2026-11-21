@@ -27,6 +27,8 @@
 
 #include "base/debug/assert.h"
 
+#include "render_core/allocators/gpu_block_allocator.h"
+
 namespace Mizu
 {
 
@@ -68,6 +70,10 @@ Device* Device::create(const DeviceCreationDescription& desc)
     Device* device = create_func(desc);
     MIZU_ASSERT(device != nullptr, "Failed to create Rhi Device");
 
+    GpuBlockAllocatorDescription default_allocator_desc{};
+    default_allocator_desc.name = "DefaultGpuAllocator";
+    device->m_default_allocator = std::make_unique<GpuBlockAllocator>(*device, default_allocator_desc);
+
     return device;
 }
 
@@ -78,6 +84,38 @@ void Device::free()
         FREE_LIBRARY(s_library_handle);
         s_library_handle = nullptr;
     }
+}
+
+// Needed here so that we can instantiate m_default_allocator without including the types' header on the .h
+Device::Device() = default;
+
+Device::~Device()
+{
+    MIZU_ASSERT(
+        m_default_allocator == nullptr,
+        "The backend device must call destroy_default_allocator() before destroying the native device");
+}
+
+std::shared_ptr<BufferResource> Device::create_buffer(const BufferDescription& desc, HeapDomain domain) const
+{
+    return get_default_allocator().create_buffer(desc, domain);
+}
+
+std::shared_ptr<ImageResource> Device::create_image(const ImageDescription& desc, HeapDomain domain) const
+{
+    return get_default_allocator().create_image(desc, domain);
+}
+
+GpuAllocator& Device::get_default_allocator() const
+{
+    MIZU_ASSERT(m_default_allocator != nullptr, "Default allocator is not available");
+    return *m_default_allocator;
+}
+
+void Device::destroy_default_allocator()
+{
+    m_default_allocator.reset();
+    m_default_allocator = nullptr;
 }
 
 std::shared_ptr<DescriptorSet> Device::allocate_descriptor_set(

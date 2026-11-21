@@ -15,7 +15,6 @@
 #include "base/utils/enum_utils.h"
 #include "render_core/rhi/acceleration_structure.h"
 #include "render_core/rhi/buffer_resource.h"
-#include "render_core/rhi/device_memory_allocator.h"
 #include "render_core/rhi/image_resource.h"
 #include "render_core/rhi/render_pass.h"
 #include "render_core/rhi/resource_view.h"
@@ -29,7 +28,7 @@ namespace Mizu
 // Forward declarations
 class CommandBuffer;
 class RenderGraph;
-class TransientMemoryPool;
+class RenderGraphTransientMemory;
 class RenderGraphResourceRegistry;
 
 enum class RenderGraphPassHint
@@ -69,6 +68,13 @@ enum class RenderGraphResourceType
 };
 
 constexpr size_t INVALID_PASS_IDX = std::numeric_limits<size_t>::max();
+constexpr size_t INVALID_PENDING_READ_IDX = std::numeric_limits<size_t>::max();
+
+struct RenderGraphPendingRead
+{
+    size_t pass_idx = INVALID_PASS_IDX;
+    size_t next = INVALID_PENDING_READ_IDX;
+};
 
 struct RenderGraphResourceDescription
 {
@@ -85,10 +91,9 @@ struct RenderGraphResourceDescription
     size_t first_pass_idx = INVALID_PASS_IDX;
     size_t last_pass_idx = 0;
 
-    static constexpr size_t MAX_FRONTIER_PASSES = 8;
-
     size_t last_write_pass = INVALID_PASS_IDX;
-    inplace_vector<size_t, MAX_FRONTIER_PASSES> pending_read_passes{};
+    size_t pending_reads_head = INVALID_PENDING_READ_IDX;
+    size_t pending_reads_tail = INVALID_PENDING_READ_IDX;
 
     std::variant<BufferDescription, ImageDescription, AccelerationStructureDescription> desc{};
 
@@ -187,11 +192,11 @@ struct RenderGraphAccessRecord
         bool is_valid() const { return pass_idx != INVALID_PASS_IDX && access_idx != INVALID_PASS_IDX; }
     };
 
-    static constexpr size_t MAX_CONCURRENT_LINKS = 5;
-
     // Filled in RenderGraphBuilder::compile
-    inplace_vector<Link, MAX_CONCURRENT_LINKS> prevs{};
-    inplace_vector<Link, MAX_CONCURRENT_LINKS> nexts{};
+    size_t prevs_offset = 0;
+    size_t prevs_count = 0;
+    size_t nexts_offset = 0;
+    size_t nexts_count = 0;
 };
 
 static constexpr size_t RENDER_GRAPH_MAX_PASS_DEPENDENCIES = 20;
@@ -355,7 +360,6 @@ struct CommandBufferBatch
 
     std::vector<RenderGraphCmd> commands;
     std::shared_ptr<CommandBuffer> command_buffer;
-    CommandBufferSubmitInfo submit_info;
 };
 
 class MIZU_RENDER_API RenderGraphPassResources
@@ -479,13 +483,13 @@ struct RenderGraphBuilderConfig
 
 struct RenderGraphBuilderCompileOptions
 {
-    TransientMemoryPool& transient_pool;
+    RenderGraphTransientMemory& transient_memory;
     RenderGraphResourceRegistry& resource_registry;
 
     RenderGraphBuilderCompileOptions(
-        TransientMemoryPool& transient_pool_,
+        RenderGraphTransientMemory& transient_memory_,
         RenderGraphResourceRegistry& resource_registry_)
-        : transient_pool(transient_pool_)
+        : transient_memory(transient_memory_)
         , resource_registry(resource_registry_)
     {
     }
@@ -562,6 +566,9 @@ class MIZU_RENDER_API RenderGraphBuilder
 
     std::vector<RenderGraphExternalResourceDescription> m_external_resources;
 
+    std::vector<RenderGraphPendingRead> m_pending_reads;
+    std::vector<RenderGraphAccessRecord::Link> m_access_links;
+
     friend struct RenderGraphBuilderTransitionHelper;
 
     std::optional<BufferTransitionCmd> get_buffer_acquire_transition(
@@ -610,6 +617,9 @@ class MIZU_RENDER_API RenderGraphBuilder
 
     const RenderGraphAccessRecord& get_access_record(RenderGraphAccessRecord::Link link) const;
     RenderGraphAccessRecord& get_access_record(RenderGraphAccessRecord::Link link);
+
+    std::span<const RenderGraphAccessRecord::Link> get_access_prevs(const RenderGraphAccessRecord& record) const;
+    std::span<const RenderGraphAccessRecord::Link> get_access_nexts(const RenderGraphAccessRecord& record) const;
 
     inline const RenderGraphResourceDescription& get_resource_desc(RenderGraphResource resource) const
     {

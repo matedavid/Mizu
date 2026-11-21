@@ -5,8 +5,6 @@
 #include <optional>
 #include <span>
 
-#include "base/math/aabb.h"
-
 #include "asset/asset.h"
 #include "asset/asset_handle.h"
 #include "asset/asset_metadata.h"
@@ -58,7 +56,17 @@ class IAssetLoader
         ShaderBytecodeTarget target) = 0;
 
     virtual bool load_mesh_payload(const MeshAssetHandle& handle, std::span<uint8_t> destination) = 0;
+    virtual bool load_mesh_payload_lods(
+        const MeshAssetHandle& handle,
+        uint8_t first_lod,
+        uint8_t lod_count,
+        std::span<uint8_t> destination) = 0;
     virtual bool load_texture_payload(const TextureAssetHandle& handle, std::span<uint8_t> destination) = 0;
+    virtual bool load_texture_payload_mips(
+        const TextureAssetHandle& handle,
+        uint8_t first_mip,
+        uint8_t mip_count,
+        std::span<uint8_t> destination) = 0;
     virtual bool load_prefab_payload(const PrefabAssetHandle& handle, std::span<uint8_t> destination) = 0;
     virtual bool load_shader_payload(
         const ShaderAssetHandle& handle,

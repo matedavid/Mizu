@@ -1,11 +1,16 @@
 #include "dx12_device.h"
 
+#include <algorithm>
+#include <cstring>
+
+#include "base/debug/assert.h"
 #include "base/debug/logging.h"
 
 #include "dx12_acceleration_structure.h"
 #include "dx12_buffer_resource.h"
 #include "dx12_command_buffer.h"
 #include "dx12_context.h"
+#include "dx12_gpu_heap.h"
 #include "dx12_image_resource.h"
 #include "dx12_pipeline.h"
 #include "dx12_root_signature.h"
@@ -14,9 +19,6 @@
 #include "dx12_swapchain.h"
 #include "dx12_synchronization.h"
 #include "mizu_render_core_dx12_module.h"
-
-namespace Mizu::Dx12
-{
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
 
@@ -29,13 +31,34 @@ namespace Mizu::Dx12
 #undef near
 #undef far
 
-static void d3d12_validation_message_callback(
-    [[maybe_unused]] D3D12_MESSAGE_CATEGORY category,
-    D3D12_MESSAGE_SEVERITY severity,
-    [[maybe_unused]] D3D12_MESSAGE_ID id,
-    [[maybe_unused]] LPCSTR pDescription,
-    [[maybe_unused]] void* pContext)
+#endif
+
+namespace Mizu::Dx12
 {
+
+static constexpr uint32_t NUM_BINDLESS_DESCRIPTORS = 400'000;
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+
+static bool s_pix_gpu_capturer_loaded = false;
+
+static void d3d12_validation_message_callback(
+    D3D12_MESSAGE_CATEGORY /*category*/,
+    D3D12_MESSAGE_SEVERITY severity,
+    D3D12_MESSAGE_ID id,
+    LPCSTR pDescription,
+    void* /*pContext*/)
+{
+    // Newer versions of the sdk have replaced the call to CheckFeatureSupport to CheckFeatureSupport1, which is not
+    // available on older versions. The WinPixGpuCapturer.dll uses the deprecated ID3D12Device::CheckFeatureSupport, so
+    // ignore this specific message while the WinPixGpuCapturer.dll is loaded.
+    // See Dx12Device::check_feature_support.
+    if (s_pix_gpu_capturer_loaded && id == D3D12_MESSAGE_ID_DEPRECATED_API
+        && strstr(pDescription, "ID3D12Device::CheckFeatureSupport is superseded") != nullptr)
+    {
+        return;
+    }
+
     switch (severity)
     {
     case D3D12_MESSAGE_SEVERITY_CORRUPTION:
@@ -71,8 +94,12 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     ID3D12SDKConfiguration1* sdk_configuration = nullptr;
     if (SUCCEEDED(D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&sdk_configuration))))
     {
-        if (FAILED(sdk_configuration->SetSDKVersion(
+        if (SUCCEEDED(sdk_configuration->SetSDKVersion(
                 MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION, MIZU_RENDER_CORE_DX12_AGILITY_SDK_PATH)))
+        {
+            m_loaded_sdk_version = MIZU_RENDER_CORE_DX12_AGILITY_SDK_VERSION;
+        }
+        else
         {
             MIZU_LOG_WARNING("Failed to set Agility SDK version/path; falling back to the system D3D12 runtime.");
         }
@@ -90,7 +117,8 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
 #if MIZU_DX12_VALIDATIONS_ENABLED
     if (Dx12Context.validations_enabled)
     {
-        if (PIXLoadLatestWinPixGpuCapturerLibrary() == nullptr)
+        s_pix_gpu_capturer_loaded = PIXLoadLatestWinPixGpuCapturerLibrary() != nullptr;
+        if (!s_pix_gpu_capturer_loaded)
         {
             MIZU_LOG_WARNING(
                 "Failed to load WinPixGpuCapturer.dll. If you intend to use PIX for GPU capture, ensure that the DLL "
@@ -116,10 +144,10 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     // Select adapter
     DX12_CHECK(DXCoreCreateAdapterFactory(&m_factory));
 
-    constexpr uint32_t DISCRETE_GPU_SCORE = 40;
+    constexpr int32_t DISCRETE_GPU_SCORE = 40;
 
     IDXGIAdapter1* best_adapter = nullptr;
-    uint32_t best_adapter_score = 0;
+    int32_t best_adapter_score = -1;
 
     IDXGIAdapter1* tmp_adapter;
     for (uint32_t i = 0; Dx12Context.factory->EnumAdapters1(i, &tmp_adapter) != DXGI_ERROR_NOT_FOUND; ++i)
@@ -137,21 +165,24 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
         // Check to see if the adapter supports Direct3D 12
         if (!DX12_CHECK_RESULT(D3D12CreateDevice(tmp_adapter, D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr)))
         {
+            tmp_adapter->Release();
             continue;
         }
-
-        uint32_t adapter_score = 0;
 
         IDXCoreAdapter* core_adapter;
         if (!DX12_CHECK_RESULT(m_factory->GetAdapterByLuid(tmp_adapter_desc.AdapterLuid, &core_adapter)))
         {
+            tmp_adapter->Release();
             continue;
         }
 
-        bool is_dedicated_gpu = false;
-        DX12_CHECK(core_adapter->GetProperty(DXCoreAdapterProperty::IsHardware, &is_dedicated_gpu));
+        bool is_integrated_gpu = false;
+        DX12_CHECK(core_adapter->GetProperty(DXCoreAdapterProperty::IsIntegrated, &is_integrated_gpu));
+        core_adapter->Release();
 
-        if (is_dedicated_gpu)
+        int32_t adapter_score = 0;
+
+        if (!is_integrated_gpu)
         {
             adapter_score += DISCRETE_GPU_SCORE;
         }
@@ -168,15 +199,16 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
         {
             tmp_adapter->Release();
         }
-
-        core_adapter->Release();
     }
 
     MIZU_VERIFY(best_adapter != nullptr, "Failed to find suitable adapter");
 
     // Create Device
     m_adapter = best_adapter;
-    DX12_CHECK_RESULT(D3D12CreateDevice(m_adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device)));
+
+    const bool device_created =
+        DX12_CHECK_RESULT(D3D12CreateDevice(m_adapter, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device)));
+    MIZU_VERIFY(device_created, "Failed to create D3D12 device");
 
     Dx12Context.device = this;
 
@@ -211,14 +243,12 @@ Dx12Device::Dx12Device([[maybe_unused]] const DeviceCreationDescription& desc)
     }
 #endif
 
-    Dx12Context.default_device_allocator = std::make_unique<Dx12BaseDeviceMemoryAllocator>();
-
     const uint32_t num_transient_persistent_descriptors = 500 + 150 + 100 + 100 + 50;
 
     Dx12DescriptorManagerDescription descriptor_manager_desc{};
     descriptor_manager_desc.num_transient_descriptors = num_transient_persistent_descriptors;
     descriptor_manager_desc.num_persistent_descriptors = num_transient_persistent_descriptors;
-    descriptor_manager_desc.num_bindless_descriptors = 500'000;
+    descriptor_manager_desc.num_bindless_descriptors = NUM_BINDLESS_DESCRIPTORS;
     descriptor_manager_desc.num_transient_pools = desc.frames_in_flight;
     Dx12Context.descriptor_manager = std::make_unique<Dx12DescriptorManager>(descriptor_manager_desc);
 
@@ -245,6 +275,10 @@ Dx12Device::~Dx12Device()
 {
     // NOTE: Order of destruction matters
 
+    wait_idle();
+
+    destroy_default_allocator();
+
     Dx12Context.pipeline_layout_cache.reset();
     Dx12Context.descriptor_set_layout_cache.reset();
 
@@ -253,15 +287,10 @@ Dx12Device::~Dx12Device()
     Dx12Context.rtv_heap.reset();
     Dx12Context.descriptor_manager.reset();
 
-    Dx12Context.default_device_allocator.reset();
-
-    if (m_transfer_queue != m_graphics_queue)
-        m_transfer_queue->Release();
-
-    if (m_compute_queue != m_graphics_queue)
-        m_compute_queue->Release();
-
-    m_graphics_queue->Release();
+    m_graphics_queue = nullptr;
+    m_compute_queue = nullptr;
+    m_transfer_queue = nullptr;
+    m_queues.clear();
 
     const auto release_command_info_type = [](ThreadCommandInfo::Type& type) {
         while (!type.available_command_buffers.empty())
@@ -323,17 +352,24 @@ bool Dx12Device::is_queue_available(CommandBufferType type) const
     }
 }
 
-ID3D12CommandQueue* Dx12Device::get_queue(CommandBufferType type) const
+Dx12Queue& Dx12Device::get_native_queue(CommandBufferType type) const
 {
     switch (type)
     {
     case CommandBufferType::Graphics:
-        return get_graphics_queue();
+        return *m_graphics_queue;
     case CommandBufferType::Compute:
-        return get_compute_queue();
+        return *m_compute_queue;
     case CommandBufferType::Transfer:
-        return get_transfer_queue();
+        return *m_transfer_queue;
     }
+
+    MIZU_UNREACHABLE("Invalid CommandBufferType");
+}
+
+Queue& Dx12Device::get_queue(CommandBufferType type) const
+{
+    return get_native_queue(type);
 }
 
 ID3D12GraphicsCommandList7* Dx12Device::allocate_command_list(CommandBufferType type, uint32_t frame_in_flight_idx)
@@ -484,22 +520,28 @@ void Dx12Device::create_queues()
     // Graphics queue
     {
         queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-        DX12_CHECK(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_graphics_queue)));
 
-        m_graphics_queue->SetName(L"GraphicsQueue");
+        ID3D12CommandQueue* queue;
+        DX12_CHECK(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue)));
+        queue->SetName(L"GraphicsQueue");
+
+        m_graphics_queue = m_queues.emplace_back(std::make_unique<Dx12Queue>(queue, CommandBufferType::Graphics)).get();
     }
 
     // Compute queue
     {
         queue_desc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
 
-        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_compute_queue))))
+        ID3D12CommandQueue* queue;
+        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue))))
         {
             m_compute_queue = m_graphics_queue;
         }
         else
         {
-            m_compute_queue->SetName(L"ComputeQueue");
+            queue->SetName(L"ComputeQueue");
+            m_compute_queue =
+                m_queues.emplace_back(std::make_unique<Dx12Queue>(queue, CommandBufferType::Compute)).get();
         }
     }
 
@@ -507,15 +549,35 @@ void Dx12Device::create_queues()
     {
         queue_desc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
 
-        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&m_transfer_queue))))
+        ID3D12CommandQueue* queue;
+        if (!DX12_CHECK_RESULT(m_device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue))))
         {
             m_transfer_queue = m_graphics_queue;
         }
         else
         {
-            m_transfer_queue->SetName(L"TransferQueue");
+            queue->SetName(L"TransferQueue");
+            m_transfer_queue =
+                m_queues.emplace_back(std::make_unique<Dx12Queue>(queue, CommandBufferType::Transfer)).get();
         }
     }
+}
+
+HRESULT Dx12Device::check_feature_support(D3D12_FEATURE feature, void* data, UINT data_size) const
+{
+    // CheckFeatureSupport has been replaced by CheckFeatureSupport1, which is only available on newer versions of the
+    // D3D12 runtime. Use it if available, otherwise fall back to the old call.
+    // https://devblogs.microsoft.com/directx/agilitysdk-1-620-retail-and-1-722-preview/#d3d12-features
+
+    ID3D12Device16* device16 = nullptr;
+    if (m_loaded_sdk_version != 0 && SUCCEEDED(m_device->QueryInterface(IID_PPV_ARGS(&device16))))
+    {
+        const HRESULT result = device16->CheckFeatureSupport1(feature, data, data_size, m_loaded_sdk_version);
+        device16->Release();
+        return result;
+    }
+
+    return m_device->CheckFeatureSupport(feature, data, data_size);
 }
 
 void Dx12Device::retrieve_device_capabilities()
@@ -529,21 +591,48 @@ void Dx12Device::retrieve_device_capabilities()
     std::string name(size_needed, 0);
     WideCharToMultiByte(CP_UTF8, 0, wname.c_str(), -1, &name[0], size_needed, nullptr, nullptr);
 
+    DX12_CHECK(check_feature_support(D3D12_FEATURE_D3D12_OPTIONS, m_feature_data_options));
+
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5{};
-    DX12_CHECK(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
+    DX12_CHECK(check_feature_support(D3D12_FEATURE_D3D12_OPTIONS5, options5));
+
+    uint64_t sparse_address_space_size = 0;
+
+    D3D12_FEATURE_DATA_GPU_VIRTUAL_ADDRESS_SUPPORT virtual_address_support{};
+    if (DX12_CHECK_RESULT(check_feature_support(D3D12_FEATURE_GPU_VIRTUAL_ADDRESS_SUPPORT, virtual_address_support)))
+    {
+        const uint32_t address_bits = (std::min)(virtual_address_support.MaxGPUVirtualAddressBitsPerProcess, 63u);
+        sparse_address_space_size = 1ull << address_bits;
+    }
+
+    const D3D12_TILED_RESOURCES_TIER tiled_resources_tier = m_feature_data_options.TiledResourcesTier;
 
     m_properties = DeviceProperties{
         .name = name,
         // Depth clamping is core functionality, every D3D12 device supports it
-        .depth_clamp_enabled = true,
+        .depth_clamp = true,
         .async_compute = m_compute_queue != m_graphics_queue,
         .async_transfer = m_transfer_queue != m_graphics_queue,
-        .ray_tracing_hardware = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED,
-        .min_constant_buffer_offset_alignment = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT,
-        .min_raw_buffer_offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT,
-        .min_texture_row_pitch_alignment = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT,
-        .min_texture_data_placement_alignment = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT,
-        .acceleration_structure_instance_size = sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+        .max_bindless_descriptors = NUM_BINDLESS_DESCRIPTORS,
+        .alignments =
+            DeviceAlignments{
+                .min_constant_buffer_offset = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT,
+                .min_raw_buffer_offset = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT,
+                .min_texture_row_pitch = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT,
+                .min_texture_data_placement = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT,
+            },
+        .ray_tracing =
+            RayTracingProperties{
+                .supported = options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED,
+                .acceleration_structure_instance_size = sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+            },
+        .sparse =
+            SparseResourcesProperties{
+                .buffers = tiled_resources_tier >= D3D12_TILED_RESOURCES_TIER_1,
+                .images = tiled_resources_tier >= D3D12_TILED_RESOURCES_TIER_1,
+                .non_resident_strict = tiled_resources_tier >= D3D12_TILED_RESOURCES_TIER_2,
+                .address_space_size = sparse_address_space_size,
+            },
     };
 }
 
@@ -567,36 +656,37 @@ void Dx12Device::prepare_frame(uint32_t frame_in_flight_idx)
 
 void Dx12Device::wait_idle() const
 {
-    ID3D12Fence* fence;
-    DX12_CHECK(Dx12Context.device->handle()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
-
-    constexpr uint64_t FENCE_VALUE = 1;
-    DX12_CHECK(Dx12Context.device->get_graphics_queue()->Signal(fence, FENCE_VALUE));
-
-    const HANDLE event_handle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-
-    if (fence->GetCompletedValue() < FENCE_VALUE)
+    for (const std::unique_ptr<Dx12Queue>& queue : m_queues)
     {
-        DX12_CHECK(fence->SetEventOnCompletion(FENCE_VALUE, event_handle));
-        WaitForSingleObject(event_handle, INFINITE);
+        queue->wait_idle();
     }
-
-    CloseHandle(event_handle);
-    fence->Release();
 }
 
 //
 // Creation functions
 //
 
-std::shared_ptr<BufferResource> Dx12Device::create_buffer(const BufferDescription& desc) const
+std::shared_ptr<BufferResource> Dx12Device::create_buffer(
+    const BufferDescription& desc,
+    const MemoryPlacement& placement) const
 {
-    return std::make_shared<Dx12BufferResource>(desc);
+    return std::make_shared<Dx12BufferResource>(desc, placement);
 }
 
-std::shared_ptr<ImageResource> Dx12Device::create_image(const ImageDescription& desc) const
+std::shared_ptr<ImageResource> Dx12Device::create_image(const ImageDescription& desc, const MemoryPlacement& placement)
+    const
 {
-    return std::make_shared<Dx12ImageResource>(desc);
+    return std::make_shared<Dx12ImageResource>(desc, placement);
+}
+
+std::shared_ptr<BufferResource> Dx12Device::create_sparse_buffer(const BufferDescription& desc) const
+{
+    return std::make_shared<Dx12BufferResource>(desc, Dx12BufferResource::Sparse);
+}
+
+std::shared_ptr<ImageResource> Dx12Device::create_sparse_image(const ImageDescription& desc) const
+{
+    return std::make_shared<Dx12ImageResource>(desc, Dx12ImageResource::Sparse);
 }
 
 std::shared_ptr<AccelerationStructure> Dx12Device::create_acceleration_structure(
@@ -661,14 +751,9 @@ std::shared_ptr<DescriptorSet> Dx12Device::allocate_descriptor_set(
     }
 }
 
-std::shared_ptr<Semaphore> Dx12Device::create_semaphore() const
+std::shared_ptr<Fence> Dx12Device::create_fence(uint64_t initial_value) const
 {
-    return std::make_shared<Dx12Semaphore>();
-}
-
-std::shared_ptr<Fence> Dx12Device::create_fence(bool signaled) const
-{
-    return std::make_shared<Dx12Fence>(signaled);
+    return std::make_shared<Dx12Fence>(initial_value);
 }
 
 std::shared_ptr<Swapchain> Dx12Device::create_swapchain(const SwapchainDescription& desc) const
@@ -676,13 +761,13 @@ std::shared_ptr<Swapchain> Dx12Device::create_swapchain(const SwapchainDescripti
     return std::make_shared<Dx12Swapchain>(desc);
 }
 
-std::shared_ptr<TransientMemoryPool> Dx12Device::create_transient_memory_pool(std::string_view name) const
+std::shared_ptr<GpuHeap> Dx12Device::create_gpu_heap(const GpuHeapDescription& desc) const
 {
-    return std::make_shared<Dx12TransientMemoryPool>(name);
+    return std::make_shared<Dx12GpuHeap>(desc);
 }
 
 //
-// Other
+// Memory
 //
 
 MemoryRequirements Dx12Device::get_buffer_memory_requirements(const BufferDescription& desc) const
@@ -693,6 +778,22 @@ MemoryRequirements Dx12Device::get_buffer_memory_requirements(const BufferDescri
 MemoryRequirements Dx12Device::get_image_memory_requirements(const ImageDescription& desc) const
 {
     return get_dx12_image_memory_requirements(desc);
+}
+
+std::optional<MemoryTypeId> Dx12Device::find_memory_type(const MemoryRequirements& reqs, HeapDomain) const
+{
+    if (m_feature_data_options.ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_2)
+        return MEMORY_TYPE_BITS_ALL;
+
+    switch (reqs.memory_type_bits)
+    {
+    case MEMORY_TYPE_BITS_BUFFER:
+    case MEMORY_TYPE_BITS_TEXTURE:
+    case MEMORY_TYPE_BITS_RT_DS_TEXTURE:
+        return reqs.memory_type_bits;
+    default:
+        return std::nullopt;
+    }
 }
 
 } // namespace Mizu::Dx12
