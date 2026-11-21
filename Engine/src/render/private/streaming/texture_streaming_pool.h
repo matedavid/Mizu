@@ -35,6 +35,19 @@ struct TextureUploadData
     std::span<const uint8_t> data{};
 };
 
+struct TextureStreamingPoolStatistics
+{
+    uint32_t num_textures = 0;
+    uint32_t num_resident_textures = 0;
+    uint32_t num_placed_textures = 0;
+    uint32_t num_sparse_textures = 0;
+
+    uint64_t placed_committed_bytes = 0;
+    uint64_t sparse_committed_bytes = 0;
+
+    uint32_t num_reserve_failures = 0;
+};
+
 class TextureStreamingPool;
 
 using PendingTextureResidencyUpdate = PendingResidencyUpdate<TextureStreamingPool, TextureAssetHandle>;
@@ -69,12 +82,16 @@ class TextureStreamingPool
     uint8_t get_coarsest_first_mip(TextureAssetHandle handle) const;
     ImageResourceView get_resource_view(TextureAssetHandle handle) const;
 
+    TextureStreamingPoolStatistics get_statistics() const;
+
   private:
     TextureStreamingPoolDescription m_description{};
     GpuPageAllocator& m_page_allocator;
     SparseBindScheduler& m_sparse_bind_scheduler;
 
     bool m_sparse_enabled = false;
+
+    uint32_t m_num_reserve_failures = 0;
 
     struct ResidencyInfo
     {

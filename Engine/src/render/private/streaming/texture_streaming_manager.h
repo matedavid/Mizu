@@ -81,6 +81,8 @@ class TextureStreamingManager : public IStreamingManager
     bool is_drawable(TextureAssetHandle handle) const;
     std::span<const TextureStreamingUpdate> get_updates() const { return m_texture_updates; }
 
+    const TextureStreamingPool& get_streaming_pool() const { return m_texture_pool; }
+
   private:
     IAssetLoader& m_asset_loader;
     AssetLoadScheduler& m_load_scheduler;

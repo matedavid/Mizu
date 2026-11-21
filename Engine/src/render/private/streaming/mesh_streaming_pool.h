@@ -34,6 +34,30 @@ class BufferRangeAllocator
     bool try_grow(uint64_t offset, uint64_t size, uint64_t new_size);
     void free(uint64_t offset, uint64_t size);
 
+    uint64_t get_capacity() const
+    {
+        std::lock_guard lock{m_mutex};
+        return m_capacity;
+    }
+
+    uint64_t get_allocated_bytes() const
+    {
+        std::lock_guard lock{m_mutex};
+        return m_allocated_bytes;
+    }
+
+    uint64_t get_max_contiguous_free_bytes() const
+    {
+        std::lock_guard lock{m_mutex};
+        return m_max_contiguous_free_bytes;
+    }
+
+    uint64_t get_peak_allocated_bytes() const
+    {
+        std::lock_guard lock{m_mutex};
+        return m_peak_allocated_bytes;
+    }
+
   private:
     struct FreeRange
     {
@@ -42,8 +66,17 @@ class BufferRangeAllocator
     };
 
     uint64_t m_capacity = 0;
-    std::mutex m_mutex;
-    std::vector<FreeRange> m_free_ranges;
+    mutable std::mutex m_mutex;
+    std::vector<FreeRange> m_free_ranges{};
+
+    // Statistics
+    uint64_t m_allocated_bytes = 0;
+    uint64_t m_max_contiguous_free_bytes = 0;
+    uint64_t m_peak_allocated_bytes = 0;
+
+    void statistics_on_allocated(uint64_t size);
+    void statistics_on_freed(uint64_t size);
+    uint64_t compute_max_contiguous_free_bytes() const;
 };
 
 struct MeshStreamingPoolDescription
@@ -60,8 +93,21 @@ struct MeshUploadData
     std::span<const uint8_t> data{};
 };
 
-class MeshStreamingPool;
+struct MeshStreamingPoolStatistics
+{
+    uint64_t buffer_total_bytes;
+    uint64_t buffer_allocated_bytes;
+    uint64_t buffer_max_contiguous_bytes;
 
+    uint64_t resident_bytes;
+    uint64_t committed_bytes;
+    uint64_t peak_committed_bytes;
+
+    uint32_t pages_num_resident;
+    uint32_t num_reserve_failures;
+};
+
+class MeshStreamingPool;
 using PendingMeshResidencyUpdate = PendingResidencyUpdate<MeshStreamingPool, MeshAssetHandle>;
 
 class MeshStreamingPool
@@ -98,6 +144,9 @@ class MeshStreamingPool
     const std::shared_ptr<BufferResource>& get_vertex_buffer() const { return m_vertex_buffer; }
     const std::shared_ptr<BufferResource>& get_index_buffer() const { return m_index_buffer; }
 
+    MeshStreamingPoolStatistics get_vertex_statistics() const;
+    MeshStreamingPoolStatistics get_index_statistics() const;
+
   private:
     MeshStreamingPoolDescription m_description{};
     GpuPageAllocator& m_page_allocator;
@@ -133,6 +182,10 @@ class MeshStreamingPool
         BufferRange vertex_range{};
         BufferRange index_range{};
 
+        // resident_vertex_size and resident_index_size are needed because, on sparse resources, vertex_range.size will
+        // be the virtual range for all lods, but we could have less resident lods.
+        // The resident sizes only account for the currently resident lods.
+        // On placed resources, these values are always the same.
         uint64_t resident_vertex_size = 0;
         uint64_t resident_index_size = 0;
         uint8_t resident_lods = 0;
@@ -144,6 +197,15 @@ class MeshStreamingPool
     };
 
     std::unordered_map<MeshAssetHandle, MeshEntry> m_mesh_entry_map{};
+
+    struct BufferStatistics
+    {
+        uint64_t resident_bytes = 0;
+        uint32_t num_reserve_failures = 0;
+    };
+
+    BufferStatistics m_vertex_statistics{};
+    BufferStatistics m_index_statistics{};
 
     struct PendingRangeRelease
     {
@@ -166,6 +228,9 @@ class MeshStreamingPool
     {
         BufferResource* buffer = nullptr;
         std::vector<PageSlot> slots{};
+
+        uint32_t num_bound_pages = 0;
+        uint32_t peak_bound_pages = 0;
     };
 
     SparsePageTable m_vertex_page_table{};
@@ -202,6 +267,7 @@ class MeshStreamingPool
     void evict_entry(MeshEntry& entry);
 
     void shrink_resident_ranges(MeshEntry& entry, uint64_t new_vertex_size, uint64_t new_index_size);
+    void set_resident_sizes(MeshEntry& entry, uint64_t vertex_size, uint64_t index_size);
 
     uint64_t get_page_size() const { return m_page_allocator.get_page_size(); }
     std::pair<uint64_t, uint64_t> get_page_slot_span(const BufferRange& range, uint64_t size) const;
@@ -213,6 +279,11 @@ class MeshStreamingPool
     void release_range_delayed(BufferRangeAllocator& allocator, const BufferRange& range);
     void process_pending_range_releases();
     void process_pending_page_releases();
+
+    MeshStreamingPoolStatistics get_statistics(
+        const BufferRangeAllocator& allocator,
+        const SparsePageTable& page_table,
+        const BufferStatistics& buffer_statistics) const;
 
     MeshEntry* get_entry(MeshAssetHandle handle);
     const MeshEntry* get_entry(MeshAssetHandle handle) const;

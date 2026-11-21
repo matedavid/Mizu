@@ -54,9 +54,6 @@ void TextureImporter::import(
         return;
     }
 
-    const size_t id = get_texture_asset_id(request.virtual_path);
-    timestamp_record(id, request.path, version(), context.timestamp_db);
-
     static constexpr bool GENERATE_MIPS = true;
     static constexpr uint8_t MAX_MIPS = 6;
     static constexpr uint8_t STREAMABLE_MIPS = 2;
@@ -66,13 +63,22 @@ void TextureImporter::import(
     metadata.width = static_cast<uint32_t>(width);
     metadata.height = static_cast<uint32_t>(height);
     metadata.depth = 1;
-    metadata.num_mips =
-        GENERATE_MIPS ? std::min(compute_num_mips(metadata.width, metadata.height, 1), MAX_MIPS) : 1;
+    metadata.num_mips = GENERATE_MIPS ? std::min(compute_num_mips(metadata.width, metadata.height, 1), MAX_MIPS) : 1;
     metadata.format = ImageFormat::R8G8B8A8_UNORM; // TODO: Incorrect for albedo textures
 
     const uint8_t streamable_mips =
         metadata.num_mips > 1 ? glm::min<uint8_t>(STREAMABLE_MIPS, metadata.num_mips - 1) : 0;
     metadata.streamable_mips = GENERATE_MIPS ? streamable_mips : 0;
+
+    // This forces at least one non-streamable mip
+    if (metadata.streamable_mips >= metadata.num_mips)
+    {
+        context.reporter.error(
+            "Can't have more or equal streamable mips than actual mips (streamable={} mips={})",
+            metadata.streamable_mips,
+            metadata.num_mips);
+        return;
+    }
 
     MIZU_ASSERT(
         metadata.streamable_mips <= metadata.num_mips,
@@ -114,6 +120,9 @@ void TextureImporter::import(
     }
 
     stbi_image_free(pixels);
+
+    const size_t id = get_texture_asset_id(request.virtual_path);
+    timestamp_record(id, request.path, version(), context.timestamp_db);
 
     outputs.push_back({
         .asset_type = AssetType::Texture,

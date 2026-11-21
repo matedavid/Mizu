@@ -193,7 +193,10 @@ PendingTextureResidencyUpdate TextureStreamingPool::begin_residency_update(
     }
 
     if (!reserved)
+    {
+        m_num_reserve_failures += 1;
         return PendingTextureResidencyUpdate{};
+    }
 
     entry->pending_residency = std::move(info);
     return PendingTextureResidencyUpdate(this, handle);
@@ -493,6 +496,54 @@ ImageResourceView TextureStreamingPool::get_resource_view(TextureAssetHandle han
             .mip_base = num_mips - entry->resident_mips,
             .mip_count = entry->resident_mips,
         });
+}
+
+static uint64_t get_placed_bytes(const ImageResource* texture)
+{
+    if (texture == nullptr)
+        return 0;
+
+    if (texture->is_sparse())
+        return 0;
+
+    return texture->get_memory_requirements().size;
+}
+
+TextureStreamingPoolStatistics TextureStreamingPool::get_statistics() const
+{
+    const uint64_t page_size = m_page_allocator.get_page_size();
+
+    TextureStreamingPoolStatistics stats{};
+    stats.num_reserve_failures = m_num_reserve_failures;
+
+    for (const TextureEntry& entry : m_texture_entry_map | std::views::values)
+    {
+        stats.num_textures += 1;
+
+        if (entry.resident_mips != 0)
+            stats.num_resident_textures += 1;
+
+        switch (entry.backing)
+        {
+        case ResourceBacking::Placed:
+            stats.num_placed_textures += 1;
+            stats.placed_committed_bytes += get_placed_bytes(entry.texture.get());
+            stats.placed_committed_bytes += get_placed_bytes(entry.old_texture.get());
+
+            if (entry.pending_residency.has_value())
+                stats.placed_committed_bytes += get_placed_bytes(entry.pending_residency->texture.get());
+            break;
+        case ResourceBacking::Sparse:
+            stats.num_sparse_textures += 1;
+            stats.sparse_committed_bytes += entry.mip_tail_pages.size() * page_size;
+
+            for (const std::vector<GpuPage>& pages : entry.mip_pages)
+                stats.sparse_committed_bytes += pages.size() * page_size;
+            break;
+        }
+    }
+
+    return stats;
 }
 
 bool TextureStreamingPool::reserve_placed_residency(

@@ -33,6 +33,10 @@ bool BufferRangeAllocator::init(uint64_t size)
     if (size != 0)
         m_free_ranges.push_back(FreeRange{0, size});
 
+    m_allocated_bytes = 0;
+    m_max_contiguous_free_bytes = size;
+    m_peak_allocated_bytes = 0;
+
     return size != 0;
 }
 
@@ -84,6 +88,8 @@ std::optional<uint64_t> BufferRangeAllocator::allocate(uint64_t size, uint64_t a
             m_free_ranges.erase(m_free_ranges.begin() + static_cast<std::ptrdiff_t>(index));
         }
 
+        statistics_on_allocated(size);
+
         return aligned_offset;
     }
 
@@ -116,6 +122,8 @@ bool BufferRangeAllocator::try_grow(uint64_t offset, uint64_t size, uint64_t new
         it->offset += extra_size;
         it->size -= extra_size;
     }
+
+    statistics_on_allocated(new_size - size);
 
     return true;
 }
@@ -154,11 +162,39 @@ void BufferRangeAllocator::free(uint64_t offset, uint64_t size)
                 m_free_ranges.erase(free_ranges_it);
             }
 
+            statistics_on_freed(size);
+
             return;
         }
     }
 
     m_free_ranges.insert(free_ranges_it, free_range);
+
+    statistics_on_freed(size);
+}
+
+void BufferRangeAllocator::statistics_on_allocated(uint64_t size)
+{
+    m_allocated_bytes += size;
+    m_max_contiguous_free_bytes = compute_max_contiguous_free_bytes();
+    m_peak_allocated_bytes = std::max(m_peak_allocated_bytes, m_allocated_bytes);
+}
+
+void BufferRangeAllocator::statistics_on_freed(uint64_t size)
+{
+    m_allocated_bytes -= size;
+    m_max_contiguous_free_bytes = compute_max_contiguous_free_bytes();
+}
+
+uint64_t BufferRangeAllocator::compute_max_contiguous_free_bytes() const
+{
+    uint64_t max_contiguous = 0;
+    for (const FreeRange& range : m_free_ranges)
+    {
+        max_contiguous = std::max(max_contiguous, range.size);
+    }
+
+    return max_contiguous;
 }
 
 //
@@ -304,6 +340,7 @@ bool MeshStreamingPool::register_mesh(MeshAssetHandle handle, const MeshAssetMet
         if (!vertex_offset.has_value())
         {
             MIZU_LOG_ERROR("Failed to reserve {} vertex bytes for mesh {}", vertex_size, handle.get_id());
+            m_vertex_statistics.num_reserve_failures += 1;
             return false;
         }
 
@@ -312,6 +349,7 @@ bool MeshStreamingPool::register_mesh(MeshAssetHandle handle, const MeshAssetMet
         if (!index_offset.has_value())
         {
             MIZU_LOG_ERROR("Failed to reserve {} index bytes for mesh {}", index_size, handle.get_id());
+            m_index_statistics.num_reserve_failures += 1;
             m_vertex_allocator.free(*vertex_offset, vertex_size);
             return false;
         }
@@ -356,6 +394,8 @@ void MeshStreamingPool::unregister_mesh(MeshAssetHandle handle)
     {
         release_range_delayed(m_index_allocator, *entry.pending_copy_index_range);
     }
+
+    set_resident_sizes(entry, 0, 0);
 
     m_mesh_entry_map.erase(entry_it);
 }
@@ -452,9 +492,8 @@ void MeshStreamingPool::commit_residency_update(MeshAssetHandle handle)
 
     entry->vertex_range = info.vertex_range;
     entry->index_range = info.index_range;
-    entry->resident_vertex_size = info.vertex_size;
-    entry->resident_index_size = info.index_size;
     entry->resident_lods = info.resident_lods;
+    set_resident_sizes(*entry, info.vertex_size, info.index_size);
 }
 
 void MeshStreamingPool::abort_residency_update(MeshAssetHandle handle)
@@ -628,6 +667,16 @@ std::optional<GpuMeshAllocationHandle> MeshStreamingPool::get_allocation(MeshAss
     };
 }
 
+MeshStreamingPoolStatistics MeshStreamingPool::get_vertex_statistics() const
+{
+    return get_statistics(m_vertex_allocator, m_vertex_page_table, m_vertex_statistics);
+}
+
+MeshStreamingPoolStatistics MeshStreamingPool::get_index_statistics() const
+{
+    return get_statistics(m_index_allocator, m_index_page_table, m_index_statistics);
+}
+
 bool MeshStreamingPool::reserve_placed_residency(
     const MeshEntry& entry,
     const MeshAssetMetadata& metadata,
@@ -641,6 +690,7 @@ bool MeshStreamingPool::reserve_placed_residency(
             metadata.get_vertex_stride_bytes()))
     {
         MIZU_LOG_WARNING("Failed to allocate {} vertex bytes for mesh streaming", info.vertex_size);
+        m_vertex_statistics.num_reserve_failures += 1;
         return false;
     }
 
@@ -652,6 +702,7 @@ bool MeshStreamingPool::reserve_placed_residency(
             metadata.get_index_stride_bytes()))
     {
         MIZU_LOG_WARNING("Failed to allocate {} index bytes for mesh streaming", info.index_size);
+        m_index_statistics.num_reserve_failures += 1;
         release_reserved_range(m_vertex_allocator, entry.vertex_range, info.vertex_range, info.vertex_relocated);
         return false;
     }
@@ -662,10 +713,14 @@ bool MeshStreamingPool::reserve_placed_residency(
 bool MeshStreamingPool::reserve_sparse_residency(const MeshEntry& entry, const ResidencyInfo& info)
 {
     if (!resize_resident_pages(m_vertex_page_table, entry.vertex_range, entry.resident_vertex_size, info.vertex_size))
+    {
+        m_vertex_statistics.num_reserve_failures += 1;
         return false;
+    }
 
     if (!resize_resident_pages(m_index_page_table, entry.index_range, entry.resident_index_size, info.index_size))
     {
+        m_index_statistics.num_reserve_failures += 1;
         resize_resident_pages(m_vertex_page_table, entry.vertex_range, info.vertex_size, entry.resident_vertex_size);
         return false;
     }
@@ -726,8 +781,7 @@ void MeshStreamingPool::evict_entry(MeshEntry& entry)
         resize_resident_pages(m_vertex_page_table, entry.vertex_range, entry.resident_vertex_size, 0);
         resize_resident_pages(m_index_page_table, entry.index_range, entry.resident_index_size, 0);
 
-        entry.resident_vertex_size = 0;
-        entry.resident_index_size = 0;
+        set_resident_sizes(entry, 0, 0);
         entry.resident_lods = 0;
         return;
     }
@@ -735,6 +789,7 @@ void MeshStreamingPool::evict_entry(MeshEntry& entry)
     release_range_delayed(m_vertex_allocator, entry.vertex_range);
     release_range_delayed(m_index_allocator, entry.index_range);
 
+    set_resident_sizes(entry, 0, 0);
     entry = MeshEntry{};
 }
 
@@ -764,8 +819,22 @@ void MeshStreamingPool::shrink_resident_ranges(MeshEntry& entry, uint64_t new_ve
         }
     }
 
-    entry.resident_vertex_size = new_vertex_size;
-    entry.resident_index_size = new_index_size;
+    set_resident_sizes(entry, new_vertex_size, new_index_size);
+}
+
+void MeshStreamingPool::set_resident_sizes(MeshEntry& entry, uint64_t vertex_size, uint64_t index_size)
+{
+    MIZU_ASSERT(m_vertex_statistics.resident_bytes >= entry.resident_vertex_size, "Resident vertex bytes underflow");
+    MIZU_ASSERT(m_index_statistics.resident_bytes >= entry.resident_index_size, "Resident index bytes underflow");
+
+    m_vertex_statistics.resident_bytes -= entry.resident_vertex_size;
+    m_vertex_statistics.resident_bytes += vertex_size;
+
+    m_index_statistics.resident_bytes -= entry.resident_index_size;
+    m_index_statistics.resident_bytes += index_size;
+
+    entry.resident_vertex_size = vertex_size;
+    entry.resident_index_size = index_size;
 }
 
 std::pair<uint64_t, uint64_t> MeshStreamingPool::get_page_slot_span(const BufferRange& range, uint64_t size) const
@@ -801,6 +870,9 @@ bool MeshStreamingPool::acquire_pages(SparsePageTable& table, uint64_t first_slo
             return false;
         }
     }
+
+    table.num_bound_pages += num_new_pages;
+    table.peak_bound_pages = std::max(table.peak_bound_pages, table.num_bound_pages);
 
     std::vector<uint64_t> newly_bound_slots{};
     newly_bound_slots.reserve(num_new_pages);
@@ -963,10 +1035,46 @@ void MeshStreamingPool::process_pending_page_releases()
             m_page_allocator.free_page(slot.page);
             slot.page = GpuPage{};
             slot.bound = false;
+
+            it->table->num_bound_pages -= 1;
         }
 
         it = m_pending_page_releases.erase(it);
     }
+}
+
+MeshStreamingPoolStatistics MeshStreamingPool::get_statistics(
+    const BufferRangeAllocator& allocator,
+    const SparsePageTable& page_table,
+    const BufferStatistics& buffer_statistics) const
+{
+    const uint64_t page_size = get_page_size();
+
+    uint64_t committed_bytes = 0;
+    uint64_t peak_committed_bytes = 0;
+
+    switch (m_backing)
+    {
+    case ResourceBacking::Placed:
+        committed_bytes = allocator.get_allocated_bytes();
+        peak_committed_bytes = allocator.get_peak_allocated_bytes();
+        break;
+    case ResourceBacking::Sparse:
+        committed_bytes = page_table.num_bound_pages * page_size;
+        peak_committed_bytes = page_table.peak_bound_pages * page_size;
+        break;
+    }
+
+    return MeshStreamingPoolStatistics{
+        .buffer_total_bytes = allocator.get_capacity(),
+        .buffer_allocated_bytes = allocator.get_allocated_bytes(),
+        .buffer_max_contiguous_bytes = allocator.get_max_contiguous_free_bytes(),
+        .resident_bytes = buffer_statistics.resident_bytes,
+        .committed_bytes = committed_bytes,
+        .peak_committed_bytes = peak_committed_bytes,
+        .pages_num_resident = page_table.num_bound_pages,
+        .num_reserve_failures = buffer_statistics.num_reserve_failures,
+    };
 }
 
 auto MeshStreamingPool::get_entry(MeshAssetHandle handle) -> MeshEntry*

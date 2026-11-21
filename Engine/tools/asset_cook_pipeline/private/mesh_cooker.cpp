@@ -426,6 +426,16 @@ void MeshCooker::cook(const CookRequest& request, const CookContext& context, st
     metadata.texel_factor = texel_factor;
     fill_lod_metadata(metadata, lod_ranges, vertex_remap, vertices);
 
+    // This forces at least one non-streamable lod
+    if (metadata.streamable_lods >= metadata.get_num_lods())
+    {
+        context.reporter.error(
+            "Can't have more or equal streamable lods than actual lods (streamable={} lods={})",
+            metadata.streamable_lods,
+            metadata.get_num_lods());
+        return;
+    }
+
     const uint64_t total_size = mesh_serialized_metadata_size(metadata) + metadata.get_total_size_bytes();
 
     std::span<uint8_t> data = context.allocator.allocate(total_size);
