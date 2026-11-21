@@ -133,7 +133,7 @@ GameRenderer::~GameRenderer()
     shutdown_render_device();
 }
 
-void GameRenderer::acquire_swapchain_image()
+bool GameRenderer::acquire_swapchain_image()
 {
     MIZU_PROFILE_SCOPED;
 
@@ -142,7 +142,7 @@ void GameRenderer::acquire_swapchain_image()
         point.wait();
     }
 
-    m_swapchain_manager->acquire_next_image();
+    return m_swapchain_manager->acquire_next_image();
 }
 
 void GameRenderer::set_frame_timing(const RenderFrameTiming& frame_timing)

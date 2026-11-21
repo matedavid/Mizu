@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <span>
 
 #include "render_core/rhi/image_resource.h"
@@ -40,7 +41,7 @@ class Swapchain
   public:
     virtual ~Swapchain() = default;
 
-    virtual SyncPoint acquire_next_image() = 0;
+    virtual std::optional<SyncPoint> acquire_next_image() = 0;
     virtual void present(const SyncPoint& rendering_done) = 0;
     virtual std::shared_ptr<ImageResource> get_image(uint32_t idx) const = 0;
 

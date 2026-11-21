@@ -103,7 +103,7 @@ class MIZU_RENDER_API GameRenderer
 
     bool init(const GameRendererDescription& desc);
 
-    void acquire_swapchain_image();
+    bool acquire_swapchain_image();
     void set_frame_timing(const RenderFrameTiming& frame_timing);
     JobHandle create_update_jobs(const JobHandle& wait_job);
 

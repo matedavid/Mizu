@@ -53,19 +53,17 @@ Dx12Swapchain::~Dx12Swapchain()
     cleanup();
 }
 
-SyncPoint Dx12Swapchain::acquire_next_image()
-{
-    // In D3D12, the image at CurrentBackBufferIndex is always ready to be rendered to
-    return SyncPoint{};
-}
-
-void Dx12Swapchain::present(const SyncPoint& rendering_done)
+std::optional<SyncPoint> Dx12Swapchain::acquire_next_image()
 {
     MIZU_PROFILE_SCOPED;
 
-    Dx12Context.device->get_native_queue(CommandBufferType::Graphics).wait(rendering_done);
-
     const IRhiWindow& window = *m_description.window;
+
+    if (IsIconic(m_window_handle))
+        return std::nullopt;
+
+    if (window.get_width() == 0 || window.get_height() == 0)
+        return std::nullopt;
 
     DXGI_SWAP_CHAIN_DESC swapchain_desc{};
     DX12_CHECK(m_swapchain->GetDesc(&swapchain_desc));
@@ -75,6 +73,16 @@ void Dx12Swapchain::present(const SyncPoint& rendering_done)
     {
         recreate();
     }
+
+    // In D3D12, the image at CurrentBackBufferIndex is always ready to be rendered to
+    return SyncPoint{};
+}
+
+void Dx12Swapchain::present(const SyncPoint& rendering_done)
+{
+    MIZU_PROFILE_SCOPED;
+
+    Dx12Context.device->get_native_queue(CommandBufferType::Graphics).wait(rendering_done);
 
     // DXGI has no direct Mailbox equivalent, but the flip model already discards superseded frames when there are 3 or
     // more buffers, so both Fifo and Mailbox wait for vblank.

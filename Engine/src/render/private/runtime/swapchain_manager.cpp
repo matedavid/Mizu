@@ -30,12 +30,18 @@ bool SwapchainManager::init(const SwapchainManagerDescription& desc)
     return true;
 }
 
-void SwapchainManager::acquire_next_image()
+bool SwapchainManager::acquire_next_image()
 {
     MIZU_PROFILE_SCOPED;
 
-    m_image_ready = m_swapchain->acquire_next_image();
+    const std::optional<SyncPoint> image_ready = m_swapchain->acquire_next_image();
+    if (!image_ready.has_value())
+        return false;
+
+    m_image_ready = *image_ready;
     m_image_idx = m_swapchain->get_current_image_idx();
+
+    return true;
 }
 
 void SwapchainManager::present(const SyncPoint& rendering_done)

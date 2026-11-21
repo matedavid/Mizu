@@ -27,6 +27,8 @@ class MIZU_RENDER_API RenderLoop
     std::chrono::high_resolution_clock::time_point m_last_time;
 
     void prepare_frame();
+    void minimized_job();
+    void apply_state_updates();
     void recursive_job();
     void shutdown_job();
 

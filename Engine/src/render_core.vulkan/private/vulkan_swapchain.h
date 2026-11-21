@@ -20,7 +20,7 @@ class VulkanSwapchain : public Swapchain
     VulkanSwapchain(SwapchainDescription desc);
     ~VulkanSwapchain() override;
 
-    SyncPoint acquire_next_image() override;
+    std::optional<SyncPoint> acquire_next_image() override;
     void present(const SyncPoint& rendering_done) override;
     std::shared_ptr<ImageResource> get_image(uint32_t idx) const override;
     uint32_t get_num_images() const override { return static_cast<uint32_t>(m_images.size()); }
@@ -33,6 +33,7 @@ class VulkanSwapchain : public Swapchain
     VkSwapchainKHR m_swapchain{VK_NULL_HANDLE};
     VkSurfaceKHR m_surface{VK_NULL_HANDLE};
     uint32_t m_current_image_idx = 0;
+    bool m_needs_recreate = false;
 
     SwapchainDescription m_description{};
 
@@ -67,7 +68,7 @@ class VulkanSwapchain : public Swapchain
     void create_semaphores();
     void destroy_semaphores();
 
-    void recreate();
+    bool recreate();
     void cleanup();
 
     void retrieve_swapchain_information();

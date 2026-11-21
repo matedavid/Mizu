@@ -25,6 +25,7 @@ VulkanSwapchain::VulkanSwapchain(SwapchainDescription desc) : m_description(std:
     m_image_ready_fence = std::make_unique<VulkanFence>(0);
 
     retrieve_surface();
+    retrieve_swapchain_information();
     create_swapchain();
     retrieve_swapchain_images();
     create_semaphores();
@@ -38,7 +39,7 @@ VulkanSwapchain::~VulkanSwapchain()
     vkDestroySurfaceKHR(VulkanContext.device->get_instance(), m_surface, nullptr);
 }
 
-SyncPoint VulkanSwapchain::acquire_next_image()
+std::optional<SyncPoint> VulkanSwapchain::acquire_next_image()
 {
     MIZU_PROFILE_SCOPED;
 
@@ -51,30 +52,41 @@ SyncPoint VulkanSwapchain::acquire_next_image()
         return acquire;
     };
 
-    AcquireSemaphore* acquire = &next_acquire_semaphore();
-
-    const VkResult result = vkAcquireNextImageKHR(
-        VulkanContext.device->handle(),
-        m_swapchain,
-        UINT64_MAX,
-        acquire->semaphore,
-        VK_NULL_HANDLE,
-        &m_current_image_idx);
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR)
-    {
-        recreate();
-
-        acquire = &next_acquire_semaphore();
-        VK_CHECK(vkAcquireNextImageKHR(
+    const auto try_acquire = [this](const AcquireSemaphore& acquire) {
+        return vkAcquireNextImageKHR(
             VulkanContext.device->handle(),
             m_swapchain,
             UINT64_MAX,
-            acquire->semaphore,
+            acquire.semaphore,
             VK_NULL_HANDLE,
-            &m_current_image_idx));
+            &m_current_image_idx);
+    };
+
+    if (m_needs_recreate)
+    {
+        if (!recreate())
+            return std::nullopt;
     }
-    else if (result != VK_SUBOPTIMAL_KHR)
+
+    AcquireSemaphore* acquire = &next_acquire_semaphore();
+    VkResult result = try_acquire(*acquire);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        if (!recreate())
+            return std::nullopt;
+
+        acquire = &next_acquire_semaphore();
+        result = try_acquire(*acquire);
+    }
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        m_needs_recreate = true;
+        return std::nullopt;
+    }
+
+    if (result != VK_SUBOPTIMAL_KHR)
     {
         VK_CHECK_RESULT(result);
     }
@@ -122,7 +134,7 @@ void VulkanSwapchain::present(const SyncPoint& rendering_done)
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
-        recreate();
+        m_needs_recreate = true;
     }
     else if (result != VK_SUCCESS)
     {
@@ -144,8 +156,6 @@ void VulkanSwapchain::retrieve_surface()
 
 void VulkanSwapchain::create_swapchain()
 {
-    retrieve_swapchain_information();
-
     constexpr std::array view_format_list = {
         VK_FORMAT_R8G8B8A8_SRGB,
         VK_FORMAT_B8G8R8A8_SRGB,
@@ -234,8 +244,16 @@ void VulkanSwapchain::retrieve_swapchain_images()
     }
 }
 
-void VulkanSwapchain::recreate()
+bool VulkanSwapchain::recreate()
 {
+    retrieve_swapchain_information();
+
+    if (m_swapchain_info.extent.width == 0 || m_swapchain_info.extent.height == 0)
+    {
+        m_needs_recreate = true;
+        return false;
+    }
+
     VulkanContext.device->wait_idle();
     cleanup();
     destroy_semaphores();
@@ -243,6 +261,9 @@ void VulkanSwapchain::recreate()
     create_swapchain();
     retrieve_swapchain_images();
     create_semaphores();
+
+    m_needs_recreate = false;
+    return true;
 }
 
 void VulkanSwapchain::cleanup()

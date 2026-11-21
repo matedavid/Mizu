@@ -16,7 +16,7 @@ class Dx12Swapchain : public Swapchain
     Dx12Swapchain(SwapchainDescription desc);
     ~Dx12Swapchain() override;
 
-    SyncPoint acquire_next_image() override;
+    std::optional<SyncPoint> acquire_next_image() override;
     void present(const SyncPoint& rendering_done) override;
     std::shared_ptr<ImageResource> get_image(uint32_t idx) const override;
     uint32_t get_num_images() const override { return m_num_images; }

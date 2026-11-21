@@ -29,7 +29,7 @@ class SwapchainManager
 
     bool init(const SwapchainManagerDescription& desc);
 
-    void acquire_next_image();
+    bool acquire_next_image();
     void present(const SyncPoint& rendering_done);
 
     std::shared_ptr<ImageResource> get_current_image() const;
