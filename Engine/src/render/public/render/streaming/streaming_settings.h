@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/settings_manager/settings_manager.h"
-#include "render_core/rhi/device.h"
 
 namespace Mizu
 {

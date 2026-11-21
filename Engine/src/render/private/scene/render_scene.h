@@ -81,7 +81,6 @@ class RenderScene : public StaticMeshStateManagerConsumer
     void rend_on_destroy(StaticMeshHandle handle) override;
 
   private:
-    StreamingPlanner& m_streaming_planner;
     MeshStreamingManager& m_mesh_streaming_manager;
     MaterialSystem& m_material_system;
 

@@ -24,7 +24,7 @@ class StagingPool
     static constexpr uint64_t ALIGNMENT = alignof(std::max_align_t);
 
     static_assert(ALIGNMENT > 0, "StagingPool alignment must be greater than 0");
-    static_assert(ALIGNMENT % 2 == 0, "StagingPool alignment must be a power of 2");
+    static_assert((ALIGNMENT & (ALIGNMENT - 1)) == 0, "StagingPool alignment must be a power of 2");
 
   public:
     StagingPool(uint64_t capacity);

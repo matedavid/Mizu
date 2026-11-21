@@ -20,7 +20,6 @@ namespace Mizu
 
 // Forward declarations
 class AssetLoadScheduler;
-class AssetLoadSystem;
 class CommandBuffer;
 class FrameLinearAllocator;
 class GpuPageAllocator;
@@ -28,8 +27,6 @@ class MaterialSystem;
 class RenderGraphBlackboard;
 class RenderGraphTransientMemory;
 class RenderScene;
-class ResourceEventStream;
-class SceneSystem;
 class SparseBindScheduler;
 class StagingPool;
 class StreamingPlanner;

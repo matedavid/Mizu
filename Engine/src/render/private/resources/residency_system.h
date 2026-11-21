@@ -24,8 +24,6 @@ template <AssetHandleType AssetHandleT, typename RecordPayload>
 class ResidencySystemBase
 {
   public:
-    virtual ~ResidencySystemBase() = default;
-
     bool increment_reference_count(AssetHandleT handle)
     {
         Record* record = get_or_create_record(handle);

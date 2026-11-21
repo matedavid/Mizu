@@ -46,7 +46,7 @@ TransformRegistry::TransformRegistry()
     transform_info_buffer_desc.size = sizeof(TransformInfo) * NUM_TRANSFORMS;
     transform_info_buffer_desc.stride = sizeof(TransformInfo);
     transform_info_buffer_desc.usage = BufferUsageBits::ShaderResource | BufferUsageBits::UnorderedAccess;
-    transform_info_buffer_desc.name = "SceneSystem::TransformInfoBuffer";
+    transform_info_buffer_desc.name = "TransformRegistry::TransformInfoBuffer";
     m_transform_info_buffer = g_render_device->create_buffer(transform_info_buffer_desc);
 }
 
@@ -75,7 +75,7 @@ void TransformRegistry::add_transform_publish_pass(RenderGraphBuilder& builder, 
         m_transform_info_buffer, {BufferResourceState::ShaderReadOnly, BufferResourceState::ShaderReadOnly});
 
     builder.add_pass<PublishInfo>(
-        "SceneSystem::TransformPublishPass",
+        "TransformRegistry::TransformPublishPass",
         [&](RenderGraphPassBuilder& pass, PublishInfo& info) {
             pass.set_hint(RenderGraphPassHint::Compute);
 

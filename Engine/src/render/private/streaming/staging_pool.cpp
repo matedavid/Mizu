@@ -18,7 +18,7 @@ StagingPool::StagingPool(uint64_t capacity) : m_buffer(capacity, 0)
 std::optional<StagingBlock> StagingPool::allocate(uint64_t size, uint64_t alignment)
 {
     MIZU_ASSERT(size > 0, "Can't allocate block of size 0");
-    MIZU_ASSERT(alignment == 0 || alignment % 2 == 0, "Alignment must be a power of two, got {}", alignment);
+    MIZU_ASSERT((alignment & (alignment - 1)) == 0, "Alignment must be a power of two, got {}", alignment);
 
     std::lock_guard lock(m_mutex);
 

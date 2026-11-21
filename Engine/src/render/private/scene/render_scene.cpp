@@ -46,8 +46,7 @@ static GpuMeshLodTable create_mesh_lod_table(const MeshStreamingResidency& resid
 }
 
 RenderScene::RenderScene(StreamingPlanner& streaming_planner, MaterialSystem& material_system)
-    : m_streaming_planner(streaming_planner)
-    , m_mesh_streaming_manager(*get_mesh_streaming_manager(m_streaming_planner))
+    : m_mesh_streaming_manager(*get_mesh_streaming_manager(streaming_planner))
     , m_material_system(material_system)
 {
     g_static_mesh_state_manager->register_rend_consumer(this);
