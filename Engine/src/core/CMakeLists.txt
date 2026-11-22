@@ -35,7 +35,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 #
 
 # glfw
-FetchContent_Declare(
+mizu_declare_dependency(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw.git
         GIT_TAG 3.4

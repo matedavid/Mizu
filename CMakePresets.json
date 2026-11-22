@@ -13,6 +13,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build/_deps/${hostSystemName}",
         "MIZU_BUILD_TESTS": true,
         "MIZU_BUILD_EXAMPLES": true,
         "MIZU_USE_UNITY_BUILD": true
@@ -22,9 +23,6 @@
       "name": "windows-base",
       "hidden": true,
       "inherits": "common",
-      "cacheVariables": {
-        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build/_deps_windows"
-      },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -36,7 +34,9 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": [ "Windows" ]
+          "hostOS": [
+            "Windows"
+          ]
         }
       }
     },
@@ -44,9 +44,6 @@
       "name": "linux-base",
       "hidden": true,
       "inherits": "common",
-      "cacheVariables": {
-        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build/_deps_linux"
-      },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -54,20 +51,16 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": [ "Linux" ]
+          "hostOS": [
+            "Linux"
+          ]
         }
       }
-    },
-    {
-      "name": "clang-common",
-      "hidden": true,
-      "inherits": "common"
     },
     {
       "name": "windows-msvc-base",
       "hidden": true,
       "inherits": "windows-base",
-      "displayName": "Windows MSVC Base",
       "environment": {
         "CC": "cl",
         "CXX": "cl"
@@ -81,8 +74,7 @@
     {
       "name": "windows-clang-base",
       "hidden": true,
-      "inherits": [ "windows-base", "clang-common" ],
-      "displayName": "Windows Clang Base",
+      "inherits": "windows-base",
       "environment": {
         "CC": "clang-cl",
         "CXX": "clang-cl"
@@ -97,7 +89,6 @@
       "name": "linux-gcc-base",
       "hidden": true,
       "inherits": "linux-base",
-      "displayName": "Linux GCC Base",
       "environment": {
         "CC": "gcc",
         "CXX": "g++"
@@ -106,224 +97,214 @@
     {
       "name": "linux-clang-base",
       "hidden": true,
-      "inherits": [ "linux-base", "clang-common" ],
-      "displayName": "Linux Clang Base",
+      "inherits": "linux-base",
       "environment": {
         "CC": "clang",
         "CXX": "clang++"
       }
     },
     {
-      "name": "windows-msvc-debug",
-      "displayName": "Windows MSVC Debug",
-      "inherits": "windows-msvc-base",
+      "name": "debug",
+      "hidden": true,
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
+    },
+    {
+      "name": "release",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "final",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "inherits": [
+        "windows-msvc-base",
+        "debug"
+      ]
     },
     {
       "name": "windows-msvc-release",
       "displayName": "Windows MSVC RelWithDebInfo",
-      "inherits": "windows-msvc-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
-      }
+      "inherits": [
+        "windows-msvc-base",
+        "release"
+      ]
     },
     {
       "name": "windows-msvc-final",
       "displayName": "Windows MSVC Release",
-      "inherits": "windows-msvc-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
+      "inherits": [
+        "windows-msvc-base",
+        "final"
+      ]
     },
     {
       "name": "windows-clang-debug",
       "displayName": "Windows Clang Debug",
-      "inherits": "windows-clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
+      "inherits": [
+        "windows-clang-base",
+        "debug"
+      ]
     },
     {
       "name": "windows-clang-release",
       "displayName": "Windows Clang RelWithDebInfo",
-      "inherits": "windows-clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
-      }
+      "inherits": [
+        "windows-clang-base",
+        "release"
+      ]
     },
     {
       "name": "windows-clang-final",
       "displayName": "Windows Clang Release",
-      "inherits": "windows-clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
+      "inherits": [
+        "windows-clang-base",
+        "final"
+      ]
     },
     {
       "name": "linux-gcc-debug",
       "displayName": "Linux GCC Debug",
-      "inherits": "linux-gcc-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
+      "inherits": [
+        "linux-gcc-base",
+        "debug"
+      ]
     },
     {
       "name": "linux-gcc-release",
       "displayName": "Linux GCC RelWithDebInfo",
-      "inherits": "linux-gcc-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
-      }
+      "inherits": [
+        "linux-gcc-base",
+        "release"
+      ]
     },
     {
       "name": "linux-gcc-final",
       "displayName": "Linux GCC Release",
-      "inherits": "linux-gcc-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
+      "inherits": [
+        "linux-gcc-base",
+        "final"
+      ]
     },
     {
       "name": "linux-clang-debug",
       "displayName": "Linux Clang Debug",
-      "inherits": "linux-clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
+      "inherits": [
+        "linux-clang-base",
+        "debug"
+      ]
     },
     {
       "name": "linux-clang-release",
       "displayName": "Linux Clang RelWithDebInfo",
-      "inherits": "linux-clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
-      }
+      "inherits": [
+        "linux-clang-base",
+        "release"
+      ]
     },
     {
       "name": "linux-clang-final",
       "displayName": "Linux Clang Release",
-      "inherits": "linux-clang-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
+      "inherits": [
+        "linux-clang-base",
+        "final"
+      ]
     }
   ],
   "buildPresets": [
     {
-      "name": "windows-msvc-debug",
-      "configurePreset": "windows-msvc-debug",
+      "name": "build-windows",
+      "hidden": true,
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       }
+    },
+    {
+      "name": "build-linux",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug",
+      "inherits": "build-windows"
     },
     {
       "name": "windows-msvc-release",
       "configurePreset": "windows-msvc-release",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
+      "inherits": "build-windows"
     },
     {
       "name": "windows-msvc-final",
       "configurePreset": "windows-msvc-final",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
+      "inherits": "build-windows"
     },
     {
       "name": "windows-clang-debug",
       "configurePreset": "windows-clang-debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
+      "inherits": "build-windows"
     },
     {
       "name": "windows-clang-release",
       "configurePreset": "windows-clang-release",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
+      "inherits": "build-windows"
     },
     {
       "name": "windows-clang-final",
       "configurePreset": "windows-clang-final",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
+      "inherits": "build-windows"
     },
     {
       "name": "linux-gcc-debug",
       "configurePreset": "linux-gcc-debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
+      "inherits": "build-linux"
     },
     {
       "name": "linux-gcc-release",
       "configurePreset": "linux-gcc-release",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
+      "inherits": "build-linux"
     },
     {
       "name": "linux-gcc-final",
       "configurePreset": "linux-gcc-final",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
+      "inherits": "build-linux"
     },
     {
       "name": "linux-clang-debug",
       "configurePreset": "linux-clang-debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
+      "inherits": "build-linux"
     },
     {
       "name": "linux-clang-release",
       "configurePreset": "linux-clang-release",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
+      "inherits": "build-linux"
     },
     {
       "name": "linux-clang-final",
       "configurePreset": "linux-clang-final",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
+      "inherits": "build-linux"
     }
   ],
   "testPresets": [
     {
-      "name": "windows-msvc-debug",
-      "configurePreset": "windows-msvc-debug",
+      "name": "test-windows",
+      "hidden": true,
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -332,138 +313,78 @@
       "output": {
         "outputOnFailure": true
       }
+    },
+    {
+      "name": "test-linux",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug",
+      "inherits": "test-windows"
     },
     {
       "name": "windows-msvc-release",
       "configurePreset": "windows-msvc-release",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-windows"
     },
     {
       "name": "windows-msvc-final",
       "configurePreset": "windows-msvc-final",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-windows"
     },
     {
       "name": "windows-clang-debug",
       "configurePreset": "windows-clang-debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-windows"
     },
     {
       "name": "windows-clang-release",
       "configurePreset": "windows-clang-release",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-windows"
     },
     {
       "name": "windows-clang-final",
       "configurePreset": "windows-clang-final",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-windows"
     },
     {
       "name": "linux-gcc-debug",
       "configurePreset": "linux-gcc-debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-linux"
     },
     {
       "name": "linux-gcc-release",
       "configurePreset": "linux-gcc-release",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-linux"
     },
     {
       "name": "linux-gcc-final",
       "configurePreset": "linux-gcc-final",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-linux"
     },
     {
       "name": "linux-clang-debug",
       "configurePreset": "linux-clang-debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-linux"
     },
     {
       "name": "linux-clang-release",
       "configurePreset": "linux-clang-release",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-linux"
     },
     {
       "name": "linux-clang-final",
       "configurePreset": "linux-clang-final",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "test-linux"
     }
   ]
 }

@@ -17,6 +17,10 @@ enable_testing()
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 
+function(mizu_declare_dependency name)
+    FetchContent_Declare(${name} ${ARGN} BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/${name}-build")
+endfunction()
+
 include(GenerateExportHeader)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)

@@ -43,7 +43,7 @@ endif ()
 
 set(slang_url "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-${os}-${arch}.zip")
 
-FetchContent_Declare(slang URL ${slang_url})
+mizu_declare_dependency(slang URL ${slang_url})
 FetchContent_MakeAvailable(slang)
 message(STATUS "[MIZU]: Finished downloading slang: ${slang_SOURCE_DIR}")
 
@@ -76,7 +76,7 @@ target_include_directories(mizu_slang INTERFACE "${slang_SOURCE_DIR}/include")
 target_link_libraries(${PROJECT_NAME} PUBLIC mizu_slang)
 
 # json 
-FetchContent_Declare(
+mizu_declare_dependency(
     json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.12.0

@@ -45,7 +45,7 @@ if(MIZU_DX12_VALIDATIONS_ENABLED)
 
     set(MIZU_WINPIX_EVENT_RUNTIME_PACKAGE_URL https://www.nuget.org/api/v2/package/WinPixEventRuntime/${MIZU_WINPIX_EVENT_RUNTIME_PACKAGE_VERSION})
 
-    FetchContent_Declare(
+    mizu_declare_dependency(
         winpix_event_runtime
         URL ${MIZU_WINPIX_EVENT_RUNTIME_PACKAGE_URL}
     )
@@ -77,7 +77,7 @@ set(MIZU_DX12_AGILITY_SDK_VERSION ${CMAKE_MATCH_1})
 
 set(MIZU_DX12_AGILITY_SDK_PACKAGE_URL https://www.nuget.org/api/v2/package/Microsoft.Direct3D.D3D12/${MIZU_DX12_AGILITY_SDK_PACKAGE_VERSION})
 
-FetchContent_Declare(
+mizu_declare_dependency(
     agility_sdk
     URL ${MIZU_DX12_AGILITY_SDK_PACKAGE_URL}
 )

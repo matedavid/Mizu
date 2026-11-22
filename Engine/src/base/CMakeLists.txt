@@ -21,7 +21,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC MIZU_PROFILING_ENABLED=${MIZU_
 #
 
 # glm
-FetchContent_Declare(
+mizu_declare_dependency(
         glm
         GIT_REPOSITORY https://github.com/g-truc/glm.git
         GIT_TAG 1.0.1
@@ -37,7 +37,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 
 # magic_enum
-FetchContent_Declare(
+mizu_declare_dependency(
         magic_enum
         GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
         GIT_TAG v0.9.8
@@ -54,7 +54,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC magic_enum::magic_enum)
 if (MIZU_LOGGING_ENABLED)
 
     # spdlog
-    FetchContent_Declare(
+    mizu_declare_dependency(
             spdlog
             GIT_REPOSITORY https://github.com/gabime/spdlog.git
             GIT_TAG v1.15.1
@@ -72,7 +72,7 @@ endif ()
 if (MIZU_PROFILING_ENABLED)
 
     # tracy
-    FetchContent_Declare(
+    mizu_declare_dependency(
             tracy
             GIT_REPOSITORY https://github.com/wolfpld/tracy.git
             GIT_TAG v0.13.1

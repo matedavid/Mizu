@@ -59,7 +59,7 @@ endfunction()
 #
 
 # Assimp
-FetchContent_Declare(
+mizu_declare_dependency(
         assimp
         GIT_REPOSITORY https://github.com/assimp/assimp.git
         GIT_TAG v6.0.5
@@ -108,7 +108,7 @@ set_target_properties(mizu_stb PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${PROJECT_NAME} PRIVATE mizu_stb)
 
 # meshoptimizer
-FetchContent_Declare(
+mizu_declare_dependency(
         meshoptimizer
         GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
         GIT_TAG v1.3

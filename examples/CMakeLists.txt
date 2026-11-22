@@ -1,4 +1,4 @@
-FetchContent_Declare(
+mizu_declare_dependency(
         gltf-sample-assets
         GIT_REPOSITORY https://github.com/KhronosGroup/glTF-Sample-Assets.git
         GIT_TAG main
