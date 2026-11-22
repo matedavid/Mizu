@@ -6,18 +6,30 @@
 #include <type_traits>
 #include <utility>
 
+#include "base/debug/assert.h"
+
 namespace Mizu
 {
 
-constexpr size_t InplaceJobMemoryBytes = 48;
+// clang-format off
+template <typename T, size_t CapacityBytes>
+concept InplaceFunctionStorable = std::is_same_v<T, std::decay_t<T>>
+                               && std::is_invocable_v<T&>
+                               && std::is_move_constructible_v<T>
+                               && sizeof(T) <= CapacityBytes
+                               && alignof(T) <= alignof(std::max_align_t);
+// clang-format on
 
-class InplaceJobFunction
+template <size_t CapacityBytes>
+class inplace_function
 {
-  public:
-    InplaceJobFunction() = default;
-    InplaceJobFunction(InplaceJobFunction&& other) { move_from(std::move(other)); }
+    static_assert(CapacityBytes > 0, "Can't create inplace_function with CapacityBytes == 0");
 
-    InplaceJobFunction& operator=(InplaceJobFunction&& other)
+  public:
+    inplace_function() = default;
+    inplace_function(inplace_function&& other) { move_from(std::move(other)); }
+
+    inplace_function& operator=(inplace_function&& other)
     {
         if (this != &other)
         {
@@ -28,41 +40,41 @@ class InplaceJobFunction
         return *this;
     }
 
-    InplaceJobFunction(const InplaceJobFunction&) = delete;
-    InplaceJobFunction& operator=(const InplaceJobFunction&) = delete;
-    ~InplaceJobFunction() { reset(); }
+    inplace_function(const inplace_function&) = delete;
+    inplace_function& operator=(const inplace_function&) = delete;
+
+    ~inplace_function() { reset(); }
 
     template <typename Func>
-    static InplaceJobFunction create(Func&& func)
+        requires InplaceFunctionStorable<std::decay_t<Func>, CapacityBytes>
+    static inplace_function create(Func&& func)
     {
         using StoredFuncT = std::decay_t<Func>;
 
-        static_assert(sizeof(StoredFuncT) <= InplaceJobMemoryBytes, "Template function too large for inplace job");
-        static_assert(
-            alignof(StoredFuncT) <= alignof(MemoryT), "Template function alignment too large for inplace job");
-
-        InplaceJobFunction result{};
+        inplace_function result{};
         new (&result.m_memory) StoredFuncT(std::forward<Func>(func));
 
         result.m_invoke_func = [](void* memory) {
-            StoredFuncT& func = *reinterpret_cast<StoredFuncT*>(memory);
+            StoredFuncT& func = *std::launder(reinterpret_cast<StoredFuncT*>(memory));
             std::invoke(func);
         };
 
         result.m_destroy_func = [](void* memory) {
-            reinterpret_cast<StoredFuncT*>(memory)->~StoredFuncT();
+            std::launder(reinterpret_cast<StoredFuncT*>(memory))->~StoredFuncT();
         };
 
         result.m_move_func = [](void* src, void* dst) {
-            new (dst) StoredFuncT(std::move(*reinterpret_cast<StoredFuncT*>(src)));
-            reinterpret_cast<StoredFuncT*>(src)->~StoredFuncT();
+            StoredFuncT* src_func = std::launder(reinterpret_cast<StoredFuncT*>(src));
+            new (dst) StoredFuncT(std::move(*src_func));
+            src_func->~StoredFuncT();
         };
 
         return result;
     }
 
     template <typename Func, typename... Args>
-    static InplaceJobFunction create(Func&& func, Args&&... args)
+        requires(sizeof...(Args) > 0)
+    static inplace_function create(Func&& func, Args&&... args)
     {
         return create([func = std::forward<Func>(func), ... args = std::forward<Args>(args)]() mutable {
             std::invoke(func, args...);
@@ -71,18 +83,14 @@ class InplaceJobFunction
 
     void operator()()
     {
-        MIZU_ASSERT(is_valid(), "Trying to execute invalid InplaceJobFunction");
+        MIZU_ASSERT(is_valid(), "Trying to execute invalid inplace_function");
         m_invoke_func(&m_memory);
     }
 
     bool is_valid() const { return m_invoke_func != nullptr; }
 
   private:
-    struct alignas(std::max_align_t) MemoryT
-    {
-        std::byte data[InplaceJobMemoryBytes]{};
-    };
-    MemoryT m_memory{};
+    alignas(std::max_align_t) std::byte m_memory[CapacityBytes];
 
     void (*m_invoke_func)(void*) = nullptr;
     void (*m_destroy_func)(void*) = nullptr;
@@ -99,7 +107,7 @@ class InplaceJobFunction
         }
     }
 
-    void move_from(InplaceJobFunction&& other)
+    void move_from(inplace_function&& other)
     {
         if (other.m_move_func != nullptr)
         {

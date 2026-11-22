@@ -8,12 +8,12 @@
 #include <string_view>
 #include <utility>
 
+#include "base/containers/inplace_function.h"
 #include "base/containers/inplace_vector.h"
 #include "base/debug/assert.h"
 
 #include "core/job_system/fiber_stack_memory_pool.h"
 #include "core/job_system/fibers.h"
-#include "core/job_system/inplace_job_function.h"
 #include "core/job_system/intrusive_free_list.h"
 #include "core/job_system/mpsc_queue.h"
 #include "core/job_system/work_stealing_deque.h"
@@ -33,6 +33,9 @@ using JobRecordPoolIndex = IntrusiveFreeListIndex<JobRecordPoolTag>;
 using CompletionRecordPoolIndex = IntrusiveFreeListIndex<CompletionRecordPoolTag>;
 using WaitNodePoolIndex = IntrusiveFreeListIndex<WaitNodePoolTag>;
 using FiberSlotPoolIndex = IntrusiveFreeListIndex<FiberSlotPoolTag>;
+
+constexpr size_t InplaceJobMemoryBytes = 48;
+using InplaceJobFunction = inplace_function<InplaceJobMemoryBytes>;
 
 enum class JobAffinity
 {
