@@ -75,7 +75,7 @@ if (MIZU_PROFILING_ENABLED)
     mizu_declare_dependency(
             tracy
             GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-            GIT_TAG v0.13.1
+            GIT_TAG v0.15.0
             GIT_PROGRESS TRUE
             GIT_SHALLOW TRUE
     )

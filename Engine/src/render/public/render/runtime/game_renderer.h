@@ -46,11 +46,9 @@ enum class RenderModuleLabel
     Bottom,
     Scene,
     Top,
-
-    Count,
 };
 
-inline constexpr size_t RENDER_MODULE_LABEL_COUNT = static_cast<size_t>(RenderModuleLabel::Count);
+constexpr size_t RENDER_MODULE_LABEL_COUNT = meta::enum_count_v<RenderModuleLabel>;
 
 struct RenderModuleSystems
 {
@@ -111,7 +109,6 @@ class MIZU_RENDER_API GameRenderer
     void register_module(RenderModuleLabel label)
     {
         static_assert(std::is_base_of_v<IRenderModule, T>, "T must derive from IRenderModule");
-        MIZU_ASSERT(label != RenderModuleLabel::Count, "Can't register module with label Count");
 
         const size_t idx = static_cast<size_t>(label);
         if (m_render_modules[idx] != nullptr)
@@ -120,11 +117,6 @@ class MIZU_RENDER_API GameRenderer
         }
 
         m_render_modules[idx] = new T{};
-
-        if (!m_render_modules[idx]->init())
-        {
-            // TODO: Do something useful
-        }
     }
 
   private:
@@ -173,6 +165,9 @@ class MIZU_RENDER_API GameRenderer
     void prepare_draw_lists_job();
     void execute_render_graph_job();
     void present_job();
+
+    bool init_modules();
+    void shutdown_modules();
 
     bool init_render_device(const GameRendererDescription& desc);
     void shutdown_render_device();

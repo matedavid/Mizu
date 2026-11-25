@@ -111,6 +111,12 @@ bool GameRenderer::init(const GameRendererDescription& desc)
         return false;
     }
 
+    if (!init_modules())
+    {
+        MIZU_LOG_ERROR("Failed to initialize render modules");
+        return false;
+    }
+
     return true;
 }
 
@@ -121,10 +127,7 @@ GameRenderer::~GameRenderer()
         g_render_device->wait_idle();
     }
 
-    for (IRenderModule* module : m_render_modules)
-    {
-        delete module;
-    }
+    shutdown_modules();
 
     shutdown_renderer();
     shutdown_asset_systems();
@@ -234,7 +237,7 @@ void GameRenderer::get_render_module_update_job_handles(
         .wait_job = wait_job,
     };
 
-    for (uint32_t label_idx = 0; label_idx < RENDER_MODULE_LABEL_COUNT; ++label_idx)
+    for (uint32_t label_idx = 0; label_idx < m_render_modules.size(); ++label_idx)
     {
         IRenderModule* module = m_render_modules[label_idx];
         if (module == nullptr)
@@ -283,7 +286,7 @@ void GameRenderer::build_render_graph_job()
 
     draw_list_system_add_passes(builder, *m_frame_linear_allocator);
 
-    for (uint32_t label_idx = 0; label_idx < RENDER_MODULE_LABEL_COUNT; ++label_idx)
+    for (uint32_t label_idx = 0; label_idx < m_render_modules.size(); ++label_idx)
     {
         IRenderModule* module = m_render_modules[label_idx];
         if (module == nullptr)
@@ -350,6 +353,34 @@ void GameRenderer::present_job()
     m_current_frame += 1;
 
     MIZU_PROFILE_FRAME_MARK;
+}
+
+bool GameRenderer::init_modules()
+{
+    for (IRenderModule* module : m_render_modules)
+    {
+        if (module == nullptr)
+            continue;
+
+        if (!module->init())
+            return false;
+    }
+
+    return true;
+}
+
+void GameRenderer::shutdown_modules()
+{
+    for (IRenderModule*& module : m_render_modules | std::views::reverse)
+    {
+        if (module == nullptr)
+            continue;
+
+        module->shutdown();
+
+        delete module;
+        module = nullptr;
+    }
 }
 
 bool GameRenderer::init_render_device(const GameRendererDescription& desc)
