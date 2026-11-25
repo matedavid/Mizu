@@ -21,6 +21,7 @@ class Dx12Pipeline : public Pipeline
     ~Dx12Pipeline() override;
 
     PipelineType get_pipeline_type() const override { return m_pipeline_type; }
+    bool has_vertex_input() const { return m_has_vertex_input; }
 
     ID3D12PipelineState* handle() const { return m_pipeline_state; }
     ID3D12RootSignature* get_root_signature() const { return m_root_signature; }
@@ -56,6 +57,7 @@ class Dx12Pipeline : public Pipeline
     ID3D12CommandSignature* m_draw_indirect_command_signature = nullptr;
 
     PipelineType m_pipeline_type;
+    bool m_has_vertex_input = false;
 
     // RayTracingPipeline Specific
     ID3D12StateObject* m_ray_tracing_state_object = nullptr;

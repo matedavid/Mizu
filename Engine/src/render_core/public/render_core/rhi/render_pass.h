@@ -48,16 +48,11 @@ struct FramebufferAttachment
 
 struct RenderPassInfo
 {
-    glm::uvec2 extent = {0, 0};
-    glm::ivec2 offset = {0, 0};
-
-    float min_depth = 0.0f;
-    float max_depth = 1.0f;
-
     inplace_vector<FramebufferAttachment, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments{};
     std::optional<FramebufferAttachment> depth_stencil_attachment{};
 };
 
 MIZU_RENDER_CORE_API FramebufferInfo create_framebuffer_info(const RenderPassInfo& info);
+MIZU_RENDER_CORE_API glm::uvec2 get_render_pass_extent(const RenderPassInfo& info);
 
 } // namespace Mizu

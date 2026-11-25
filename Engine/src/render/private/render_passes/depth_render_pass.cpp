@@ -55,7 +55,6 @@ void add_depth_prepass(RenderGraphBuilder& builder, RenderGraphBlackboard& black
         },
         [=](CommandBuffer& command, const PassData& data, const RenderGraphPassResources& resources) {
             RenderPassInfo render_pass{};
-            render_pass.extent = {view_data.width, view_data.height};
             render_pass.depth_stencil_attachment = resources.get_framebuffer_attachment(
                 data.depth, LoadOperation::Clear, StoreOperation::Store, glm::vec4(1.0f));
 

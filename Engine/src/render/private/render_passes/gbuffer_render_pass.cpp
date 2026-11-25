@@ -97,7 +97,6 @@ void add_gbuffer_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& blackb
                 data.depth, depth_load_operation, StoreOperation::Store, glm::vec4{1.0f});
 
             RenderPassInfo render_pass{};
-            render_pass.extent = {view_data.width, view_data.height};
             render_pass.color_attachments = {
                 gbuffer0_attachment,
                 gbuffer1_attachment,

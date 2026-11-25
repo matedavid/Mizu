@@ -194,6 +194,9 @@ VulkanPipeline::VulkanPipeline(const GraphicsPipelineDescription& desc) : m_pipe
     get_push_constant_info_if_exists(desc.layout);
 
     // Vertex input
+
+    m_has_vertex_input = !desc.vertex_inputs.empty();
+
     VkVertexInputBindingDescription binding_description{};
 
     binding_description = VkVertexInputBindingDescription{};

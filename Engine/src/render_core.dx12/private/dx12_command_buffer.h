@@ -16,10 +16,10 @@ class Dx12CommandBuffer : public CommandBuffer
     Dx12CommandBuffer(CommandBufferType type);
     ~Dx12CommandBuffer() override;
 
+    CommandBufferType get_type() const override { return m_type; }
+
     void begin() override;
     void end() override;
-
-    CommandBufferType get_type() const override { return m_type; }
 
     void bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set) override;
     void push_constant(uint32_t size, const void* data) const override;
@@ -27,6 +27,9 @@ class Dx12CommandBuffer : public CommandBuffer
     void begin_render_pass(const RenderPassInfo& info) override;
     void end_render_pass() override;
     bool is_render_pass_active() const override { return m_render_pass_active; }
+
+    void set_viewport(const Viewport& viewport) override;
+    void set_scissor(const Scissor& scissor) override;
 
     void bind_pipeline(std::shared_ptr<Pipeline> pipeline) override;
 
@@ -44,13 +47,6 @@ class Dx12CommandBuffer : public CommandBuffer
         uint32_t first_vertex,
         uint32_t instance_count = 1,
         uint32_t first_instance = 0) override;
-
-    void draw(const BufferResource& vertex) const override;
-    void draw_indexed(const BufferResource& vertex, const BufferResource& index) const override;
-
-    void draw_instanced(const BufferResource& vertex, uint32_t instance_count) const override;
-    void draw_indexed_instanced(const BufferResource& vertex, const BufferResource& index, uint32_t instance_count)
-        const override;
 
     void draw_indexed_indirect(const BufferResource& buffer, uint64_t offset, uint32_t draw_count, uint32_t stride)
         const override;

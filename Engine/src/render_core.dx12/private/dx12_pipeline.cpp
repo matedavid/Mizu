@@ -192,6 +192,8 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
 
     // Input layout
 
+    m_has_vertex_input = !desc.vertex_inputs.empty();
+
     const auto shader_primitive_type_to_dx12_format = [](ShaderPrimitiveType type) -> DXGI_FORMAT {
         switch (type)
         {

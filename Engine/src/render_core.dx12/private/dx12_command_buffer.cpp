@@ -223,22 +223,10 @@ void Dx12CommandBuffer::begin_render_pass(const RenderPassInfo& info)
         info.depth_stencil_attachment.has_value() ? &depth_stencil_attachment : nullptr,
         render_pass_flags);
 
-    D3D12_VIEWPORT viewport{};
-    viewport.TopLeftX = static_cast<float>(info.offset.x);
-    viewport.TopLeftY = static_cast<float>(info.offset.y);
-    viewport.Width = static_cast<float>(info.extent.x);
-    viewport.Height = static_cast<float>(info.extent.y);
-    viewport.MinDepth = info.min_depth;
-    viewport.MaxDepth = info.max_depth;
+    const glm::uvec2 extent = get_render_pass_extent(info);
 
-    D3D12_RECT scissor{};
-    scissor.left = static_cast<LONG>(info.offset.x);
-    scissor.top = static_cast<LONG>(info.offset.y);
-    scissor.right = static_cast<LONG>(info.extent.x);
-    scissor.bottom = static_cast<LONG>(info.extent.y);
-
-    m_command_list->RSSetViewports(1, &viewport);
-    m_command_list->RSSetScissorRects(1, &scissor);
+    set_viewport(Viewport{.width = static_cast<float>(extent.x), .height = static_cast<float>(extent.y)});
+    set_scissor(Scissor{.width = extent.x, .height = extent.y});
 
     m_render_pass_active = true;
 }
@@ -249,6 +237,30 @@ void Dx12CommandBuffer::end_render_pass()
 
     m_render_pass_active = false;
     m_bound_pipeline = nullptr;
+}
+
+void Dx12CommandBuffer::set_viewport(const Viewport& viewport)
+{
+    D3D12_VIEWPORT dx12_viewport{};
+    dx12_viewport.TopLeftX = viewport.x;
+    dx12_viewport.TopLeftY = viewport.y;
+    dx12_viewport.Width = viewport.width;
+    dx12_viewport.Height = viewport.height;
+    dx12_viewport.MinDepth = viewport.min_depth;
+    dx12_viewport.MaxDepth = viewport.max_depth;
+
+    m_command_list->RSSetViewports(1, &dx12_viewport);
+}
+
+void Dx12CommandBuffer::set_scissor(const Scissor& scissor)
+{
+    D3D12_RECT dx12_scissor{};
+    dx12_scissor.left = static_cast<LONG>(scissor.x);
+    dx12_scissor.top = static_cast<LONG>(scissor.y);
+    dx12_scissor.right = static_cast<LONG>(scissor.x + static_cast<int32_t>(scissor.width));
+    dx12_scissor.bottom = static_cast<LONG>(scissor.y + static_cast<int32_t>(scissor.height));
+
+    m_command_list->RSSetScissorRects(1, &dx12_scissor);
 }
 
 void Dx12CommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
@@ -399,19 +411,22 @@ void Dx12CommandBuffer::draw(
         "Can't draw because no graphics pipeline has been bound");
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw because no vertex buffer has been bound");
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw because no vertex buffer has been bound");
 
-    MIZU_ASSERT(
-        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
-        "Requested first_vertex {} exceeds bound vertex count {}",
-        first_vertex,
-        m_debug_bound_vertex_buffer.vertex_count);
-    MIZU_ASSERT(
-        vertex_count <= m_debug_bound_vertex_buffer.vertex_count - first_vertex,
-        "Requested vertex_count {} at first_vertex {} exceeds bound vertex count {}",
-        vertex_count,
-        first_vertex,
-        m_debug_bound_vertex_buffer.vertex_count);
+        MIZU_ASSERT(
+            first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+            "Requested first_vertex {} exceeds bound vertex count {}",
+            first_vertex,
+            m_debug_bound_vertex_buffer.vertex_count);
+        MIZU_ASSERT(
+            vertex_count <= m_debug_bound_vertex_buffer.vertex_count - first_vertex,
+            "Requested vertex_count {} at first_vertex {} exceeds bound vertex count {}",
+            vertex_count,
+            first_vertex,
+            m_debug_bound_vertex_buffer.vertex_count);
+    }
 #endif
 
     m_command_list->DrawInstanced(vertex_count, instance_count, first_vertex, first_instance);
@@ -430,7 +445,6 @@ void Dx12CommandBuffer::draw_indexed(
         "Can't draw_indexed because no graphics pipeline has been bound");
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 
     MIZU_ASSERT(
@@ -445,74 +459,18 @@ void Dx12CommandBuffer::draw_indexed(
         first_index,
         m_debug_bound_index_buffer.index_count);
 
-    MIZU_ASSERT(
-        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
-        "Requested first_vertex {} exceeds bound vertex count {}",
-        first_vertex,
-        m_debug_bound_vertex_buffer.vertex_count);
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+        MIZU_ASSERT(
+            first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+            "Requested first_vertex {} exceeds bound vertex count {}",
+            first_vertex,
+            m_debug_bound_vertex_buffer.vertex_count);
+    }
 #endif
 
     m_command_list->DrawIndexedInstanced(index_count, instance_count, first_index, first_vertex, first_instance);
-}
-
-void Dx12CommandBuffer::draw(const BufferResource& vertex) const
-{
-    draw_instanced(vertex, 1);
-}
-
-void Dx12CommandBuffer::draw_indexed(const BufferResource& vertex, const BufferResource& index) const
-{
-    draw_indexed_instanced(vertex, index, 1);
-}
-
-void Dx12CommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
-{
-    MIZU_ASSERT(m_render_pass_active, "Can't draw_instanced because no RenderPass is active");
-    MIZU_ASSERT(
-        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
-        "Can't draw_instanced because no graphics pipeline has been bound");
-
-    const Dx12BufferResource& native_vertex_resource = static_cast<const Dx12BufferResource&>(vertex);
-
-    D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view{};
-    vertex_buffer_view.BufferLocation = native_vertex_resource.get_gpu_address();
-    vertex_buffer_view.SizeInBytes = static_cast<uint32_t>(vertex.get_size());
-    vertex_buffer_view.StrideInBytes = static_cast<uint32_t>(vertex.get_stride());
-
-    m_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
-
-    const uint32_t vertex_count = static_cast<uint32_t>(vertex.get_size() / vertex.get_stride());
-    m_command_list->DrawInstanced(vertex_count, instance_count, 0, 0);
-}
-
-void Dx12CommandBuffer::draw_indexed_instanced(
-    const BufferResource& vertex,
-    const BufferResource& index,
-    uint32_t instance_count) const
-{
-    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_instanced because no RenderPass is active");
-    MIZU_ASSERT(
-        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
-        "Can't draw_indexed_instanced because no graphics pipeline has been bound");
-
-    const Dx12BufferResource& native_vertex_resource = static_cast<const Dx12BufferResource&>(vertex);
-    const Dx12BufferResource& native_index_resource = static_cast<const Dx12BufferResource&>(index);
-
-    D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view{};
-    vertex_buffer_view.BufferLocation = native_vertex_resource.get_gpu_address();
-    vertex_buffer_view.SizeInBytes = static_cast<uint32_t>(vertex.get_size());
-    vertex_buffer_view.StrideInBytes = static_cast<uint32_t>(vertex.get_stride());
-
-    D3D12_INDEX_BUFFER_VIEW index_buffer_view{};
-    index_buffer_view.BufferLocation = native_index_resource.get_gpu_address();
-    index_buffer_view.SizeInBytes = static_cast<uint32_t>(index.get_size());
-    index_buffer_view.Format = DXGI_FORMAT_R32_UINT;
-
-    m_command_list->IASetVertexBuffers(0, 1, &vertex_buffer_view);
-    m_command_list->IASetIndexBuffer(&index_buffer_view);
-
-    const uint32_t index_count = static_cast<uint32_t>(index.get_size() / sizeof(uint32_t));
-    m_command_list->DrawIndexedInstanced(index_count, instance_count, 0, 0, 0);
 }
 
 void Dx12CommandBuffer::draw_indexed_indirect(
@@ -527,7 +485,10 @@ void Dx12CommandBuffer::draw_indexed_indirect(
         "Can't draw_indexed_indirect because no graphics pipeline has been bound");
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    }
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 #endif
 
@@ -558,7 +519,10 @@ void Dx12CommandBuffer::draw_indexed_indirect_count(
         "Can't draw_indexed_indirect_count because no graphics pipeline has been bound");
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
-    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    }
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 #endif
 

@@ -104,7 +104,6 @@ class PlasmaRenderTest : public RenderTest
                 color_attachment.store_operation = StoreOperation::Store;
 
                 RenderPassInfo pass_info{};
-                pass_info.extent = {width, height};
                 pass_info.color_attachments = {color_attachment};
 
                 FramebufferInfo framebuffer_info{};

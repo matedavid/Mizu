@@ -43,6 +43,27 @@ enum class IndexBufferFormat : uint8_t
     UInt32,
 };
 
+struct Viewport
+{
+    float x = 0.0f;
+    float y = 0.0f;
+
+    float width = 1.0f;
+    float height = 1.0f;
+
+    float min_depth = 0.0f;
+    float max_depth = 1.0f;
+};
+
+struct Scissor
+{
+    int32_t x = 0;
+    int32_t y = 0;
+
+    uint32_t width = 0;
+    uint32_t height = 0;
+};
+
 struct ResourceTransitionInfo
 {
     std::optional<CommandBufferType> src_queue_family;
@@ -195,10 +216,10 @@ class MIZU_RENDER_CORE_API CommandBuffer
   public:
     virtual ~CommandBuffer() = default;
 
+    virtual CommandBufferType get_type() const = 0;
+
     virtual void begin() = 0;
     virtual void end() = 0;
-
-    virtual CommandBufferType get_type() const = 0;
 
     virtual void bind_descriptor_set(const DescriptorSet& descriptor_set, uint32_t set) = 0;
     virtual void push_constant(uint32_t size, const void* data) const = 0;
@@ -212,6 +233,9 @@ class MIZU_RENDER_CORE_API CommandBuffer
     virtual void begin_render_pass(const RenderPassInfo& info) = 0;
     virtual void end_render_pass() = 0;
     virtual bool is_render_pass_active() const = 0;
+
+    virtual void set_viewport(const Viewport& viewport) = 0;
+    virtual void set_scissor(const Scissor& scissor) = 0;
 
     virtual void bind_pipeline(std::shared_ptr<Pipeline> pipeline) = 0;
 
@@ -237,15 +261,6 @@ class MIZU_RENDER_CORE_API CommandBuffer
         uint32_t first_vertex,
         uint32_t instance_count = 1,
         uint32_t first_instance = 0) = 0;
-
-    virtual void draw(const BufferResource& vertex) const = 0;
-    virtual void draw_indexed(const BufferResource& vertex, const BufferResource& index) const = 0;
-
-    virtual void draw_instanced(const BufferResource& vertex, uint32_t instance_count) const = 0;
-    virtual void draw_indexed_instanced(
-        const BufferResource& vertex,
-        const BufferResource& index,
-        uint32_t instance_count) const = 0;
 
     virtual void draw_indexed_indirect(
         const BufferResource& buffer,

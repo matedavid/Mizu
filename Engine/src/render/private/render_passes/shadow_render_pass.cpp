@@ -177,9 +177,6 @@ void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard
     const uint32_t num_cascades = settings.num_cascades;
     const uint32_t num_lights = cascaded_data.num_shadow_casting_directional_lights;
 
-    const uint32_t width = settings.resolution * num_cascades;
-    const uint32_t height = settings.resolution * num_lights;
-
     struct CascadedShadowPassData
     {
         RenderGraphResource shadow_map_texture;
@@ -225,7 +222,6 @@ void add_cascaded_shadow_pass(RenderGraphBuilder& builder, RenderGraphBlackboard
         },
         [=](CommandBuffer& command, const CascadedShadowPassData& data, const RenderGraphPassResources& resources) {
             RenderPassInfo render_pass{};
-            render_pass.extent = {width, height};
             render_pass.depth_stencil_attachment = resources.get_framebuffer_attachment(
                 data.shadow_map_texture, LoadOperation::Clear, StoreOperation::Store, glm::vec4(1.0f));
 

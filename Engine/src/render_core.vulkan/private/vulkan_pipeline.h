@@ -20,6 +20,7 @@ class VulkanPipeline : public Pipeline
     ~VulkanPipeline() override;
 
     PipelineType get_pipeline_type() const override { return m_pipeline_type; }
+    bool has_vertex_input() const { return m_has_vertex_input; }
 
     static VkPipelineBindPoint get_vulkan_pipeline_bind_point(PipelineType type);
 
@@ -39,6 +40,7 @@ class VulkanPipeline : public Pipeline
     VkPipelineLayout m_pipeline_layout{VK_NULL_HANDLE};
 
     PipelineType m_pipeline_type;
+    bool m_has_vertex_input = false;
     std::optional<PushConstantItem> m_push_constant_info;
 
     // RayTracingPipeline Specific

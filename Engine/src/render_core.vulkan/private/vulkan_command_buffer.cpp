@@ -104,13 +104,7 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo& info)
     MIZU_ASSERT(!m_render_pass_active, "Can't bind RenderPass because a RenderPass is already active");
     MIZU_ASSERT(m_type == CommandBufferType::Graphics, "Can't begin render pass non Graphics Command Buffer");
 
-    VkExtent2D extent{};
-    extent.width = info.extent.x;
-    extent.height = info.extent.y;
-
-    VkOffset2D offset{};
-    offset.x = info.offset.x;
-    offset.y = info.offset.y;
+    const glm::uvec2 extent = get_render_pass_extent(info);
 
     inplace_vector<VkRenderingAttachmentInfo, MAX_FRAMEBUFFER_COLOR_ATTACHMENTS> color_attachments;
     VkRenderingAttachmentInfo depth_stencil_attachment;
@@ -172,7 +166,10 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo& info)
     rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     rendering_info.pNext = nullptr;
     rendering_info.flags = 0;
-    rendering_info.renderArea = VkRect2D{.offset = offset, .extent = extent};
+    rendering_info.renderArea = VkRect2D{
+        .offset = VkOffset2D{.x = 0, .y = 0},
+        .extent = VkExtent2D{.width = extent.x, .height = extent.y},
+    };
     rendering_info.layerCount = 1;
     rendering_info.viewMask = 0;
     rendering_info.colorAttachmentCount = static_cast<uint32_t>(color_attachments.size());
@@ -182,23 +179,8 @@ void VulkanCommandBuffer::begin_render_pass(const RenderPassInfo& info)
 
     vkCmdBeginRendering(m_command_buffer, &rendering_info);
 
-    // Standard of the engine is NDC Y up, but vulkan rasterizes NDC Y down.
-    // Negate the viewport to standarize, as negative viewport height si core since Vulkan 1.1.
-
-    VkViewport viewport{};
-    viewport.x = static_cast<float>(offset.x);
-    viewport.y = static_cast<float>(offset.y) + static_cast<float>(extent.height);
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = -static_cast<float>(extent.height);
-    viewport.minDepth = info.min_depth;
-    viewport.maxDepth = info.max_depth;
-
-    VkRect2D scissor{};
-    scissor.offset = offset;
-    scissor.extent = extent;
-
-    vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
-    vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
+    set_viewport(Viewport{.width = static_cast<float>(extent.x), .height = static_cast<float>(extent.y)});
+    set_scissor(Scissor{.width = extent.x, .height = extent.y});
 
     m_render_pass_active = true;
 }
@@ -210,6 +192,31 @@ void VulkanCommandBuffer::end_render_pass()
     vkCmdEndRendering(m_command_buffer);
 
     m_render_pass_active = false;
+}
+
+void VulkanCommandBuffer::set_viewport(const Viewport& viewport)
+{
+    // Standard of the engine is NDC Y up, but vulkan rasterizes NDC Y down.
+    // Negate the viewport to standarize, as negative viewport height is core since Vulkan 1.1.
+
+    VkViewport vk_viewport{};
+    vk_viewport.x = viewport.x;
+    vk_viewport.y = viewport.y + viewport.height;
+    vk_viewport.width = viewport.width;
+    vk_viewport.height = -viewport.height;
+    vk_viewport.minDepth = viewport.min_depth;
+    vk_viewport.maxDepth = viewport.max_depth;
+
+    vkCmdSetViewport(m_command_buffer, 0, 1, &vk_viewport);
+}
+
+void VulkanCommandBuffer::set_scissor(const Scissor& scissor)
+{
+    VkRect2D vk_scissor{};
+    vk_scissor.offset = VkOffset2D{.x = scissor.x, .y = scissor.y};
+    vk_scissor.extent = VkExtent2D{.width = scissor.width, .height = scissor.height};
+
+    vkCmdSetScissor(m_command_buffer, 0, 1, &vk_scissor);
 }
 
 void VulkanCommandBuffer::bind_pipeline(std::shared_ptr<Pipeline> pipeline)
@@ -333,19 +340,22 @@ void VulkanCommandBuffer::draw(
         "Can't draw because no graphics pipeline has been bound");
 
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
-    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw because no vertex buffer has been bound");
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw because no vertex buffer has been bound");
 
-    MIZU_ASSERT(
-        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
-        "Requested first_vertex {} exceeds bound vertex count {}",
-        first_vertex,
-        m_debug_bound_vertex_buffer.vertex_count);
-    MIZU_ASSERT(
-        vertex_count <= m_debug_bound_vertex_buffer.vertex_count - first_vertex,
-        "Requested vertex_count {} at first_vertex {} exceeds bound vertex count {}",
-        vertex_count,
-        first_vertex,
-        m_debug_bound_vertex_buffer.vertex_count);
+        MIZU_ASSERT(
+            first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+            "Requested first_vertex {} exceeds bound vertex count {}",
+            first_vertex,
+            m_debug_bound_vertex_buffer.vertex_count);
+        MIZU_ASSERT(
+            vertex_count <= m_debug_bound_vertex_buffer.vertex_count - first_vertex,
+            "Requested vertex_count {} at first_vertex {} exceeds bound vertex count {}",
+            vertex_count,
+            first_vertex,
+            m_debug_bound_vertex_buffer.vertex_count);
+    }
 #endif
 
     vkCmdDraw(m_command_buffer, vertex_count, instance_count, first_vertex, first_instance);
@@ -364,7 +374,6 @@ void VulkanCommandBuffer::draw_indexed(
         "Can't draw_indexed because no graphics pipeline has been bound");
 
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
-    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 
     MIZU_ASSERT(
@@ -379,73 +388,19 @@ void VulkanCommandBuffer::draw_indexed(
         first_index,
         m_debug_bound_index_buffer.index_count);
 
-    MIZU_ASSERT(
-        first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
-        "Requested first_vertex {} exceeds bound vertex count {}",
-        first_vertex,
-        m_debug_bound_vertex_buffer.vertex_count);
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+        MIZU_ASSERT(
+            first_vertex <= m_debug_bound_vertex_buffer.vertex_count,
+            "Requested first_vertex {} exceeds bound vertex count {}",
+            first_vertex,
+            m_debug_bound_vertex_buffer.vertex_count);
+    }
 #endif
 
     vkCmdDrawIndexed(
         m_command_buffer, index_count, instance_count, first_index, static_cast<int32_t>(first_vertex), first_instance);
-}
-
-void VulkanCommandBuffer::draw(const BufferResource& vertex) const
-{
-    draw_instanced(vertex, 1);
-}
-
-void VulkanCommandBuffer::draw_indexed(const BufferResource& vertex, const BufferResource& index) const
-{
-    draw_indexed_instanced(vertex, index, 1);
-}
-
-void VulkanCommandBuffer::draw_instanced(const BufferResource& vertex, uint32_t instance_count) const
-{
-    MIZU_ASSERT(m_render_pass_active, "Can't draw_instanced because no RenderPass is active");
-    MIZU_ASSERT(
-        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
-        "Can't draw_indexed_instance because no graphics pipeline has been bound");
-
-    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(vertex);
-
-    const std::array<VkBuffer, 1> vertex_buffers = {native_buffer.handle()};
-    const VkDeviceSize offsets[] = {0};
-
-    vkCmdBindVertexBuffers(
-        m_command_buffer, 0, static_cast<uint32_t>(vertex_buffers.size()), vertex_buffers.data(), offsets);
-
-    const uint32_t vertex_count = static_cast<uint32_t>(vertex.get_size() / vertex.get_stride());
-    vkCmdDraw(m_command_buffer, vertex_count, instance_count, 0, 0);
-}
-
-void VulkanCommandBuffer::draw_indexed_instanced(
-    const BufferResource& vertex,
-    const BufferResource& index,
-    uint32_t instance_count) const
-{
-    MIZU_ASSERT(m_render_pass_active, "Can't draw_indexed_instance because no RenderPass is active");
-    MIZU_ASSERT(
-        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
-        "Can't draw_indexed_instance because no graphics pipeline has been bound");
-
-    {
-        const VulkanBufferResource& vertex_buffer = static_cast<const VulkanBufferResource&>(vertex);
-
-        const std::array<VkBuffer, 1> vertex_buffers = {vertex_buffer.handle()};
-        const VkDeviceSize offsets[] = {0};
-
-        vkCmdBindVertexBuffers(
-            m_command_buffer, 0, static_cast<uint32_t>(vertex_buffers.size()), vertex_buffers.data(), offsets);
-    }
-
-    {
-        const VulkanBufferResource& index_buffer = static_cast<const VulkanBufferResource&>(index);
-        vkCmdBindIndexBuffer(m_command_buffer, index_buffer.handle(), 0, VK_INDEX_TYPE_UINT32);
-    }
-
-    const uint32_t index_count = static_cast<uint32_t>(index.get_size() / sizeof(uint32_t));
-    vkCmdDrawIndexed(m_command_buffer, index_count, instance_count, 0, 0, 0);
 }
 
 void VulkanCommandBuffer::draw_indexed_indirect(
@@ -460,7 +415,10 @@ void VulkanCommandBuffer::draw_indexed_indirect(
         "Can't draw_indexed_indirect because no graphics pipeline has been bound");
 
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
-    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    }
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 
     MIZU_ASSERT(
@@ -490,7 +448,10 @@ void VulkanCommandBuffer::draw_indexed_indirect_count(
         "Can't draw_indexed_indirect_count because no graphics pipeline has been bound");
 
 #if MIZU_VULKAN_VALIDATIONS_ENABLED
-    MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(m_debug_bound_vertex_buffer.is_bound, "Can't draw_indexed because no vertex buffer has been bound");
+    }
     MIZU_ASSERT(m_debug_bound_index_buffer.is_bound, "Can't draw_indexed because no index buffer has been bound");
 
     MIZU_ASSERT(

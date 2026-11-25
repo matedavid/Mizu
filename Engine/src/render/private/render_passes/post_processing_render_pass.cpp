@@ -45,7 +45,6 @@ void add_tonemapping_pass(RenderGraphBuilder& builder, RenderGraphBlackboard& bl
             color_attachment.rtv = ImageResourceView::create(output_image, output_view_desc);
 
             RenderPassInfo pass_info{};
-            pass_info.extent = {view_data.width, view_data.height};
             pass_info.color_attachments = {color_attachment};
 
             const FramebufferInfo framebuffer_info = create_framebuffer_info(pass_info);
