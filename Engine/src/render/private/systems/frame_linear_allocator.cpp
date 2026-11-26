@@ -53,7 +53,8 @@ FrameLinearAllocator::FrameLinearAllocator(uint32_t num_frames, uint64_t size_by
     // clang-format off
     BufferUsageBits usage_bits = BufferUsageBits::ConstantBuffer
                                | BufferUsageBits::ShaderResource
-                               | BufferUsageBits::TransferSrc;
+                               | BufferUsageBits::TransferSrc
+                               | BufferUsageBits::IndirectBuffer;
     // clang-format on
 
     if (g_render_device->get_properties().ray_tracing.supported)

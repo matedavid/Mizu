@@ -531,6 +531,7 @@ static const VulkanFeature REQUIRED_FEATURES[] = {
     MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt16),
     MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt64),
     MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderSampledImageArrayDynamicIndexing),
+    MIZU_VULKAN_FEATURE(VkPhysicalDeviceFeatures2, features.shaderClipDistance),
 
     MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan11Features, shaderDrawParameters),
     MIZU_VULKAN_FEATURE(VkPhysicalDeviceVulkan11Features, storageBuffer16BitAccess),

@@ -3,6 +3,7 @@
 .vs/
 .cache/
 .clangd
+imgui.ini
 
 cmake-build-*
 build/

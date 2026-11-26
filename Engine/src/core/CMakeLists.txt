@@ -42,7 +42,9 @@ mizu_declare_dependency(
         GIT_PROGRESS TRUE
         GIT_SHALLOW TRUE
 )
+set(BUILD_SHARED_LIBS ON)
 FetchContent_MakeAvailable(glfw)
+unset(BUILD_SHARED_LIBS)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 

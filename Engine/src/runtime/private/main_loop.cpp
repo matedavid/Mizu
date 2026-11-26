@@ -97,10 +97,10 @@ bool MainLoop::init_renderer(const GameDescription& desc, std::string_view appli
     renderer_desc.application_version = desc.version;
 
     g_game_renderer = new GameRenderer{};
+    m_game_main->setup_game_renderer(*g_game_renderer);
+
     if (!g_game_renderer->init(renderer_desc))
         return false;
-
-    m_game_main->setup_game_renderer(*g_game_renderer);
 
     return true;
 }
