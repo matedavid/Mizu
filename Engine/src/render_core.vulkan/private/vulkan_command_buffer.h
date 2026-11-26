@@ -46,6 +46,16 @@ class VulkanCommandBuffer : public CommandBuffer
         uint32_t instance_count = 1,
         uint32_t first_instance = 0) override;
 
+    void draw_indirect(const BufferResource& buffer, uint64_t offset, uint32_t draw_count, uint32_t stride)
+        const override;
+    void draw_indirect_count(
+        const BufferResource& buffer,
+        uint64_t offset,
+        const BufferResource& count_buffer,
+        uint64_t count_buffer_offset,
+        uint32_t max_draw_count,
+        uint32_t stride) const override;
+
     void draw_indexed_indirect(const BufferResource& buffer, uint64_t offset, uint32_t draw_count, uint32_t stride)
         const override;
     void draw_indexed_indirect_count(

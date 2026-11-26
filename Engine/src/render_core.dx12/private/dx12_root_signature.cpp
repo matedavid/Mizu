@@ -91,6 +91,11 @@ Dx12PipelineLayoutCache::~Dx12PipelineLayoutCache()
         command_signature->Release();
     }
 
+    for (const auto& [_, command_signature] : m_draw_indexed_indirect_command_signature_cache)
+    {
+        command_signature->Release();
+    }
+
     for (const auto& [_, layout] : m_cache)
     {
         layout->Release();
@@ -339,6 +344,34 @@ ID3D12CommandSignature* Dx12PipelineLayoutCache::get_draw_indirect_command_signa
     if (it != m_draw_indirect_command_signature_cache.end())
         return it->second;
 
+    ID3D12CommandSignature* command_signature =
+        create_draw_command_signature(handle, D3D12_INDIRECT_ARGUMENT_TYPE_DRAW, sizeof(DrawIndirectCommand));
+
+    m_draw_indirect_command_signature_cache.insert({handle, command_signature});
+
+    return command_signature;
+}
+
+ID3D12CommandSignature* Dx12PipelineLayoutCache::get_draw_indexed_indirect_command_signature(
+    PipelineLayoutHandle handle)
+{
+    const auto it = m_draw_indexed_indirect_command_signature_cache.find(handle);
+    if (it != m_draw_indexed_indirect_command_signature_cache.end())
+        return it->second;
+
+    ID3D12CommandSignature* command_signature = create_draw_command_signature(
+        handle, D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED, sizeof(DrawIndexedIndirectCommand));
+
+    m_draw_indexed_indirect_command_signature_cache.insert({handle, command_signature});
+
+    return command_signature;
+}
+
+ID3D12CommandSignature* Dx12PipelineLayoutCache::create_draw_command_signature(
+    PipelineLayoutHandle handle,
+    D3D12_INDIRECT_ARGUMENT_TYPE draw_argument_type,
+    uint32_t byte_stride) const
+{
     const Dx12RootSignatureInfo& root_signature_info = get_root_signature_info(handle);
 
     std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> argument_descs{};
@@ -346,10 +379,10 @@ ID3D12CommandSignature* Dx12PipelineLayoutCache::get_draw_indirect_command_signa
     argument_descs[0].Constant.RootParameterIndex = root_signature_info.draw_indirect_index_root_param_index;
     argument_descs[0].Constant.DestOffsetIn32BitValues = 0;
     argument_descs[0].Constant.Num32BitValuesToSet = 1;
-    argument_descs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+    argument_descs[1].Type = draw_argument_type;
 
     D3D12_COMMAND_SIGNATURE_DESC command_signature_desc{};
-    command_signature_desc.ByteStride = sizeof(DrawIndexedIndirectCommand);
+    command_signature_desc.ByteStride = byte_stride;
     command_signature_desc.NumArgumentDescs = static_cast<uint32_t>(argument_descs.size());
     command_signature_desc.pArgumentDescs = argument_descs.data();
     command_signature_desc.NodeMask = 0;
@@ -357,8 +390,6 @@ ID3D12CommandSignature* Dx12PipelineLayoutCache::get_draw_indirect_command_signa
     ID3D12CommandSignature* command_signature = nullptr;
     DX12_CHECK(Dx12Context.device->handle()->CreateCommandSignature(
         &command_signature_desc, get(handle), IID_PPV_ARGS(&command_signature)));
-
-    m_draw_indirect_command_signature_cache.insert({handle, command_signature});
 
     return command_signature;
 }

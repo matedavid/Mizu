@@ -61,6 +61,7 @@ class Dx12PipelineLayoutCache
     bool contains(PipelineLayoutHandle handle) const;
 
     ID3D12CommandSignature* get_draw_indirect_command_signature(PipelineLayoutHandle handle);
+    ID3D12CommandSignature* get_draw_indexed_indirect_command_signature(PipelineLayoutHandle handle);
 
     const Dx12RootSignatureInfo& get_root_signature_info(PipelineLayoutHandle handle) const;
 
@@ -68,6 +69,12 @@ class Dx12PipelineLayoutCache
     std::unordered_map<PipelineLayoutHandle, ID3D12RootSignature*> m_cache;
     std::unordered_map<PipelineLayoutHandle, Dx12RootSignatureInfo> m_root_signature_info_cache;
     std::unordered_map<PipelineLayoutHandle, ID3D12CommandSignature*> m_draw_indirect_command_signature_cache;
+    std::unordered_map<PipelineLayoutHandle, ID3D12CommandSignature*> m_draw_indexed_indirect_command_signature_cache;
+
+    ID3D12CommandSignature* create_draw_command_signature(
+        PipelineLayoutHandle handle,
+        D3D12_INDIRECT_ARGUMENT_TYPE draw_argument_type,
+        uint32_t byte_stride) const;
 };
 
 } // namespace Mizu::Dx12

@@ -188,6 +188,8 @@ Dx12Pipeline::Dx12Pipeline(const GraphicsPipelineDescription& desc) : m_pipeline
     m_root_signature = Dx12Context.pipeline_layout_cache->get(desc.layout);
     m_draw_indirect_command_signature =
         Dx12Context.pipeline_layout_cache->get_draw_indirect_command_signature(desc.layout);
+    m_draw_indexed_indirect_command_signature =
+        Dx12Context.pipeline_layout_cache->get_draw_indexed_indirect_command_signature(desc.layout);
     m_root_signature_info = Dx12Context.pipeline_layout_cache->get_root_signature_info(desc.layout);
 
     // Input layout

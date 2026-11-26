@@ -26,6 +26,10 @@ class Dx12Pipeline : public Pipeline
     ID3D12PipelineState* handle() const { return m_pipeline_state; }
     ID3D12RootSignature* get_root_signature() const { return m_root_signature; }
     ID3D12CommandSignature* get_draw_indirect_command_signature() const { return m_draw_indirect_command_signature; }
+    ID3D12CommandSignature* get_draw_indexed_indirect_command_signature() const
+    {
+        return m_draw_indexed_indirect_command_signature;
+    }
     const Dx12RootSignatureInfo& get_root_signature_info() const { return m_root_signature_info; }
 
     // RayTracingPipeline Specific
@@ -54,7 +58,9 @@ class Dx12Pipeline : public Pipeline
     ID3D12PipelineState* m_pipeline_state = nullptr;
     ID3D12RootSignature* m_root_signature = nullptr;
     Dx12RootSignatureInfo m_root_signature_info{};
+
     ID3D12CommandSignature* m_draw_indirect_command_signature = nullptr;
+    ID3D12CommandSignature* m_draw_indexed_indirect_command_signature = nullptr;
 
     PipelineType m_pipeline_type;
     bool m_has_vertex_input = false;

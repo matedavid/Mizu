@@ -17,6 +17,10 @@ namespace Mizu::Dx12
 {
 
 static_assert(
+    sizeof(DrawIndirectCommand) == sizeof(D3D12_DRAW_ARGUMENTS) + offsetof(DrawIndirectCommand, vertex_count),
+    "DrawIndirectCommand must be a D3D12_DRAW_ARGUMENTS prefixed by draw_index");
+
+static_assert(
     sizeof(DrawIndexedIndirectCommand)
         == sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) + offsetof(DrawIndexedIndirectCommand, index_count),
     "DrawIndexedIndirectCommand must be a D3D12_DRAW_INDEXED_ARGUMENTS prefixed by draw_index");
@@ -473,6 +477,76 @@ void Dx12CommandBuffer::draw_indexed(
     m_command_list->DrawIndexedInstanced(index_count, instance_count, first_index, first_vertex, first_instance);
 }
 
+void Dx12CommandBuffer::draw_indirect(
+    const BufferResource& buffer,
+    uint64_t offset,
+    uint32_t draw_count,
+    [[maybe_unused]] uint32_t stride) const
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indirect because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indirect because no graphics pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(
+            m_debug_bound_vertex_buffer.is_bound, "Can't draw_indirect because no vertex buffer has been bound");
+    }
+
+    MIZU_ASSERT(
+        stride == sizeof(DrawIndirectCommand),
+        "stride must be equal to sizeof(DrawIndirectCommand), the command signature has a fixed stride");
+    MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
+#endif
+
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
+
+    ID3D12CommandSignature* command_signature = m_bound_pipeline->get_draw_indirect_command_signature();
+    m_command_list->ExecuteIndirect(command_signature, draw_count, native_buffer.handle(), offset, nullptr, 0);
+}
+
+void Dx12CommandBuffer::draw_indirect_count(
+    const BufferResource& buffer,
+    uint64_t offset,
+    const BufferResource& count_buffer,
+    uint64_t count_buffer_offset,
+    uint32_t max_draw_count,
+    [[maybe_unused]] uint32_t stride) const
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indirect_count because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indirect_count because no graphics pipeline has been bound");
+
+#if MIZU_DX12_VALIDATIONS_ENABLED
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(
+            m_debug_bound_vertex_buffer.is_bound, "Can't draw_indirect_count because no vertex buffer has been bound");
+    }
+
+    MIZU_ASSERT(
+        stride == sizeof(DrawIndirectCommand),
+        "stride must be equal to sizeof(DrawIndirectCommand), the command signature has a fixed stride");
+    MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
+    MIZU_ASSERT(count_buffer_offset % 4 == 0, "count_buffer_offset must be a multiple of 4");
+#endif
+
+    const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
+    const Dx12BufferResource& native_count_buffer = static_cast<const Dx12BufferResource&>(count_buffer);
+
+    ID3D12CommandSignature* command_signature = m_bound_pipeline->get_draw_indirect_command_signature();
+    m_command_list->ExecuteIndirect(
+        command_signature,
+        max_draw_count,
+        native_buffer.handle(),
+        offset,
+        native_count_buffer.handle(),
+        count_buffer_offset);
+}
+
 void Dx12CommandBuffer::draw_indexed_indirect(
     const BufferResource& buffer,
     uint64_t offset,
@@ -494,14 +568,14 @@ void Dx12CommandBuffer::draw_indexed_indirect(
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
     MIZU_ASSERT(
-        (stride % 4 == 0) && stride >= sizeof(DrawIndexedIndirectCommand),
-        "stride must be a multiple of 4 and must be greater than or equal to sizeof(DrawIndexedIndirectCommand)");
+        stride == sizeof(DrawIndexedIndirectCommand),
+        "stride must be equal to sizeof(DrawIndexedIndirectCommand), the command signature has a fixed stride");
     MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
 #endif
 
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
 
-    ID3D12CommandSignature* command_signature = m_bound_pipeline->get_draw_indirect_command_signature();
+    ID3D12CommandSignature* command_signature = m_bound_pipeline->get_draw_indexed_indirect_command_signature();
     m_command_list->ExecuteIndirect(command_signature, draw_count, native_buffer.handle(), offset, nullptr, 0);
 }
 
@@ -528,8 +602,8 @@ void Dx12CommandBuffer::draw_indexed_indirect_count(
 
 #if MIZU_DX12_VALIDATIONS_ENABLED
     MIZU_ASSERT(
-        (stride % 4 == 0) && stride >= sizeof(DrawIndexedIndirectCommand),
-        "stride must be a multiple of 4 and must be greater than or equal to sizeof(DrawIndexedIndirectCommand)");
+        stride == sizeof(DrawIndexedIndirectCommand),
+        "stride must be equal to sizeof(DrawIndexedIndirectCommand), the command signature has a fixed stride");
     MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
     MIZU_ASSERT(count_buffer_offset % 4 == 0, "count_buffer_offset must be a multiple of 4");
 #endif
@@ -537,7 +611,7 @@ void Dx12CommandBuffer::draw_indexed_indirect_count(
     const Dx12BufferResource& native_buffer = static_cast<const Dx12BufferResource&>(buffer);
     const Dx12BufferResource& native_count_buffer = static_cast<const Dx12BufferResource&>(count_buffer);
 
-    ID3D12CommandSignature* command_signature = m_bound_pipeline->get_draw_indirect_command_signature();
+    ID3D12CommandSignature* command_signature = m_bound_pipeline->get_draw_indexed_indirect_command_signature();
     m_command_list->ExecuteIndirect(
         command_signature,
         max_draw_count,

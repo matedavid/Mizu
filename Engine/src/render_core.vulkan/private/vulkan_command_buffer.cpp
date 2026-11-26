@@ -21,6 +21,12 @@
 namespace Mizu::Vulkan
 {
 
+static constexpr uint64_t DRAW_INDIRECT_ARGS_OFFSET = offsetof(DrawIndirectCommand, vertex_count);
+
+static_assert(
+    sizeof(DrawIndirectCommand) == sizeof(VkDrawIndirectCommand) + DRAW_INDIRECT_ARGS_OFFSET,
+    "DrawIndirectCommand must be a VkDrawIndirectCommand prefixed by draw_index");
+
 static constexpr uint64_t DRAW_INDEXED_INDIRECT_ARGS_OFFSET = offsetof(DrawIndexedIndirectCommand, index_count);
 
 static_assert(
@@ -401,6 +407,77 @@ void VulkanCommandBuffer::draw_indexed(
 
     vkCmdDrawIndexed(
         m_command_buffer, index_count, instance_count, first_index, static_cast<int32_t>(first_vertex), first_instance);
+}
+
+void VulkanCommandBuffer::draw_indirect(
+    const BufferResource& buffer,
+    uint64_t offset,
+    uint32_t draw_count,
+    uint32_t stride) const
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indirect because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indirect because no graphics pipeline has been bound");
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(
+            m_debug_bound_vertex_buffer.is_bound, "Can't draw_indirect because no vertex buffer has been bound");
+    }
+
+    MIZU_ASSERT(
+        (stride % 4 == 0) && stride >= sizeof(DrawIndirectCommand),
+        "stride must be a multiple of 4 and must be greater than or equal to sizeof(DrawIndirectCommand)");
+    MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
+#endif
+
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
+
+    // `offset` points at a DrawIndirectCommand, skip the leading draw_index to reach the native arguments
+    vkCmdDrawIndirect(m_command_buffer, native_buffer.handle(), offset + DRAW_INDIRECT_ARGS_OFFSET, draw_count, stride);
+}
+
+void VulkanCommandBuffer::draw_indirect_count(
+    const BufferResource& buffer,
+    uint64_t offset,
+    const BufferResource& count_buffer,
+    uint64_t count_buffer_offset,
+    uint32_t max_draw_count,
+    uint32_t stride) const
+{
+    MIZU_ASSERT(m_render_pass_active, "Can't draw_indirect_count because no RenderPass is active");
+    MIZU_ASSERT(
+        m_bound_pipeline != nullptr && m_bound_pipeline->get_pipeline_type() == PipelineType::Graphics,
+        "Can't draw_indirect_count because no graphics pipeline has been bound");
+
+#if MIZU_VULKAN_VALIDATIONS_ENABLED
+    if (m_bound_pipeline->has_vertex_input())
+    {
+        MIZU_ASSERT(
+            m_debug_bound_vertex_buffer.is_bound, "Can't draw_indirect_count because no vertex buffer has been bound");
+    }
+
+    MIZU_ASSERT(
+        (stride % 4 == 0) && stride >= sizeof(DrawIndirectCommand),
+        "stride must be a multiple of 4 and must be greater than or equal to sizeof(DrawIndirectCommand)");
+    MIZU_ASSERT(offset % 4 == 0, "offset must be a multiple of 4");
+    MIZU_ASSERT(count_buffer_offset % 4 == 0, "count_buffer_offset must be a multiple of 4");
+#endif
+
+    const VulkanBufferResource& native_buffer = static_cast<const VulkanBufferResource&>(buffer);
+    const VulkanBufferResource& native_count_buffer = static_cast<const VulkanBufferResource&>(count_buffer);
+
+    // `offset` points at a DrawIndirectCommand, skip the leading draw_index to reach the native arguments
+    vkCmdDrawIndirectCount(
+        m_command_buffer,
+        native_buffer.handle(),
+        offset + DRAW_INDIRECT_ARGS_OFFSET,
+        native_count_buffer.handle(),
+        count_buffer_offset,
+        max_draw_count,
+        stride);
 }
 
 void VulkanCommandBuffer::draw_indexed_indirect(

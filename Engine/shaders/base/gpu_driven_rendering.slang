@@ -1,6 +1,15 @@
 #ifndef BASE_GPU_DRIVEN_RENDERING
 #define BASE_GPU_DRIVEN_RENDERING
 
+struct DrawIndirectCommand
+{
+    uint32_t draw_index;
+    uint32_t vertex_count;
+    uint32_t instance_count;
+    uint32_t first_vertex;
+    uint32_t first_instance;
+};
+
 struct DrawIndexedIndirectCommand
 {
     uint32_t draw_index;

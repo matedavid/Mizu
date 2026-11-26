@@ -199,6 +199,17 @@ struct CopyBufferToImageBase
 using CopyBufferToImageInfo = CopyBufferToImageBase;
 using CopyImageToBufferInfo = CopyBufferToImageBase;
 
+// VkDrawIndirectCommand in Vulkan
+// D3D12_DRAW_ARGUMENTS in Dx12
+struct DrawIndirectCommand
+{
+    uint32_t draw_index; // Custom field, does not match api structs
+    uint32_t vertex_count;
+    uint32_t instance_count;
+    uint32_t first_vertex;
+    uint32_t first_instance;
+};
+
 // VkDrawIndexedIndirectCommand in Vulkan
 // D3D12_DRAW_INDEXED_ARGUMENTS in Dx12
 struct DrawIndexedIndirectCommand
@@ -261,6 +272,16 @@ class MIZU_RENDER_CORE_API CommandBuffer
         uint32_t first_vertex,
         uint32_t instance_count = 1,
         uint32_t first_instance = 0) = 0;
+
+    virtual void draw_indirect(const BufferResource& buffer, uint64_t offset, uint32_t draw_count, uint32_t stride)
+        const = 0;
+    virtual void draw_indirect_count(
+        const BufferResource& buffer,
+        uint64_t offset,
+        const BufferResource& count_buffer,
+        uint64_t count_buffer_offset,
+        uint32_t max_draw_count,
+        uint32_t stride) const = 0;
 
     virtual void draw_indexed_indirect(
         const BufferResource& buffer,
