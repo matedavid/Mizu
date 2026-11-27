@@ -25,6 +25,7 @@ std::array<ImGuiFrameSnapshot, FrameSnapshotCount> s_frame_snapshots{};
 uint64_t s_frame_snapshot_idx = 0;
 
 ImGuiHandle s_handle{};
+bool s_enabled = true;
 ImGuiTextureId s_next_texture_id = IMGUI_INVALID_TEXTURE_ID + 1;
 
 ImageFormat convert_texture_format(ImTextureFormat format)
@@ -228,7 +229,8 @@ void ImGuiContext::new_frame()
 
 void ImGuiContext::render()
 {
-    ImGuiPanels::execute();
+    if (s_enabled)
+        ImGuiPanels::execute();
 
     ImGui::Render();
 
@@ -238,6 +240,16 @@ void ImGuiContext::render()
     build_snapshot(*ImGui::GetDrawData(), snapshot);
 
     g_imgui_state_manager->sim_update(s_handle, ImGuiDynamicState{.frame = &snapshot});
+}
+
+void ImGuiContext::set_enabled(bool enabled)
+{
+    s_enabled = enabled;
+}
+
+bool ImGuiContext::is_enabled()
+{
+    return s_enabled;
 }
 
 } // namespace Mizu

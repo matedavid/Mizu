@@ -19,6 +19,9 @@ class MIZU_IMGUI_API ImGuiContext
 
     static void new_frame();
     static void render();
+
+    static void set_enabled(bool enabled);
+    static bool is_enabled();
 };
 
 } // namespace Mizu
