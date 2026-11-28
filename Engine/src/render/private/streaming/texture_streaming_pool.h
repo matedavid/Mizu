@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <unordered_map>
@@ -92,6 +93,11 @@ class TextureStreamingPool
     bool m_sparse_enabled = false;
 
     uint32_t m_num_reserve_failures = 0;
+
+    mutable std::mutex m_statistics_mutex;
+    TextureStreamingPoolStatistics m_statistics{};
+
+    TextureStreamingPoolStatistics compute_statistics() const;
 
     struct ResidencyInfo
     {

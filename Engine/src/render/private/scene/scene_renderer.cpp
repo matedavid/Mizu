@@ -8,6 +8,9 @@
 #include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "core/runtime.h"
+#if MIZU_IMGUI_ENABLED
+#include "imgui/imgui_panels.h"
+#endif
 
 #include "registries/light_registry.h"
 #include "registries/render_settings_registry.h"
@@ -35,6 +38,15 @@ static uint32_t viewport_float_to_uint(float relative, uint32_t absolute)
 bool SceneRenderer::init()
 {
     m_module_container.add_module<CascadedShadowModule>();
+
+#if MIZU_IMGUI_ENABLED
+    ImGuiPanels::register_panel(ImGuiPanelBuilder::window("SceneRenderer").menu("Render").closed(), []() {
+        SceneRendererSettings& settings = get_setting<SceneRendererSettings>();
+
+        ImGui::Checkbox("DepthPrepassEnabled", &settings.depth_prepass_enabled);
+        ImGui::Checkbox("AsyncLightCullingEnabled", &settings.async_light_culling_enabled);
+    });
+#endif
 
     return true;
 }

@@ -53,6 +53,15 @@ bool entry_exists(std::vector<T>& entries, std::string_view name)
 }
 
 template <typename T>
+void insert_sorted(std::vector<T>& entries, T&& entry)
+{
+    const auto it = std::lower_bound(
+        entries.begin(), entries.end(), entry.name, [](const T& e, std::string_view name) { return e.name < name; });
+
+    entries.insert(it, std::move(entry));
+}
+
+template <typename T>
 void unregister_entry(std::vector<T>& entries, std::string_view name)
 {
     const auto it = find_entry(entries, name);
@@ -123,6 +132,8 @@ void draw_main_menu_bar()
     if (s_menu_order.empty())
         return;
 
+    std::sort(s_menu_order.begin(), s_menu_order.end());
+
     if (!ImGui::BeginMainMenuBar())
         return;
 
@@ -170,7 +181,8 @@ void ImGuiPanels::register_panel(const ImGuiPanelBuilder& builder, InplaceImGuiP
         "Window flags are only used by Window panels, panel {} is Custom",
         builder.m_name);
 
-    s_panels.push_back(
+    insert_sorted(
+        s_panels,
         ImGuiPanel{
             .name = builder.m_name,
             .menu = builder.m_menu,
@@ -205,7 +217,8 @@ void ImGuiPanels::register_menu_items(std::string_view name, std::string_view me
     MIZU_ASSERT(!entry_exists(s_menu_items, name), "ImGui menu items with name {} have already been registered", name);
     MIZU_ASSERT(!menu.empty(), "ImGui menu items with name {} must have a menu", name);
 
-    s_menu_items.push_back(
+    insert_sorted(
+        s_menu_items,
         ImGuiMenuItems{
             .name = name,
             .menu = menu,

@@ -157,4 +157,8 @@ class TextureStreamingManager : public IStreamingManager
     bool has_pending_request_for_handle(TextureAssetHandle handle) const;
 };
 
+#if MIZU_IMGUI_ENABLED
+void draw_imgui_texture_streaming_stats(const TextureStreamingPoolStatistics& stats);
+#endif
+
 } // namespace Mizu

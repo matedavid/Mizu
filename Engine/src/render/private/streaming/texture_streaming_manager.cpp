@@ -21,6 +21,10 @@
 #include "streaming/streaming_utils.h"
 #include "streaming/texture_streaming_pool.h"
 
+#if MIZU_IMGUI_ENABLED
+#include <imgui.h>
+#endif
+
 namespace Mizu
 {
 
@@ -599,5 +603,17 @@ bool TextureStreamingManager::has_pending_request_for_handle(TextureAssetHandle 
 
     return false;
 }
+
+#if MIZU_IMGUI_ENABLED
+
+void draw_imgui_texture_streaming_stats(const TextureStreamingPoolStatistics& stats)
+{
+    ImGui::Text("Resident: %u / %u", stats.num_resident_textures, stats.num_textures);
+    ImGui::Text("Placed: %u (%.2f MB)", stats.num_placed_textures, bytes_to_mb(stats.placed_committed_bytes));
+    ImGui::Text("Sparse: %u (%.2f MB)", stats.num_sparse_textures, bytes_to_mb(stats.sparse_committed_bytes));
+    ImGui::Text("Reserve failures: %u", stats.num_reserve_failures);
+}
+
+#endif
 
 } // namespace Mizu

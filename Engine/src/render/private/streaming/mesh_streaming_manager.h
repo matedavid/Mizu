@@ -165,4 +165,11 @@ class MeshStreamingManager : public IStreamingManager
     bool has_pending_request_for_handle(MeshAssetHandle handle) const;
 };
 
+#if MIZU_IMGUI_ENABLED
+void draw_imgui_mesh_streaming_stats(
+    ResourceBacking backing,
+    const MeshStreamingPoolStatistics& vertices,
+    const MeshStreamingPoolStatistics& indices);
+#endif
+
 } // namespace Mizu

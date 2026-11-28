@@ -7,6 +7,10 @@
 
 #include "runtime/game_simulation.h"
 
+#if MIZU_IMGUI_ENABLED
+#include "imgui/imgui_context.h"
+#endif
+
 namespace Mizu
 {
 
@@ -25,6 +29,10 @@ void SimulationLoop::init()
     g_state_manager_coordinator->sim_begin_tick(tick_state);
 
     m_game_simulation.init();
+
+#if MIZU_IMGUI_ENABLED
+    ImGuiContext::init_simulation_state();
+#endif
 
     g_state_manager_coordinator->sim_end_tick();
 }
@@ -61,6 +69,10 @@ void SimulationLoop::update_job()
 
     m_game_simulation.update(elapsed_secs);
 
+#if MIZU_IMGUI_ENABLED
+    ImGuiContext::render();
+#endif
+
     g_state_manager_coordinator->sim_end_tick();
 }
 
@@ -70,6 +82,11 @@ void SimulationLoop::poll_events_job()
 
     Window& window = g_game_context->get_window();
     window.poll_events();
+
+#if MIZU_IMGUI_ENABLED
+    // ImGui NewFrame functions need to run on the main thread
+    ImGuiContext::new_frame();
+#endif
 }
 
 void SimulationLoop::get_elapsed_time(uint64_t& elapsed_us, double& elapsed_secs)

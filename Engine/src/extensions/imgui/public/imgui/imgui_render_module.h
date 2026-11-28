@@ -8,12 +8,12 @@
 
 #include "imgui/imgui_state_manager.h"
 #include "imgui/imgui_types.h"
-#include "mizu_imgui_module.h"
+#include "mizu_imgui_render_module.h"
 
 namespace Mizu
 {
 
-class MIZU_IMGUI_API ImGuiRenderModule : public IRenderModule, public ImGuiStateManagerConsumer
+class MIZU_IMGUI_RENDER_API ImGuiRenderModule : public IRenderModule, public ImGuiStateManagerConsumer
 {
   public:
     bool init() override;
@@ -56,6 +56,7 @@ class MIZU_IMGUI_API ImGuiRenderModule : public IRenderModule, public ImGuiState
     };
 
     std::vector<DrawIndirectCommand> m_draw_commands{};
+    std::atomic<uint32_t> m_debug_num_draw_commands{};
 
     struct PendingTextureOp
     {

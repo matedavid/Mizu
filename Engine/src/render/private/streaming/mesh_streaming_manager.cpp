@@ -19,6 +19,10 @@
 #include "streaming/mesh_streaming_pool.h"
 #include "streaming/streaming_utils.h"
 
+#if MIZU_IMGUI_ENABLED
+#include <imgui.h>
+#endif
+
 namespace Mizu
 {
 
@@ -637,5 +641,76 @@ bool MeshStreamingManager::has_pending_request_for_handle(MeshAssetHandle handle
 
     return false;
 }
+
+#if MIZU_IMGUI_ENABLED
+
+namespace
+{
+
+const char* resource_backing_to_string(ResourceBacking backing)
+{
+    switch (backing)
+    {
+    case ResourceBacking::Placed:
+        return "Placed";
+    case ResourceBacking::Sparse:
+        return "Sparse";
+    }
+
+    return "Unknown";
+}
+
+void draw_stats_row_mb(const char* label, uint64_t vertex_bytes, uint64_t index_bytes)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted(label);
+    ImGui::TableNextColumn();
+    ImGui::Text("%.2f MB", bytes_to_mb(vertex_bytes));
+    ImGui::TableNextColumn();
+    ImGui::Text("%.2f MB", bytes_to_mb(index_bytes));
+}
+
+void draw_stats_row_count(const char* label, uint32_t vertex_count, uint32_t index_count)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted(label);
+    ImGui::TableNextColumn();
+    ImGui::Text("%u", vertex_count);
+    ImGui::TableNextColumn();
+    ImGui::Text("%u", index_count);
+}
+
+} // namespace
+
+void draw_imgui_mesh_streaming_stats(
+    ResourceBacking backing,
+    const MeshStreamingPoolStatistics& vertices,
+    const MeshStreamingPoolStatistics& indices)
+{
+    ImGui::Text("Backing: %s", resource_backing_to_string(backing));
+
+    if (!ImGui::BeginTable("MeshStreamingStats", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+        return;
+
+    ImGui::TableSetupColumn("");
+    ImGui::TableSetupColumn("Vertex");
+    ImGui::TableSetupColumn("Index");
+    ImGui::TableHeadersRow();
+
+    draw_stats_row_mb("Buffer size", vertices.buffer_total_bytes, indices.buffer_total_bytes);
+    draw_stats_row_mb("Allocated", vertices.buffer_allocated_bytes, indices.buffer_allocated_bytes);
+    draw_stats_row_mb("Largest free block", vertices.buffer_max_contiguous_bytes, indices.buffer_max_contiguous_bytes);
+    draw_stats_row_mb("Resident", vertices.resident_bytes, indices.resident_bytes);
+    draw_stats_row_mb("Committed", vertices.committed_bytes, indices.committed_bytes);
+    draw_stats_row_mb("Peak committed", vertices.peak_committed_bytes, indices.peak_committed_bytes);
+    draw_stats_row_count("Resident pages", vertices.pages_num_resident, indices.pages_num_resident);
+    draw_stats_row_count("Reserve failures", vertices.num_reserve_failures, indices.num_reserve_failures);
+
+    ImGui::EndTable();
+}
+
+#endif
 
 } // namespace Mizu

@@ -184,6 +184,9 @@ function(mizu_add_asset_pipeline_target)
 
     # Attach engine shader by default
     mizu_attach_shader_module(${MIZU_TARGET}.Pipeline Engine.Render.ShaderModule)
+    if (TARGET Engine.Extension.ImGui.ShaderModule)
+        mizu_attach_shader_module(${MIZU_TARGET}.Pipeline Engine.Extension.ImGui.ShaderModule)
+    endif ()
 
     set_target_properties(${MIZU_TARGET} PROPERTIES MIZU_GAME_PACKAGE_PIPELINE_TARGET "${MIZU_TARGET}.Pipeline")
 endfunction()

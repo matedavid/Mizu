@@ -66,4 +66,9 @@ inline float streaming_age_score(std::optional<uint64_t> residency_request_since
     return AGE_SCORE_PER_FRAME * static_cast<float>(age);
 }
 
+inline double bytes_to_mb(uint64_t bytes)
+{
+    return static_cast<double>(bytes) / (1024.0 * 1024.0);
+}
+
 } // namespace Mizu

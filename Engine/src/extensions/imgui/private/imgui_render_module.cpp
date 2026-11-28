@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <imgui.h>
 #include <memory>
 #include <optional>
 #include <stack>
@@ -19,6 +20,7 @@
 #include "render_core/rhi/descriptors.h"
 
 #include "imgui.pipeline/imgui_shaders.h"
+#include "imgui/imgui_panels.h"
 
 namespace Mizu
 {
@@ -118,6 +120,8 @@ class TexturePool
         }
     }
 
+    uint32_t get_num_textures() const { return static_cast<uint32_t>(m_texture_entries_map.size()); }
+
     ImageResource* get_texture(ImGuiTextureId id) const
     {
         const auto it = m_texture_entries_map.find(id);
@@ -169,13 +173,26 @@ class TexturePool
 } // namespace
 
 static TexturePool* s_texture_pool = nullptr;
-static constexpr bool s_indirect_drawing = true;
+static bool s_indirect_drawing = true;
 
 bool ImGuiRenderModule::init()
 {
     g_imgui_state_manager->register_rend_consumer(this);
 
     s_texture_pool = new TexturePool{};
+
+    ImGuiPanels::register_panel(ImGuiPanelBuilder::window("ImGuiRenderModule").menu("ImGui").closed(), [&]() {
+        ImGui::Checkbox("Indirect Drawing", &s_indirect_drawing);
+
+        const uint32_t num_frame_data = static_cast<uint32_t>(m_frame_data_list.size());
+        ImGui::Text("Num Frame Data: %u", num_frame_data);
+
+        const uint32_t num_draw_commands = m_debug_num_draw_commands.load(std::memory_order_relaxed);
+        ImGui::Text("Num Draw Commands: %u", num_draw_commands);
+
+        const uint32_t num_textures = s_texture_pool->get_num_textures();
+        ImGui::Text("Num Textures: %u", num_textures);
+    });
 
     return true;
 }
@@ -285,6 +302,8 @@ void ImGuiRenderModule::build_render_graph(
         return;
     }
 
+    m_debug_num_draw_commands.store(static_cast<uint32_t>(m_draw_commands.size()), std::memory_order_relaxed);
+
     struct PassData
     {
         RenderGraphResource output;
@@ -293,12 +312,16 @@ void ImGuiRenderModule::build_render_graph(
         FrameAllocation index_alloc;
         FrameAllocation draw_data_alloc;
         FrameAllocation indirect_alloc;
+
+        bool indirect_drawing;
     };
 
     builder.add_pass<PassData>(
         "ImGui",
         [&](RenderGraphPassBuilder& pass, PassData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
+
+            data.indirect_drawing = s_indirect_drawing;
 
             data.output = pass.attachment_write(frame_data.output_texture);
 
@@ -314,7 +337,7 @@ void ImGuiRenderModule::build_render_graph(
             data.draw_data_alloc = frame_allocator.allocate_structured<ImGuiDrawData>(draw_data.size());
             data.draw_data_alloc.upload(draw_data);
 
-            if (s_indirect_drawing)
+            if (data.indirect_drawing)
             {
                 data.indirect_alloc = frame_allocator.allocate_structured<DrawIndirectCommand>(m_draw_commands.size());
                 data.indirect_alloc.upload(m_draw_commands);
@@ -403,7 +426,7 @@ void ImGuiRenderModule::build_render_graph(
                 uint32_t draw_data_idx;
             };
 
-            if (s_indirect_drawing)
+            if (data.indirect_drawing)
             {
                 command.push_constant<PushConstant>({
                     .draw_data_idx = 0,

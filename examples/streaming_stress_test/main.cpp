@@ -344,8 +344,7 @@ class StreamingStressTestSimulation : public GameSimulation
             std::make_unique<EditorCameraController>(DEFAULT_FOV, m_aspect_ratio, CAMERA_ZNEAR, CAMERA_ZFAR);
 
         MIZU_LOG_INFO(
-            "[StreamingStressTest] seed={} preset={} | keys: F free camera, K pause, M cycle streaming mode, "
-            "N toggle preset, L toggle streaming logging",
+            "[StreamingStressTest] seed={} preset={} | keys: F free camera, K pause, N toggle preset",
             SCENARIO_SEED,
             m_config->name);
 
@@ -488,9 +487,7 @@ class StreamingStressTestSimulation : public GameSimulation
 
     KeyToggle m_free_camera_key{Key::F};
     KeyToggle m_pause_key{Key::K};
-    KeyToggle m_mode_key{Key::M};
     KeyToggle m_preset_key{Key::N};
-    KeyToggle m_logging_key{Key::L};
 
     //
     // Random helpers
@@ -572,32 +569,12 @@ class StreamingStressTestSimulation : public GameSimulation
             MIZU_LOG_INFO("[StreamingStressTest] paused: {}", m_paused);
         }
 
-        if (m_mode_key.consume_press())
-        {
-            const StreamingMode current = get_setting<StreamingSettings>().mode;
-            const StreamingMode next = current == StreamingMode::Enabled         ? StreamingMode::FullResidency
-                                       : current == StreamingMode::FullResidency ? StreamingMode::Frozen
-                                                                                 : StreamingMode::Enabled;
-            set_streaming_mode(next);
-
-            m_mode_restore_time = NEVER_TIME;
-            m_next_mode_time = m_time + m_config->mode_interval;
-        }
-
         if (m_preset_key.consume_press())
         {
             m_config = m_config == &CHAOS_CONFIG ? &SOAK_CONFIG : &CHAOS_CONFIG;
             reset_schedule();
 
             MIZU_LOG_INFO("[StreamingStressTest] preset: {}", m_config->name);
-        }
-
-        if (m_logging_key.consume_press())
-        {
-            StreamingSettings& settings = get_setting<StreamingSettings>();
-            settings.logging_enabled = !settings.logging_enabled;
-
-            MIZU_LOG_INFO("[StreamingStressTest] streaming logging: {}", settings.logging_enabled);
         }
     }
 

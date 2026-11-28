@@ -19,6 +19,9 @@ target_link_libraries(${PROJECT_NAME}  PRIVATE
     Engine.Asset
     Engine.Shader
     Engine.Render
+
+    $<TARGET_NAME_IF_EXISTS:Engine.Extension.ImGui>
+    $<TARGET_NAME_IF_EXISTS:Engine.Extension.ImGui.RenderModule>
 )
 
 set(MIZU_RUNTIME_ENTRY_POINT "${CMAKE_CURRENT_SOURCE_DIR}/entry/runtime_main.cpp" CACHE INTERNAL "Engine runtime entry point source")

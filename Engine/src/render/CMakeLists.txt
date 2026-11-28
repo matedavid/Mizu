@@ -17,6 +17,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Engine.Core
     Engine.StateManager
     Engine.Asset
+
+    $<TARGET_NAME_IF_EXISTS:Engine.Extension.ImGui>
 )
 
 # Pipeline

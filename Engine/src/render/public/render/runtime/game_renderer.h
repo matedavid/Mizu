@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -119,6 +120,8 @@ class MIZU_RENDER_API GameRenderer
         m_render_modules[idx] = new T{};
     }
 
+    bool has_module(RenderModuleLabel label) const { return m_render_modules[static_cast<size_t>(label)] != nullptr; }
+
   private:
     std::shared_ptr<Window> m_window{};
     std::array<IRenderModule*, RENDER_MODULE_LABEL_COUNT> m_render_modules{};
@@ -134,6 +137,7 @@ class MIZU_RENDER_API GameRenderer
     std::vector<meta::enum_array<CommandBufferType, SyncPoint>> m_frame_completion{};
     SyncPoint m_rendering_done{};
     std::vector<RenderFrameTiming> m_frame_timings{};
+    std::atomic<double> m_average_frame_delta_seconds{0.0};
 
     // Rendering
     RenderGraphBuilder m_render_graph_builder{};
@@ -172,6 +176,9 @@ class MIZU_RENDER_API GameRenderer
     bool init_render_device(const GameRendererDescription& desc);
     void shutdown_render_device();
 
+    bool init_renderer();
+    void shutdown_renderer();
+
     bool init_state_managers();
     void shutdown_state_managers();
 
@@ -181,8 +188,9 @@ class MIZU_RENDER_API GameRenderer
     bool init_asset_systems();
     void shutdown_asset_systems();
 
-    bool init_renderer();
-    void shutdown_renderer();
+#if MIZU_IMGUI_ENABLED
+    void add_imgui_debug_panels();
+#endif
 };
 
 MIZU_RENDER_API void setup_default_game_renderer(GameRenderer& renderer);

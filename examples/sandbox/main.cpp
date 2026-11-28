@@ -1,19 +1,14 @@
-#include <algorithm>
 #include <format>
 #include <glm/glm.hpp>
 #include <memory>
 #include <vector>
 
 #include "asset/asset_registry.h"
-#include "base/debug/logging.h"
 #include "base/debug/profiling.h"
 #include "camera_controllers/editor_camera_controller.h"
 #include "core/game_context.h"
 #include "core/input.h"
-#include "core/settings_manager/settings_manager.h"
 #include "core/window.h"
-#include "render/runtime/renderer_settings.h"
-#include "render/scene/scene_renderer_settings.h"
 #include "render/state_manager/light_state_manager.h"
 #include "render/state_manager/render_view_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
@@ -159,29 +154,12 @@ class SandboxSimulation : public GameSimulation
         */
     }
 
-#define CREATE_SETTINGS_TOGGLE(settings_type, name, key, wait_time)    \
-    {                                                                  \
-        static double _##name##_wait_time = 0.0;                       \
-        if (Input::is_key_pressed(key) && _##name##_wait_time <= 0.0)  \
-        {                                                              \
-            settings_type& settings = get_setting<settings_type>();    \
-            settings.name = !settings.name;                            \
-            MIZU_LOG_INFO(#name ": {}", settings.name);                \
-            _##name##_wait_time += wait_time;                          \
-        }                                                              \
-        _##name##_wait_time = std::max(_##name##_wait_time - dt, 0.0); \
-    }
-
     void update(double dt) override
     {
         static double time = 0.0f;
         time += dt;
 
         m_camera_controller->update(dt);
-
-        CREATE_SETTINGS_TOGGLE(RendererSettings, gpu_driven_rendering_enabled, Key::G, 2.0)
-        CREATE_SETTINGS_TOGGLE(SceneRendererSettings, depth_prepass_enabled, Key::P, 2.0)
-        CREATE_SETTINGS_TOGGLE(SceneRendererSettings, async_light_culling_enabled, Key::L, 2.0)
 
         RenderViewDynamicState& render_view_ds = g_render_view_state_manager->sim_edit(m_render_view_handle);
         render_view_ds.camera = m_camera_controller->get_camera();

@@ -18,12 +18,22 @@
 #include "runtime/game_main.h"
 #include "simulation_loop.h"
 
+#if MIZU_IMGUI_ENABLED
+#include "imgui/imgui_context.h"
+#include "imgui/imgui_render_module.h"
+#endif
+
 namespace Mizu
 {
 
 MainLoop::~MainLoop()
 {
     delete g_game_renderer;
+
+#if MIZU_IMGUI_ENABLED
+    ImGuiContext::shutdown();
+#endif
+
     delete g_state_manager_coordinator;
     delete g_job_system;
 
@@ -78,6 +88,11 @@ bool MainLoop::init(const GamePackage& package)
 
     create_game_context(m_window, m_asset_registry, m_asset_loader);
 
+    // Init ImGui
+#if MIZU_IMGUI_ENABLED
+    ImGuiContext::init(*m_window);
+#endif
+
     // Init Renderer
     if (!init_renderer(game_desc, package.display_name))
         return false;
@@ -98,6 +113,11 @@ bool MainLoop::init_renderer(const GameDescription& desc, std::string_view appli
 
     g_game_renderer = new GameRenderer{};
     m_game_main->setup_game_renderer(*g_game_renderer);
+
+#if MIZU_IMGUI_ENABLED
+    if (!g_game_renderer->has_module(RenderModuleLabel::Top))
+        g_game_renderer->register_module<ImGuiRenderModule>(RenderModuleLabel::Top);
+#endif
 
     if (!g_game_renderer->init(renderer_desc))
         return false;

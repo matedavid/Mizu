@@ -78,6 +78,11 @@ void TextureStreamingPool::update()
     }
 
     process_pending_page_releases();
+
+    const TextureStreamingPoolStatistics statistics = compute_statistics();
+
+    std::lock_guard lock{m_statistics_mutex};
+    m_statistics = statistics;
 }
 
 void TextureStreamingPool::register_texture(TextureAssetHandle handle, const TextureAssetMetadata& metadata)
@@ -510,6 +515,12 @@ static uint64_t get_placed_bytes(const ImageResource* texture)
 }
 
 TextureStreamingPoolStatistics TextureStreamingPool::get_statistics() const
+{
+    std::lock_guard lock{m_statistics_mutex};
+    return m_statistics;
+}
+
+TextureStreamingPoolStatistics TextureStreamingPool::compute_statistics() const
 {
     const uint64_t page_size = m_page_allocator.get_page_size();
 

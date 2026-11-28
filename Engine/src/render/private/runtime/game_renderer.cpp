@@ -10,6 +10,9 @@
 #include "render_core/rhi/command_buffer.h"
 #include "render_core/rhi/swapchain.h"
 #include "render_core/rhi/synchronization.h"
+#if MIZU_IMGUI_ENABLED
+#include "imgui/imgui_panels.h"
+#endif
 
 #include "registries/light_registry.h"
 #include "registries/render_settings_registry.h"
@@ -28,6 +31,7 @@
 #include "render/state_manager/render_view_state_manager.h"
 #include "render/state_manager/static_mesh_state_manager.h"
 #include "render/state_manager/transform_state_manager.h"
+#include "render/streaming/streaming_settings.h"
 #include "render/systems/frame_linear_allocator.h"
 #include "render/systems/pipeline_cache.h"
 #include "render/systems/sampler_state_cache.h"
@@ -117,6 +121,10 @@ bool GameRenderer::init(const GameRendererDescription& desc)
         return false;
     }
 
+#if MIZU_IMGUI_ENABLED
+    add_imgui_debug_panels();
+#endif
+
     return true;
 }
 
@@ -151,6 +159,14 @@ bool GameRenderer::acquire_swapchain_image()
 void GameRenderer::set_frame_timing(const RenderFrameTiming& frame_timing)
 {
     m_frame_timings[m_frame_in_flight_idx] = frame_timing;
+
+    constexpr double FRAME_DELTA_SMOOTHING = 0.05;
+
+    const double average = m_average_frame_delta_seconds.load(std::memory_order_relaxed);
+    const double new_average = average == 0.0
+                                   ? frame_timing.frame_delta_seconds
+                                   : average + (frame_timing.frame_delta_seconds - average) * FRAME_DELTA_SMOOTHING;
+    m_average_frame_delta_seconds.store(new_average, std::memory_order_relaxed);
 }
 
 JobHandle GameRenderer::create_update_jobs(const JobHandle& wait_job)
@@ -669,6 +685,58 @@ void GameRenderer::shutdown_asset_systems()
     m_sparse_bind_scheduler.reset();
     m_gpu_page_allocator.reset();
 }
+
+#if MIZU_IMGUI_ENABLED
+
+void GameRenderer::add_imgui_debug_panels()
+{
+    ImGuiPanels::register_panel(ImGuiPanelBuilder::window("GameRenderer").menu("Render").closed(), [this]() {
+        const double frame_delta = m_average_frame_delta_seconds.load(std::memory_order_relaxed);
+        if (frame_delta > 0.0)
+            ImGui::Text("Render Cpu: %.1f fps (%.2f ms)", 1.0 / frame_delta, frame_delta * 1000.0);
+
+        ImGui::Separator();
+
+        RendererSettings& settings = get_setting<RendererSettings>();
+        ImGui::Checkbox("GpuDrivenRenderingEnabled", &settings.gpu_driven_rendering_enabled);
+    });
+
+    ImGuiPanels::register_panel(ImGuiPanelBuilder::window("Streaming").menu("Render").closed(), [this]() {
+        ImGui::SeparatorText("Settings");
+
+        StreamingSettings& settings = get_setting<StreamingSettings>();
+
+        const char* const streaming_mode_names[] = {"Enabled", "FullResidency", "Frozen"};
+        int mode = static_cast<int>(settings.mode);
+        if (ImGui::Combo("Mode", &mode, streaming_mode_names, static_cast<int>(std::size(streaming_mode_names))))
+            settings.mode = static_cast<StreamingMode>(mode);
+
+        ImGui::Checkbox("LoggingEnabled", &settings.logging_enabled);
+
+        ImGui::SeparatorText("Asset loading");
+        ImGui::Text("Load jobs in flight: %u", m_asset_load_scheduler->get_load_jobs_in_flight());
+
+        const TextureStreamingManager* texture_manager =
+            m_streaming_planner->get_streaming_manager<TextureStreamingManager>();
+        if (texture_manager != nullptr)
+        {
+            ImGui::SeparatorText("Textures");
+            draw_imgui_texture_streaming_stats(texture_manager->get_streaming_pool().get_statistics());
+        }
+
+        const MeshStreamingManager* mesh_manager = m_streaming_planner->get_streaming_manager<MeshStreamingManager>();
+        if (mesh_manager != nullptr)
+        {
+            const MeshStreamingPool& mesh_pool = mesh_manager->get_streaming_pool();
+
+            ImGui::SeparatorText("Meshes");
+            draw_imgui_mesh_streaming_stats(
+                mesh_pool.get_backing(), mesh_pool.get_vertex_statistics(), mesh_pool.get_index_statistics());
+        }
+    });
+}
+
+#endif
 
 void setup_default_game_renderer(GameRenderer& renderer)
 {
