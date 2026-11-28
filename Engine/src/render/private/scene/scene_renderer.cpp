@@ -17,6 +17,7 @@
 #include "registries/render_view_registry.h"
 #include "render/render_graph/render_graph_blackboard.h"
 #include "render/render_graph/render_graph_builder.h"
+#include "render/runtime/renderer.h"
 #include "render/scene/scene_blackboard_data.h"
 #include "render/scene/scene_renderer_extensions.h"
 #include "render_passes/depth_render_pass.h"
@@ -39,12 +40,29 @@ bool SceneRenderer::init()
 {
     m_module_container.add_module<CascadedShadowModule>();
 
+    SceneRendererSettings& scene_settings = get_setting<SceneRendererSettings>();
+    if (!g_render_device->get_properties().async_compute)
+    {
+        if (scene_settings.async_light_culling_enabled)
+            MIZU_LOG_WARNING("Async compute is not supported, disabling async light culling");
+
+        scene_settings.async_light_culling_enabled = false;
+    }
+
 #if MIZU_IMGUI_ENABLED
     ImGuiPanels::register_panel(ImGuiPanelBuilder::window("SceneRenderer").menu("Render").closed(), []() {
         SceneRendererSettings& settings = get_setting<SceneRendererSettings>();
 
         ImGui::Checkbox("DepthPrepassEnabled", &settings.depth_prepass_enabled);
+
+        const bool async_compute = g_render_device->get_properties().async_compute;
+
+        ImGui::BeginDisabled(!async_compute);
         ImGui::Checkbox("AsyncLightCullingEnabled", &settings.async_light_culling_enabled);
+        ImGui::EndDisabled();
+
+        if (!async_compute)
+            ImGui::TextDisabled("Async light culling requires async compute support");
     });
 #endif
 
