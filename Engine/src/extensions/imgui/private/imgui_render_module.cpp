@@ -173,7 +173,7 @@ class TexturePool
 } // namespace
 
 static TexturePool* s_texture_pool = nullptr;
-static bool s_indirect_drawing = true;
+static std::atomic<bool> s_indirect_drawing{true};
 
 bool ImGuiRenderModule::init()
 {
@@ -181,16 +181,18 @@ bool ImGuiRenderModule::init()
 
     s_texture_pool = new TexturePool{};
 
-    ImGuiPanels::register_panel(ImGuiPanelBuilder::window("ImGuiRenderModule").menu("ImGui").closed(), [&]() {
-        ImGui::Checkbox("Indirect Drawing", &s_indirect_drawing);
+    ImGuiPanels::register_panel(ImGuiPanelBuilder::window("ImGuiRenderModule").menu("ImGui").closed(), [this]() {
+        bool indirect_drawing = s_indirect_drawing.load(std::memory_order_relaxed);
+        if (ImGui::Checkbox("Indirect Drawing", &indirect_drawing))
+            s_indirect_drawing.store(indirect_drawing, std::memory_order_relaxed);
 
-        const uint32_t num_frame_data = static_cast<uint32_t>(m_frame_data_list.size());
+        const uint32_t num_frame_data = m_debug_num_frame_data.load(std::memory_order_relaxed);
         ImGui::Text("Num Frame Data: %u", num_frame_data);
 
         const uint32_t num_draw_commands = m_debug_num_draw_commands.load(std::memory_order_relaxed);
         ImGui::Text("Num Draw Commands: %u", num_draw_commands);
 
-        const uint32_t num_textures = s_texture_pool->get_num_textures();
+        const uint32_t num_textures = m_debug_num_textures.load(std::memory_order_relaxed);
         ImGui::Text("Num Textures: %u", num_textures);
     });
 
@@ -321,7 +323,7 @@ void ImGuiRenderModule::build_render_graph(
         [&](RenderGraphPassBuilder& pass, PassData& data) {
             pass.set_hint(RenderGraphPassHint::Raster);
 
-            data.indirect_drawing = s_indirect_drawing;
+            data.indirect_drawing = s_indirect_drawing.load(std::memory_order_relaxed);
 
             data.output = pass.attachment_write(frame_data.output_texture);
 
@@ -460,6 +462,7 @@ void ImGuiRenderModule::rend_on_create(ImGuiHandle handle, const ImGuiStaticStat
         .handle = handle,
         .snapshot = ds.frame,
     });
+    m_debug_num_frame_data.store(static_cast<uint32_t>(m_frame_data_list.size()), std::memory_order_relaxed);
 
     process_texture_ops(ds.frame);
 }
@@ -484,6 +487,7 @@ void ImGuiRenderModule::rend_on_update(ImGuiHandle handle, const ImGuiDynamicSta
 void ImGuiRenderModule::rend_on_destroy(ImGuiHandle handle)
 {
     std::erase_if(m_frame_data_list, [handle](const ImGuiFrameData& data) { return data.handle == handle; });
+    m_debug_num_frame_data.store(static_cast<uint32_t>(m_frame_data_list.size()), std::memory_order_relaxed);
 }
 
 void ImGuiRenderModule::process_texture_ops(const ImGuiFrameSnapshot* snapshot)
@@ -541,6 +545,8 @@ void ImGuiRenderModule::process_texture_ops(const ImGuiFrameSnapshot* snapshot)
         }
         }
     }
+
+    m_debug_num_textures.store(s_texture_pool->get_num_textures(), std::memory_order_relaxed);
 }
 
 void ImGuiRenderModule::record_pending_texture_ops(CommandBuffer& command, FrameLinearAllocator& frame_allocator)

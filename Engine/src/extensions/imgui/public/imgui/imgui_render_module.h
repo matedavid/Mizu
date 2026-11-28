@@ -1,7 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <glm/glm.hpp>
-#include <unordered_map>
+#include <vector>
 
 #include "render/runtime/game_renderer.h"
 #include "render/systems/frame_linear_allocator.h"
@@ -56,7 +57,10 @@ class MIZU_IMGUI_RENDER_API ImGuiRenderModule : public IRenderModule, public ImG
     };
 
     std::vector<DrawIndirectCommand> m_draw_commands{};
+
+    std::atomic<uint32_t> m_debug_num_frame_data{};
     std::atomic<uint32_t> m_debug_num_draw_commands{};
+    std::atomic<uint32_t> m_debug_num_textures{};
 
     struct PendingTextureOp
     {
