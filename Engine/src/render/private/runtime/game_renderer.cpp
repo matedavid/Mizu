@@ -691,14 +691,61 @@ void GameRenderer::shutdown_asset_systems()
 void GameRenderer::add_imgui_debug_panels()
 {
     ImGuiPanels::register_panel(ImGuiPanelBuilder::window("GameRenderer").menu("Render").closed(), [this]() {
-        const double frame_delta = m_average_frame_delta_seconds.load(std::memory_order_relaxed);
-        if (frame_delta > 0.0)
-            ImGui::Text("Render Cpu: %.1f fps (%.2f ms)", 1.0 / frame_delta, frame_delta * 1000.0);
+        ImGui::SeparatorText("Stats");
+        {
+            const double frame_delta = m_average_frame_delta_seconds.load(std::memory_order_relaxed);
+            if (frame_delta > 0.0)
+                ImGui::Text("Render Cpu: %.1f fps (%.2f ms)", 1.0 / frame_delta, frame_delta * 1000.0);
+        }
 
-        ImGui::Separator();
+        ImGui::SeparatorText("RendererSettings");
+        {
+            RendererSettings& settings = get_setting<RendererSettings>();
+            ImGui::Checkbox("GpuDrivenRenderingEnabled", &settings.gpu_driven_rendering_enabled);
+        }
 
-        RendererSettings& settings = get_setting<RendererSettings>();
-        ImGui::Checkbox("GpuDrivenRenderingEnabled", &settings.gpu_driven_rendering_enabled);
+        ImGui::SeparatorText("DeviceProperties");
+        {
+            const DeviceProperties& props = g_render_device->get_properties();
+
+            ImGui::Text("Name: %s", props.name.c_str());
+            ImGui::Text("Depth clamp: %s", props.depth_clamp ? "true" : "false");
+            ImGui::Text("Async compute: %s", props.async_compute ? "true" : "false");
+            ImGui::Text("Async transfer: %s", props.async_transfer ? "true" : "false");
+            ImGui::Text("Max bindless descriptors: %u", props.max_bindless_descriptors);
+
+            ImGui::TextUnformatted("Alignments");
+            ImGui::Indent();
+            ImGui::Text(
+                "Min constant buffer offset: %llu",
+                static_cast<unsigned long long>(props.alignments.min_constant_buffer_offset));
+            ImGui::Text(
+                "Min raw buffer offset: %llu", static_cast<unsigned long long>(props.alignments.min_raw_buffer_offset));
+            ImGui::Text(
+                "Min texture row pitch: %llu", static_cast<unsigned long long>(props.alignments.min_texture_row_pitch));
+            ImGui::Text(
+                "Min texture data placement: %llu",
+                static_cast<unsigned long long>(props.alignments.min_texture_data_placement));
+            ImGui::Unindent();
+
+            ImGui::TextUnformatted("Ray tracing");
+            ImGui::Indent();
+            ImGui::Text("Supported: %s", props.ray_tracing.supported ? "true" : "false");
+            ImGui::Text(
+                "Acceleration structure instance size: %llu bytes",
+                static_cast<unsigned long long>(props.ray_tracing.acceleration_structure_instance_size));
+            ImGui::Unindent();
+
+            ImGui::TextUnformatted("Sparse resources");
+            ImGui::Indent();
+            ImGui::Text("Buffers: %s", props.sparse.buffers ? "true" : "false");
+            ImGui::Text("Images: %s", props.sparse.images ? "true" : "false");
+            ImGui::Text("Non resident strict: %s", props.sparse.non_resident_strict ? "true" : "false");
+            ImGui::Text(
+                "Address space size: %.2f GB",
+                static_cast<double>(props.sparse.address_space_size) / (1024.0 * 1024.0 * 1024.0));
+            ImGui::Unindent();
+        }
     });
 
     ImGuiPanels::register_panel(ImGuiPanelBuilder::window("Streaming").menu("Render").closed(), [this]() {

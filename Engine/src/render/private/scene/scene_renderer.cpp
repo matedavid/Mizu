@@ -51,6 +51,8 @@ bool SceneRenderer::init()
 
 #if MIZU_IMGUI_ENABLED
     ImGuiPanels::register_panel(ImGuiPanelBuilder::window("SceneRenderer").menu("Render").closed(), []() {
+        ImGui::SeparatorText("SceneRendererSettings");
+
         SceneRendererSettings& settings = get_setting<SceneRendererSettings>();
 
         ImGui::Checkbox("DepthPrepassEnabled", &settings.depth_prepass_enabled);
